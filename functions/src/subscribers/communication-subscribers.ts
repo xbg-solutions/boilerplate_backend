@@ -4,19 +4,16 @@
  */
 
 import { eventBus, EventType } from '../utilities/events';
-import { getSNSConnector } from '../utilities/sns-connector';
 import { getEmailConnector } from '../utilities/email-connector';
 import { getSMSConnector } from '../utilities/sms-connector';
 import { getCRMConnector } from '../utilities/crm-connector';
+import { getRealtimeConnector } from '../utilities/realtime-connector';
 import { logger } from '../utilities/logger';
 
 /**
  * Initialize all communication event subscribers
  */
 export function initializeCommunicationSubscribers(): void {
-  // SNS Event Streaming
-  initializeSNSPublisher();
-
   // Email Notifications
   initializeEmailNotifications();
 
@@ -26,47 +23,10 @@ export function initializeCommunicationSubscribers(): void {
   // CRM Sync
   initializeCRMSync();
 
+  // Realtime Updates
+  initializeRealtimeUpdates();
+
   logger.info('Communication subscribers initialized');
-}
-
-/**
- * SNS Publisher - Stream all domain events to external systems
- */
-function initializeSNSPublisher(): void {
-  const snsConnector = getSNSConnector();
-  if (!snsConnector) {
-    logger.debug('SNS connector disabled, skipping SNS publisher');
-    return;
-  }
-
-  // Subscribe to all event types and stream to appropriate SNS topics
-  Object.values(EventType).forEach((eventType) => {
-    eventBus.subscribe(eventType, async (payload) => {
-      try {
-        const topic = determineEventTopic(eventType);
-        if (topic) {
-          await snsConnector.publishEvent(topic, {
-            eventType,
-            entityType: payload.entityType || 'unknown',
-            entityId: payload.entityId || payload.id || 'unknown',
-            data: payload,
-            metadata: {
-              timestamp: new Date(payload.timestamp || Date.now()),
-              correlationId: payload.requestId || 'unknown',
-              userId: payload.userId,
-              source: 'backend-api',
-              version: '1.0',
-            },
-          });
-        }
-      } catch (error) {
-        logger.error('Failed to publish event to SNS', {
-          eventType,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    });
-  });
 }
 
 /**
@@ -152,16 +112,31 @@ function initializeCRMSync(): void {
 }
 
 /**
- * Determine which SNS topic to use for an event
+ * Realtime Updates - Broadcast events to connected clients
  */
-function determineEventTopic(eventType: EventType): string | null {
-  // Map event types to SNS topics
-  const userEvents = [EventType.USER_CREATED];
-
-  if (userEvents.includes(eventType)) {
-    return process.env.SNS_USER_EVENTS_TOPIC || null;
+function initializeRealtimeUpdates(): void {
+  const realtimeConnector = getRealtimeConnector();
+  if (!realtimeConnector) {
+    logger.debug('Realtime connector disabled, skipping realtime updates');
+    return;
   }
 
-  // Add more topic mappings as needed
-  return process.env.SNS_SYSTEM_EVENTS_TOPIC || null;
+  // Broadcast important events to connected clients
+  Object.values(EventType).forEach((eventType) => {
+    eventBus.subscribe(eventType, async (payload) => {
+      try {
+        await realtimeConnector.broadcast({
+          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: eventType,
+          data: payload,
+          timestamp: new Date(),
+        });
+      } catch (error) {
+        logger.error('Failed to broadcast realtime update', {
+          eventType,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+  });
 }

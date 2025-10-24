@@ -1,35 +1,24 @@
 /**
  * Communications Configuration
- * Settings for SNS, Email, SMS, and CRM integrations
+ * Settings for Email, SMS, CRM, Realtime, Push Notifications, Journeys, ERP, Work Management, Survey, and Document integrations
  */
 
 export interface CommunicationsConfig {
-  sns: SNSConfig;
   email: EmailConfig;
   sms: SMSConfig;
   crm: CRMConfig;
-}
-
-export interface SNSConfig {
-  enabled: boolean;
-  region: string;
-  accessKeyId?: string;
-  secretAccessKey?: string;
-  topics: {
-    userEvents?: string;
-    orderEvents?: string;
-    systemEvents?: string;
-  };
-  defaults: {
-    messageRetentionPeriod: number;
-    visibilityTimeout: number;
-    deliveryDelay: number;
-  };
+  realtime: RealtimeConfig;
+  pushNotifications: PushNotificationsConfig;
+  journey: JourneyConfig;
+  erp: ERPConfig;
+  workManagement: WorkManagementConfig;
+  survey: SurveyConfig;
+  document: DocumentConfig;
 }
 
 export interface EmailConfig {
   enabled: boolean;
-  provider: 'mailjet' | 'sendgrid';
+  provider: 'mailjet' | 'ortto';
   fromAddress: string;
   fromName: string;
   providers: {
@@ -37,8 +26,9 @@ export interface EmailConfig {
       apiKey: string;
       secretKey: string;
     };
-    sendgrid?: {
+    ortto?: {
       apiKey: string;
+      region?: string;
     };
   };
   defaults: {
@@ -50,17 +40,16 @@ export interface EmailConfig {
 
 export interface SMSConfig {
   enabled: boolean;
-  provider: 'twilio' | 'aws-sns';
+  provider: 'twilio' | 'messagebird';
   providers: {
     twilio?: {
       accountSid: string;
       authToken: string;
       fromNumber: string;
     };
-    awsSns?: {
-      region: string;
-      accessKeyId: string;
-      secretAccessKey: string;
+    messagebird?: {
+      apiKey: string;
+      originator: string;
     };
   };
   defaults: {
@@ -94,27 +83,103 @@ export interface CRMConfig {
   };
 }
 
-export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
-  sns: {
-    enabled: process.env.SNS_ENABLED === 'true',
-    region: process.env.AWS_REGION || 'us-east-1',
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    topics: {
-      userEvents: process.env.SNS_USER_EVENTS_TOPIC,
-      orderEvents: process.env.SNS_ORDER_EVENTS_TOPIC,
-      systemEvents: process.env.SNS_SYSTEM_EVENTS_TOPIC,
-    },
-    defaults: {
-      messageRetentionPeriod: 1209600, // 14 days
-      visibilityTimeout: 30,
-      deliveryDelay: 0,
-    },
-  },
+export interface RealtimeConfig {
+  enabled: boolean;
+  provider: 'sse' | 'websocket';
+  providers: {
+    sse?: {
+      heartbeatInterval: number;
+      reconnectDelay: number;
+    };
+    websocket?: {
+      port: number;
+      path: string;
+      pingInterval: number;
+      pongTimeout: number;
+    };
+  };
+}
 
+export interface PushNotificationsConfig {
+  enabled: boolean;
+  provider: 'fcm';
+  providers: {
+    fcm?: {
+      projectId: string;
+      serviceAccountPath?: string;
+    };
+  };
+}
+
+export interface JourneyConfig {
+  enabled: boolean;
+  provider: 'ortto';
+  providers: {
+    ortto?: {
+      apiKey: string;
+      region?: string;
+    };
+  };
+}
+
+export interface ERPConfig {
+  enabled: boolean;
+  provider: 'workday';
+  providers: {
+    workday?: {
+      tenant: string;
+      clientId: string;
+      clientSecret: string;
+      apiVersion: string;
+    };
+  };
+}
+
+export interface WorkManagementConfig {
+  enabled: boolean;
+  provider: 'clickup' | 'monday' | 'notion';
+  providers: {
+    clickup?: {
+      apiKey: string;
+      teamId?: string;
+    };
+    monday?: {
+      apiKey: string;
+    };
+    notion?: {
+      apiKey: string;
+      databaseId?: string;
+    };
+  };
+}
+
+export interface SurveyConfig {
+  enabled: boolean;
+  provider: 'surveymonkey' | 'typeform';
+  providers: {
+    surveymonkey?: {
+      apiKey: string;
+    };
+    typeform?: {
+      apiKey: string;
+    };
+  };
+}
+
+export interface DocumentConfig {
+  enabled: boolean;
+  provider: 'pandadoc';
+  providers: {
+    pandadoc?: {
+      apiKey: string;
+    };
+  };
+}
+
+export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
   email: {
     enabled: process.env.EMAIL_ENABLED === 'true',
-    provider: (process.env.EMAIL_PROVIDER as 'mailjet' | 'sendgrid') || 'mailjet',
+    provider: (process.env.EMAIL_PROVIDER as 'mailjet' | 'ortto') || 'mailjet',
     fromAddress: process.env.EMAIL_FROM_ADDRESS || 'noreply@example.com',
     fromName: process.env.EMAIL_FROM_NAME || 'Application',
     providers: {
@@ -122,8 +187,9 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
         apiKey: process.env.MAILJET_API_KEY || '',
         secretKey: process.env.MAILJET_SECRET_KEY || '',
       },
-      sendgrid: {
-        apiKey: process.env.SENDGRID_API_KEY || '',
+      ortto: {
+        apiKey: process.env.ORTTO_API_KEY || '',
+        region: process.env.ORTTO_REGION || 'us',
       },
     },
     defaults: {
@@ -135,21 +201,20 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
 
   sms: {
     enabled: process.env.SMS_ENABLED === 'true',
-    provider: (process.env.SMS_PROVIDER as 'twilio' | 'aws-sns') || 'twilio',
+    provider: (process.env.SMS_PROVIDER as 'twilio' | 'messagebird') || 'twilio',
     providers: {
       twilio: {
         accountSid: process.env.TWILIO_ACCOUNT_SID || '',
         authToken: process.env.TWILIO_AUTH_TOKEN || '',
         fromNumber: process.env.TWILIO_FROM_NUMBER || '',
       },
-      awsSns: {
-        region: process.env.AWS_REGION || 'us-east-1',
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+      messagebird: {
+        apiKey: process.env.MESSAGEBIRD_API_KEY || '',
+        originator: process.env.MESSAGEBIRD_ORIGINATOR || '',
       },
     },
     defaults: {
-      validityPeriod: 3600, // 1 hour
+      validityPeriod: 3600,
       enableDeliveryReports: true,
     },
   },
@@ -178,6 +243,99 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
       retryDelay: parseInt(process.env.CRM_RETRY_DELAY || '1000', 10),
     },
   },
+
+  realtime: {
+    enabled: process.env.REALTIME_ENABLED === 'true',
+    provider: (process.env.REALTIME_PROVIDER as 'sse' | 'websocket') || 'sse',
+    providers: {
+      sse: {
+        heartbeatInterval: parseInt(process.env.SSE_HEARTBEAT_INTERVAL || '30000', 10),
+        reconnectDelay: parseInt(process.env.SSE_RECONNECT_DELAY || '3000', 10),
+      },
+      websocket: {
+        port: parseInt(process.env.WS_PORT || '8080', 10),
+        path: process.env.WS_PATH || '/ws',
+        pingInterval: parseInt(process.env.WS_PING_INTERVAL || '30000', 10),
+        pongTimeout: parseInt(process.env.WS_PONG_TIMEOUT || '5000', 10),
+      },
+    },
+  },
+
+  pushNotifications: {
+    enabled: process.env.PUSH_NOTIFICATIONS_ENABLED === 'true',
+    provider: 'fcm',
+    providers: {
+      fcm: {
+        projectId: process.env.FIREBASE_PROJECT_ID || '',
+        serviceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH,
+      },
+    },
+  },
+
+  journey: {
+    enabled: process.env.JOURNEY_ENABLED === 'true',
+    provider: 'ortto',
+    providers: {
+      ortto: {
+        apiKey: process.env.ORTTO_API_KEY || '',
+        region: process.env.ORTTO_REGION || 'us',
+      },
+    },
+  },
+
+  erp: {
+    enabled: process.env.ERP_ENABLED === 'true',
+    provider: 'workday',
+    providers: {
+      workday: {
+        tenant: process.env.WORKDAY_TENANT || '',
+        clientId: process.env.WORKDAY_CLIENT_ID || '',
+        clientSecret: process.env.WORKDAY_CLIENT_SECRET || '',
+        apiVersion: process.env.WORKDAY_API_VERSION || 'v1',
+      },
+    },
+  },
+
+  workManagement: {
+    enabled: process.env.WORK_MGMT_ENABLED === 'true',
+    provider: (process.env.WORK_MGMT_PROVIDER as 'clickup' | 'monday' | 'notion') || 'clickup',
+    providers: {
+      clickup: {
+        apiKey: process.env.CLICKUP_API_KEY || '',
+        teamId: process.env.CLICKUP_TEAM_ID,
+      },
+      monday: {
+        apiKey: process.env.MONDAY_API_KEY || '',
+      },
+      notion: {
+        apiKey: process.env.NOTION_API_KEY || '',
+        databaseId: process.env.NOTION_DATABASE_ID,
+      },
+    },
+  },
+
+  survey: {
+    enabled: process.env.SURVEY_ENABLED === 'true',
+    provider: (process.env.SURVEY_PROVIDER as 'surveymonkey' | 'typeform') || 'surveymonkey',
+    providers: {
+      surveymonkey: {
+        apiKey: process.env.SURVEYMONKEY_API_KEY || '',
+      },
+      typeform: {
+        apiKey: process.env.TYPEFORM_API_KEY || '',
+      },
+    },
+  },
+
+  document: {
+    enabled: process.env.DOCUMENT_ENABLED === 'true',
+    provider: 'pandadoc',
+    providers: {
+      pandadoc: {
+        apiKey: process.env.PANDADOC_API_KEY || '',
+      },
+    },
+  },
 };
 
 /**
@@ -186,49 +344,54 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
 export function validateCommunicationsConfig(): void {
   const errors: string[] = [];
 
-  // Validate SNS configuration
-  if (COMMUNICATIONS_CONFIG.sns.enabled) {
-    if (!COMMUNICATIONS_CONFIG.sns.accessKeyId) {
-      errors.push('AWS_ACCESS_KEY_ID is required when SNS is enabled');
-    }
-    if (!COMMUNICATIONS_CONFIG.sns.secretAccessKey) {
-      errors.push('AWS_SECRET_ACCESS_KEY is required when SNS is enabled');
-    }
-  }
-
-  // Validate Email configuration
+  // Validate Email
   if (COMMUNICATIONS_CONFIG.email.enabled) {
     const provider = COMMUNICATIONS_CONFIG.email.provider;
-    if (provider === 'mailjet') {
-      const mailjet = COMMUNICATIONS_CONFIG.email.providers.mailjet;
-      if (!mailjet?.apiKey || !mailjet?.secretKey) {
-        errors.push('MAILJET_API_KEY and MAILJET_SECRET_KEY are required when Mailjet is enabled');
-      }
-    } else if (provider === 'sendgrid') {
-      const sendgrid = COMMUNICATIONS_CONFIG.email.providers.sendgrid;
-      if (!sendgrid?.apiKey) {
-        errors.push('SENDGRID_API_KEY is required when SendGrid is enabled');
-      }
+    const providerConfig = COMMUNICATIONS_CONFIG.email.providers[provider];
+    if (!providerConfig || !providerConfig.apiKey) {
+      errors.push(`${provider.toUpperCase()} API key is required when email is enabled`);
     }
   }
 
-  // Validate SMS configuration
+  // Validate SMS
   if (COMMUNICATIONS_CONFIG.sms.enabled) {
     const provider = COMMUNICATIONS_CONFIG.sms.provider;
-    if (provider === 'twilio') {
-      const twilio = COMMUNICATIONS_CONFIG.sms.providers.twilio;
-      if (!twilio?.accountSid || !twilio?.authToken) {
-        errors.push('TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are required when Twilio is enabled');
-      }
+    const providerConfig = COMMUNICATIONS_CONFIG.sms.providers[provider];
+    if (!providerConfig) {
+      errors.push(`${provider.toUpperCase()} configuration is required when SMS is enabled`);
     }
   }
 
-  // Validate CRM configuration
+  // Validate CRM
   if (COMMUNICATIONS_CONFIG.crm.enabled) {
     const provider = COMMUNICATIONS_CONFIG.crm.provider;
     const providerConfig = COMMUNICATIONS_CONFIG.crm.providers[provider];
     if (!providerConfig || Object.values(providerConfig).every((v) => !v)) {
       errors.push(`${provider.toUpperCase()} configuration is required when CRM is enabled`);
+    }
+  }
+
+  // Validate Push Notifications (FCM)
+  if (COMMUNICATIONS_CONFIG.pushNotifications.enabled) {
+    const fcm = COMMUNICATIONS_CONFIG.pushNotifications.providers.fcm;
+    if (!fcm?.projectId) {
+      errors.push('FIREBASE_PROJECT_ID is required when push notifications are enabled');
+    }
+  }
+
+  // Validate Journey
+  if (COMMUNICATIONS_CONFIG.journey.enabled) {
+    const ortto = COMMUNICATIONS_CONFIG.journey.providers.ortto;
+    if (!ortto?.apiKey) {
+      errors.push('ORTTO_API_KEY is required when journey is enabled');
+    }
+  }
+
+  // Validate ERP
+  if (COMMUNICATIONS_CONFIG.erp.enabled) {
+    const workday = COMMUNICATIONS_CONFIG.erp.providers.workday;
+    if (!workday?.tenant || !workday?.clientId || !workday?.clientSecret) {
+      errors.push('WORKDAY configuration (tenant, clientId, clientSecret) is required when ERP is enabled');
     }
   }
 
