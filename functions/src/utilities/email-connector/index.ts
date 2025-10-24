@@ -5,9 +5,11 @@
 export * from './types';
 export * from './email-connector';
 export * from './providers/mailjet-provider';
+export * from './providers/ortto-provider';
 
 import { EmailConnector } from './email-connector';
 import { MailjetProvider } from './providers/mailjet-provider';
+import { OrttoEmailProvider } from './providers/ortto-provider';
 import { COMMUNICATIONS_CONFIG } from '../../config/communications.config';
 
 /**
@@ -34,6 +36,22 @@ export function createEmailConnector(): EmailConnector | null {
     });
 
     return new EmailConnector(mailjetProvider);
+  }
+
+  if (provider === 'ortto') {
+    const orttoConfig = COMMUNICATIONS_CONFIG.email.providers.ortto;
+    if (!orttoConfig) {
+      throw new Error('Ortto configuration not found');
+    }
+
+    const orttoProvider = new OrttoEmailProvider({
+      apiKey: orttoConfig.apiKey,
+      region: orttoConfig.region,
+      fromEmail: COMMUNICATIONS_CONFIG.email.fromAddress,
+      fromName: COMMUNICATIONS_CONFIG.email.fromName,
+    });
+
+    return new EmailConnector(orttoProvider);
   }
 
   throw new Error(`Unsupported email provider: ${provider}`);

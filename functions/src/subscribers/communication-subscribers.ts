@@ -8,6 +8,7 @@ import { getEmailConnector } from '../utilities/email-connector';
 import { getSMSConnector } from '../utilities/sms-connector';
 import { getCRMConnector } from '../utilities/crm-connector';
 import { getRealtimeConnector } from '../utilities/realtime-connector';
+import { getPushNotificationsConnector } from '../utilities/push-notifications-connector';
 import { logger } from '../utilities/logger';
 
 /**
@@ -25,6 +26,9 @@ export function initializeCommunicationSubscribers(): void {
 
   // Realtime Updates
   initializeRealtimeUpdates();
+
+  // Push Notifications
+  initializePushNotifications();
 
   logger.info('Communication subscribers initialized');
 }
@@ -139,4 +143,34 @@ function initializeRealtimeUpdates(): void {
       }
     });
   });
+}
+
+/**
+ * Push Notifications - Send mobile/web push notifications based on events
+ */
+function initializePushNotifications(): void {
+  const pushConnector = getPushNotificationsConnector();
+  if (!pushConnector) {
+    logger.debug('Push notifications connector disabled, skipping push notifications');
+    return;
+  }
+
+  // Example: Send push notification when user is mentioned
+  // eventBus.subscribe('USER_MENTIONED', async (payload) => {
+  //   try {
+  //     await pushConnector.send({
+  //       target: { token: payload.data?.deviceToken },
+  //       notification: {
+  //         title: 'You were mentioned',
+  //         body: `${payload.data?.mentionedBy} mentioned you in a comment`,
+  //         clickAction: `${process.env.APP_URL}/comments/${payload.data?.commentId}`,
+  //       },
+  //       options: { priority: 'high' },
+  //     });
+  //   } catch (error) {
+  //     logger.error('Failed to send push notification', { error });
+  //   }
+  // });
+
+  // Add more push notification handlers here
 }
