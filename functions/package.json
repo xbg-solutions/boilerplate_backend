@@ -36,7 +36,12 @@
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "uuid": "^9.0.1",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "aws-sdk": "^2.1500.0",
+    "node-mailjet": "^6.0.5",
+    "twilio": "^4.19.0",
+    "@hubspot/api-client": "^9.0.0",
+    "jsforce": "^2.0.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

@@ -162,6 +162,23 @@ curl http://localhost:5001/health
 curl http://localhost:5001/api/v1/users
 ```
 
+## 🔌 Communication Utilities
+
+The boilerplate includes comprehensive communication utilities:
+
+- **SNS Connector** - Stream domain events to AWS SNS
+- **Email Connector** - Send transactional/marketing emails (Mailjet)
+- **SMS Connector** - Send SMS messages (Twilio)
+- **CRM Connector** - Sync customer data (HubSpot, Salesforce, Attio)
+
+All communication utilities are:
+- **Event-driven** - Automatically triggered by domain events
+- **Provider-abstracted** - Easy to switch providers
+- **Type-safe** - Full TypeScript support
+- **PII-safe** - Secure logging and data handling
+
+See [Communication Guide](docs/communications-guide.md) for detailed usage.
+
 ## 📖 Data Model Format
 
 Define your entities in a declarative TypeScript format:
