@@ -1,0 +1,108 @@
+/**
+ * {{entityName}} Service
+ * Generated from data model specification
+ */
+
+import { BaseService, RequestContext } from '@base/BaseService';
+import { {{entityName}}, {{entityName}}Data } from '../entities/{{entityName}}';
+import { {{entityName}}Repository } from '../repositories/{{entityName}}Repository';
+
+export class {{entityName}}Service extends BaseService<{{entityName}}> {
+  protected entityName = '{{entityName}}';
+
+  constructor(repository: {{entityName}}Repository) {
+    super(repository);
+  }
+
+  /**
+   * Build entity from partial data
+   */
+  protected async buildEntity(data: Partial<{{entityName}}Data>): Promise<{{entityName}}> {
+    return new {{entityName}}(data as {{entityName}}Data);
+  }
+
+  /**
+   * Merge existing entity with updates
+   */
+  protected async mergeEntity(existing: {{entityName}}, updates: Partial<{{entityName}}Data>): Promise<{{entityName}}> {
+    return new {{entityName}}({
+      ...existing.toJSON(),
+      ...updates,
+      id: existing.id,
+    });
+  }
+
+{{#if accessRules}}
+  /**
+   * Check read access
+   */
+  protected async checkReadAccess(entity: {{entityName}}, context: RequestContext): Promise<boolean> {
+    {{#if accessRules.read}}
+    const allowedRoles = [{{#each accessRules.read}}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}];
+
+    // Check if user has required role
+    if (context.userRole && allowedRoles.includes(context.userRole)) {
+      return true;
+    }
+
+    // Check if user owns the resource
+    if (allowedRoles.includes('self')) {
+      // TODO: Implement ownership check based on your entity structure
+      return true;
+    }
+
+    return false;
+    {{else}}
+    return true;
+    {{/if}}
+  }
+
+  /**
+   * Check update access
+   */
+  protected async checkUpdateAccess(entity: {{entityName}}, context: RequestContext): Promise<boolean> {
+    {{#if accessRules.update}}
+    const allowedRoles = [{{#each accessRules.update}}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}];
+
+    if (context.userRole && allowedRoles.includes(context.userRole)) {
+      return true;
+    }
+
+    if (allowedRoles.includes('self')) {
+      // TODO: Implement ownership check
+      return true;
+    }
+
+    return false;
+    {{else}}
+    return true;
+    {{/if}}
+  }
+
+  /**
+   * Check delete access
+   */
+  protected async checkDeleteAccess(entity: {{entityName}}, context: RequestContext): Promise<boolean> {
+    {{#if accessRules.delete}}
+    const allowedRoles = [{{#each accessRules.delete}}'{{this}}'{{#unless @last}}, {{/unless}}{{/each}}];
+
+    if (context.userRole && allowedRoles.includes(context.userRole)) {
+      return true;
+    }
+
+    return false;
+    {{else}}
+    return true;
+    {{/if}}
+  }
+{{/if}}
+
+{{#if businessRules}}
+  /**
+   * Business Rules:
+{{#each businessRules}}
+   * - {{this}}
+{{/each}}
+   */
+{{/if}}
+}

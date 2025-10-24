@@ -1,0 +1,48 @@
+/**
+ * {{entityName}} Controller
+ * Generated from data model specification
+ */
+
+import { Router } from 'express';
+import { BaseController } from '@base/BaseController';
+import { {{entityName}} } from '../entities/{{entityName}}';
+import { {{entityName}}Service } from '../services/{{entityName}}Service';
+
+export class {{entityName}}Controller extends BaseController<{{entityName}}> {
+  constructor(service: {{entityName}}Service, basePath = '/{{entityNameLower}}s') {
+    super(service, basePath);
+  }
+
+  /**
+   * Register custom routes
+   */
+  protected registerRoutes(): void {
+    // Register standard CRUD routes
+    super.registerRoutes();
+
+    // Add custom routes here
+{{#each fields}}
+{{#if unique}}
+    // this.router.get('/by-{{name}}/:{{name}}', this.handleFindBy{{capitalize name}}.bind(this));
+{{/if}}
+{{/each}}
+  }
+
+{{#each fields}}
+{{#if unique}}
+  /**
+   * Find {{../../entityName}} by {{name}}
+   */
+  // protected async handleFindBy{{capitalize name}}(req: Request, res: Response, next: NextFunction): Promise<void> {
+  //   try {
+  //     const context = this.createContext(req);
+  //     const { {{name}} } = req.params;
+  //
+  //     // Implementation here
+  //   } catch (error) {
+  //     next(error);
+  //   }
+  // }
+{{/if}}
+{{/each}}
+}
