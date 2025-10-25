@@ -343,16 +343,82 @@ npm run deploy     # Deploy to Firebase
 npm run logs       # View Firebase logs
 ```
 
-## 🎯 Roadmap
+## 🎯 Roadmap & Known Gaps
 
+### Architecture & Infrastructure
 - [ ] OpenAPI/Swagger documentation generation
 - [ ] GraphQL support
 - [ ] Database migration system
-- [ ] Integration test generation
 - [ ] Docker support
 - [ ] Kubernetes deployment templates
-- [ ] WebSocket support
-- [ ] Background job queue
+- [ ] Background job queue with retry logic
+- [ ] Circuit breaker pattern for external services
+- [ ] Distributed tracing (OpenTelemetry)
+- [ ] Service mesh integration
+- [ ] API gateway integration
+
+### Testing & Quality
+- [ ] Unit test infrastructure for all utilities
+- [ ] Integration test generation
+- [ ] E2E test framework
+- [ ] Load testing suite
+- [ ] Security scanning automation
+- [ ] Performance benchmarking
+- [ ] Contract testing for APIs
+
+### Communication Connectors
+- [ ] **CRM**: Salesforce and Attio provider implementations
+- [ ] **Email**: SendGrid, AWS SES, and Postmark providers
+- [ ] **SMS**: AWS SNS SMS and Vonage providers
+- [ ] **Push Notifications**: APNs and FCM provider implementations
+- [ ] **Document**: DocuSign and HelloSign providers
+- [ ] **ERP**: QuickBooks, Xero, and NetSuite providers
+- [ ] **Work Management**: Monday.com, ClickUp, and Wrike providers
+- [ ] **Survey**: Typeform and Google Forms providers
+- [ ] **Journey**: Segment and Mixpanel providers
+- [ ] Message templating system with versioning
+- [ ] Delivery status tracking and webhooks
+- [ ] Bounce and complaint handling
+- [ ] A/B testing for communications
+- [ ] Multi-language support
+
+### Utilities & Features
+- [ ] **Address Validation**: Google Maps and Here Maps providers
+- [ ] **Timezone**: DST handling edge cases
+- [ ] **Token Handler**: Token rotation strategy
+- [ ] **Hashing**: Argon2 support
+- [ ] **LLM Connector**: Ollama and other local model support
+- [ ] **Events**: Event replay functionality
+- [ ] **Firebase Event Bridge**: Dead letter queue
+- [ ] **Firestore Connector**: Query optimization tools
+- [ ] File upload/download utilities
+- [ ] Image processing utilities
+- [ ] PDF generation utilities
+- [ ] CSV import/export utilities
+- [ ] Data export compliance (GDPR)
+- [ ] Audit logging
+- [ ] Feature flags system
+- [ ] Scheduled tasks/cron jobs
+
+### Security Enhancements
+- [ ] Two-factor authentication
+- [ ] OAuth2 provider integration
+- [ ] API key management
+- [ ] IP whitelisting
+- [ ] DDoS protection
+- [ ] Secrets rotation
+- [ ] Security headers configuration
+- [ ] CSRF protection
+
+### Developer Experience
+- [ ] CLI tool for common tasks
+- [ ] Development containers
+- [ ] IDE plugins/extensions
+- [ ] Code scaffolding improvements
+- [ ] Database seeding utilities
+- [ ] Mock data generation
+- [ ] API client generation
+- [ ] Webhook testing tools
 
 ## 🤝 Contributing
 

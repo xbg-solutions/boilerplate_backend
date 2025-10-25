@@ -249,18 +249,26 @@ export function calculateTimezone(
 
 /**
  * Validate if a timezone string is a valid IANA timezone
- * 
+ *
  * @param timezone - Timezone string to validate
  * @returns true if valid IANA timezone
- * 
+ *
  * @example
  * ```typescript
  * isValidTimezone('Australia/Sydney'); // true
  * isValidTimezone('Invalid/Timezone'); // false
+ * isValidTimezone('EST'); // false (abbreviations not allowed)
  * ```
  */
 export function isValidTimezone(timezone: string): boolean {
   try {
+    // Check if timezone follows IANA format (Region/City) or is UTC
+    // Reject abbreviations like EST, PST, GMT+10, etc.
+    if (timezone !== 'UTC' && !timezone.includes('/')) {
+      return false;
+    }
+
+    // Additional validation using Intl API
     Intl.DateTimeFormat(undefined, { timeZone: timezone });
     return true;
   } catch {

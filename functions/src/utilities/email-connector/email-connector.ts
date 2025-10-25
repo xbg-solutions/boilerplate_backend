@@ -50,16 +50,16 @@ export class EmailConnector {
           recipients: result.recipients,
         });
       } else {
-        logger.error('Failed to send email', {
-          error: result.error,
+        logger.warn('Failed to send email', {
+          errorCode: result.error?.code,
+          errorMessage: result.error?.message,
         });
       }
 
       return result;
     } catch (error) {
-      logger.error('Email send error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      logger.error('Email send error', errorObj);
 
       return {
         success: false,
@@ -84,9 +84,8 @@ export class EmailConnector {
 
       return await this.provider.sendMarketing(request);
     } catch (error) {
-      logger.error('Marketing email error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      logger.error('Marketing email error', errorObj);
 
       return {
         success: false,
@@ -118,9 +117,8 @@ export class EmailConnector {
 
       return result;
     } catch (error) {
-      logger.error('Bulk email error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      logger.error('Bulk email error', errorObj);
 
       return {
         success: false,
