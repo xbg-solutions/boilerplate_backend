@@ -8,6 +8,7 @@ import { BaseEntity } from './BaseEntity';
 import { BaseRepository, QueryOptions, PaginationResult } from './BaseRepository';
 import { eventBus, EventType } from '../utilities/events';
 import { logger } from '../utilities/logger';
+import { ServiceError as CustomServiceError } from '../types/errors';
 
 export interface RequestContext {
   requestId: string;
@@ -65,9 +66,13 @@ export abstract class BaseService<T extends BaseEntity> {
         data: created,
       };
     } catch (error) {
-      logger.error(`Failed to create ${this.entityName}`, {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const serviceError = new CustomServiceError(
+        `Failed to create ${this.entityName}: ${err.message}`,
+        context.requestId
+      );
+      logger.error(serviceError.message, err, {
         requestId: context.requestId,
-        error: error instanceof Error ? error.message : String(error),
       });
 
       return {
@@ -117,10 +122,14 @@ export abstract class BaseService<T extends BaseEntity> {
         data: entity,
       };
     } catch (error) {
-      logger.error(`Failed to find ${this.entityName}`, {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const serviceError = new CustomServiceError(
+        `Failed to find ${this.entityName}: ${err.message}`,
+        context.requestId
+      );
+      logger.error(serviceError.message, err, {
         requestId: context.requestId,
         id,
-        error: error instanceof Error ? error.message : String(error),
       });
 
       return {
@@ -150,9 +159,13 @@ export abstract class BaseService<T extends BaseEntity> {
         data: entities,
       };
     } catch (error) {
-      logger.error(`Failed to find ${this.entityName} entities`, {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const serviceError = new CustomServiceError(
+        `Failed to find ${this.entityName} entities: ${err.message}`,
+        context.requestId
+      );
+      logger.error(serviceError.message, err, {
         requestId: context.requestId,
-        error: error instanceof Error ? error.message : String(error),
       });
 
       return {
@@ -186,9 +199,13 @@ export abstract class BaseService<T extends BaseEntity> {
         data: result,
       };
     } catch (error) {
-      logger.error(`Failed to find paginated ${this.entityName}`, {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const serviceError = new CustomServiceError(
+        `Failed to find paginated ${this.entityName}: ${err.message}`,
+        context.requestId
+      );
+      logger.error(serviceError.message, err, {
         requestId: context.requestId,
-        error: error instanceof Error ? error.message : String(error),
       });
 
       return {
@@ -251,10 +268,14 @@ export abstract class BaseService<T extends BaseEntity> {
         data: result,
       };
     } catch (error) {
-      logger.error(`Failed to update ${this.entityName}`, {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const serviceError = new CustomServiceError(
+        `Failed to update ${this.entityName}: ${err.message}`,
+        context.requestId
+      );
+      logger.error(serviceError.message, err, {
         requestId: context.requestId,
         id,
-        error: error instanceof Error ? error.message : String(error),
       });
 
       return {
@@ -315,10 +336,14 @@ export abstract class BaseService<T extends BaseEntity> {
         success: true,
       };
     } catch (error) {
-      logger.error(`Failed to delete ${this.entityName}`, {
+      const err = error instanceof Error ? error : new Error(String(error));
+      const serviceError = new CustomServiceError(
+        `Failed to delete ${this.entityName}: ${err.message}`,
+        context.requestId
+      );
+      logger.error(serviceError.message, err, {
         requestId: context.requestId,
         id,
-        error: error instanceof Error ? error.message : String(error),
       });
 
       return {

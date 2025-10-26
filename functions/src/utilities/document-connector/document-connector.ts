@@ -80,15 +80,14 @@ export class DocumentConnector {
       const document = await this.provider.getDocument(documentId);
       return { success: true, data: document };
     } catch (error) {
-      logger.error('Error fetching document', {
+      logger.error('Error fetching document', error instanceof Error ? error : new Error('Unknown error'), {
         documentId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch document',
         },
       };
     }
@@ -104,14 +103,12 @@ export class DocumentConnector {
       const documents = await this.provider.getDocuments(options);
       return { success: true, data: documents };
     } catch (error) {
-      logger.error('Error fetching documents', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching documents', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch documents',
         },
       };
     }
@@ -131,14 +128,12 @@ export class DocumentConnector {
       const document = await this.provider.createDocument(request);
       return { success: true, data: document };
     } catch (error) {
-      logger.error('Error creating document', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error creating document', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'CREATE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to create document',
         },
       };
     }
@@ -157,15 +152,14 @@ export class DocumentConnector {
       const document = await this.provider.sendDocument(request);
       return { success: true, data: document };
     } catch (error) {
-      logger.error('Error sending document', {
+      logger.error('Error sending document', error instanceof Error ? error : new Error('Unknown error'), {
         documentId: request.documentId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'SEND_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to send document',
         },
       };
     }
@@ -181,15 +175,14 @@ export class DocumentConnector {
       const buffer = await this.provider.downloadDocument(documentId, options);
       return { success: true, data: buffer };
     } catch (error) {
-      logger.error('Error downloading document', {
+      logger.error('Error downloading document', error instanceof Error ? error : new Error('Unknown error'), {
         documentId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'DOWNLOAD_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to download document',
         },
       };
     }
@@ -205,15 +198,14 @@ export class DocumentConnector {
       await this.provider.voidDocument(documentId, reason);
       return { success: true };
     } catch (error) {
-      logger.error('Error voiding document', {
+      logger.error('Error voiding document', error instanceof Error ? error : new Error('Unknown error'), {
         documentId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'VOID_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to void document',
         },
       };
     }
@@ -229,14 +221,12 @@ export class DocumentConnector {
       const templates = await this.provider.getTemplates();
       return { success: true, data: templates };
     } catch (error) {
-      logger.error('Error fetching templates', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching templates', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch document templates',
         },
       };
     }
@@ -252,15 +242,14 @@ export class DocumentConnector {
       const template = await this.provider.getTemplate(templateId);
       return { success: true, data: template };
     } catch (error) {
-      logger.error('Error fetching template', {
+      logger.error('Error fetching template', error instanceof Error ? error : new Error('Unknown error'), {
         templateId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch document template',
         },
       };
     }

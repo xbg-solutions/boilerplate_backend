@@ -34,9 +34,8 @@ try {
 
   startServer(app);
 } catch (error) {
-  logger.error('Failed to start server', {
-    error: error instanceof Error ? error.message : String(error),
-  });
+  const err = error instanceof Error ? error : new Error(String(error));
+  logger.error('Failed to start server', err);
   process.exit(1);
 }
 

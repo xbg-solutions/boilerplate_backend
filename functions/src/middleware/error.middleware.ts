@@ -69,13 +69,11 @@ export class ConflictError extends AppError {
  */
 export function errorHandler() {
   return (err: Error, req: Request, res: Response, _next: NextFunction) => {
-    const requestId = req.headers['x-request-id'] as string || 'unknown';
+    const requestId = (req.headers['x-request-id'] as string) || 'unknown';
 
     // Log error
-    logger.error('Request error', {
+    logger.error('Request error', err, {
       requestId,
-      error: err.message,
-      stack: err.stack,
       path: req.path,
       method: req.method,
     });
@@ -154,7 +152,7 @@ export function errorHandler() {
  */
 export function notFoundHandler() {
   return (req: Request, res: Response) => {
-    const requestId = req.headers['x-request-id'] as string || 'unknown';
+    const requestId = (req.headers['x-request-id'] as string) || 'unknown';
 
     logger.warn('Route not found', {
       requestId,

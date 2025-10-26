@@ -21,14 +21,14 @@ export { createFirebaseAuthAdapter } from './firebase-adapter';
 export { createFirestoreTokenDatabase } from './firestore-database-adapter';
 
 // Project-specific factory functions
-export { 
-  createWishlistTokenHandler,
+export {
+  createProjectTokenHandler,
   getTokenHandler,
   getTokenBlacklist,
   tokenHandler,
   tokenBlacklist,
-  WishlistBlacklistReason,
-  type WishlistCustomClaims
+  BlacklistReason,
+  type CustomClaims
 } from '../../config/tokens.config';
 
 /**

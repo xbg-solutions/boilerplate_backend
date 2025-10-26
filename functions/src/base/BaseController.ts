@@ -5,7 +5,7 @@
  */
 
 import { Request, Response, NextFunction, Router } from 'express';
-import { BaseService, RequestContext, ServiceResult } from './BaseService';
+import { BaseService, RequestContext } from './BaseService';
 import { BaseEntity } from './BaseEntity';
 import { logger } from '../utilities/logger';
 import { QueryOptions } from './BaseRepository';

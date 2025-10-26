@@ -22,7 +22,10 @@ export function createJourneyConnector(): JourneyConnector | null {
     if (!config?.apiKey) {
       throw new Error('Ortto API key is required');
     }
-    return new JourneyConnector(new OrttoProvider(config));
+    return new JourneyConnector(new OrttoProvider({
+      ...config,
+      region: config.region as 'us' | 'au' | 'eu' | undefined,
+    }));
   }
 
   throw new Error(`Unsupported journey provider: ${provider}`);

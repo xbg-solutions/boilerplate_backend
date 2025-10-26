@@ -54,8 +54,9 @@ export class CRMConnector {
           id: result.data?.id,
         });
       } else {
-        logger.error('Failed to create contact', {
-          error: result.error,
+        logger.warn('Failed to create contact', {
+          errorCode: result.error?.code,
+          errorMessage: result.error?.message,
         });
       }
 
@@ -178,9 +179,7 @@ export class CRMConnector {
    * Handle errors
    */
   private handleError<T>(error: unknown): CRMResult<T> {
-    logger.error('CRM operation error', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error('CRM operation error', error instanceof Error ? error : new Error(String(error)));
 
     return {
       success: false,

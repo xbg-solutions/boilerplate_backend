@@ -38,7 +38,7 @@ export function validate(validations: ValidationChain[]) {
       });
     }
 
-    next();
+    return next();
   };
 }
 
@@ -51,7 +51,7 @@ export function sanitizeBody() {
     if (req.body && typeof req.body === 'object') {
       req.body = sanitizeObject(req.body);
     }
-    next();
+    return next();
   };
 }
 
@@ -122,7 +122,7 @@ export function validatePagination() {
       }
     }
 
-    next();
+    return next();
   };
 }
 
@@ -145,6 +145,6 @@ export function validateUUID(paramName = 'id') {
       });
     }
 
-    next();
+    return next();
   };
 }

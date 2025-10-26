@@ -182,7 +182,7 @@ export class FCMProvider implements PushNotificationsProvider {
    * Build FCM message for single target
    */
   private buildMessage(request: SendNotificationRequest): admin.messaging.Message {
-    const message: admin.messaging.Message = {
+    const basePayload = {
       notification: {
         title: request.notification.title,
         body: request.notification.body,
@@ -191,13 +191,25 @@ export class FCMProvider implements PushNotificationsProvider {
       data: request.notification.data,
     };
 
-    // Add target
+    // Build message with proper type based on target
+    let message: admin.messaging.Message;
     if (request.target.token) {
-      message.token = request.target.token;
+      message = {
+        ...basePayload,
+        token: request.target.token,
+      };
     } else if (request.target.topic) {
-      message.topic = request.target.topic;
+      message = {
+        ...basePayload,
+        topic: request.target.topic,
+      };
     } else if (request.target.condition) {
-      message.condition = request.target.condition;
+      message = {
+        ...basePayload,
+        condition: request.target.condition,
+      };
+    } else {
+      throw new Error('Message must have either token, topic, or condition');
     }
 
     // Add Android-specific options

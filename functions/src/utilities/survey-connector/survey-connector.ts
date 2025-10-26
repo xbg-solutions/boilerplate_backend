@@ -80,15 +80,14 @@ export class SurveyConnector {
       const survey = await this.provider.getSurvey(surveyId);
       return { success: true, data: survey };
     } catch (error) {
-      logger.error('Error fetching survey', {
+      logger.error('Error fetching survey', error instanceof Error ? error : new Error('Unknown error'), {
         surveyId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch survey',
         },
       };
     }
@@ -104,14 +103,12 @@ export class SurveyConnector {
       const surveys = await this.provider.getSurveys(options);
       return { success: true, data: surveys };
     } catch (error) {
-      logger.error('Error fetching surveys', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching surveys', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch surveys',
         },
       };
     }
@@ -130,14 +127,12 @@ export class SurveyConnector {
       const survey = await this.provider.createSurvey(request);
       return { success: true, data: survey };
     } catch (error) {
-      logger.error('Error creating survey', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error creating survey', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'CREATE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to create survey',
         },
       };
     }
@@ -153,15 +148,14 @@ export class SurveyConnector {
       const survey = await this.provider.updateSurvey(surveyId, updates);
       return { success: true, data: survey };
     } catch (error) {
-      logger.error('Error updating survey', {
+      logger.error('Error updating survey', error instanceof Error ? error : new Error('Unknown error'), {
         surveyId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'UPDATE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to update survey',
         },
       };
     }
@@ -177,15 +171,14 @@ export class SurveyConnector {
       await this.provider.deleteSurvey(surveyId);
       return { success: true };
     } catch (error) {
-      logger.error('Error deleting survey', {
+      logger.error('Error deleting survey', error instanceof Error ? error : new Error('Unknown error'), {
         surveyId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'DELETE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to delete survey',
         },
       };
     }
@@ -201,15 +194,14 @@ export class SurveyConnector {
       const responses = await this.provider.getResponses(surveyId, options);
       return { success: true, data: responses };
     } catch (error) {
-      logger.error('Error fetching responses', {
+      logger.error('Error fetching responses', error instanceof Error ? error : new Error('Unknown error'), {
         surveyId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch survey responses',
         },
       };
     }
@@ -225,15 +217,14 @@ export class SurveyConnector {
       const response = await this.provider.getResponse(responseId);
       return { success: true, data: response };
     } catch (error) {
-      logger.error('Error fetching response', {
+      logger.error('Error fetching response', error instanceof Error ? error : new Error('Unknown error'), {
         responseId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch survey response',
         },
       };
     }
@@ -252,15 +243,14 @@ export class SurveyConnector {
       const response = await this.provider.submitResponse(request);
       return { success: true, data: response };
     } catch (error) {
-      logger.error('Error submitting response', {
+      logger.error('Error submitting response', error instanceof Error ? error : new Error('Unknown error'), {
         surveyId: request.surveyId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'SUBMIT_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to submit survey response',
         },
       };
     }

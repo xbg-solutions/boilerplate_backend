@@ -22,11 +22,8 @@ export interface OrttoProviderConfig {
 
 export class OrttoProvider implements JourneyProvider {
   private client: AxiosInstance;
-  private apiKey: string;
 
   constructor(config: OrttoProviderConfig) {
-    this.apiKey = config.apiKey;
-
     const baseURL = this.getBaseURL(config.region || 'us');
 
     this.client = axios.create({

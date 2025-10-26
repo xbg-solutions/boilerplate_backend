@@ -66,9 +66,8 @@ export class ERPConnector {
     try {
       return await this.provider.getEmployee(employeeId);
     } catch (error) {
-      logger.error('Error fetching employee', {
+      logger.error('Error fetching employee', error instanceof Error ? error : new Error('Unknown error'), {
         employeeId,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -83,9 +82,7 @@ export class ERPConnector {
     try {
       return await this.provider.getEmployees(options);
     } catch (error) {
-      logger.error('Error fetching employees', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching employees', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -102,9 +99,7 @@ export class ERPConnector {
     try {
       return await this.provider.createEmployee(employee);
     } catch (error) {
-      logger.error('Error creating employee', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error creating employee', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -118,9 +113,8 @@ export class ERPConnector {
     try {
       return await this.provider.updateEmployee(employeeId, updates);
     } catch (error) {
-      logger.error('Error updating employee', {
+      logger.error('Error updating employee', error instanceof Error ? error : new Error('Unknown error'), {
         employeeId,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -140,9 +134,7 @@ export class ERPConnector {
     try {
       return await this.provider.requestTimeOff(request);
     } catch (error) {
-      logger.error('Error requesting time off', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error requesting time off', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -156,9 +148,8 @@ export class ERPConnector {
     try {
       return await this.provider.getTimeOffBalance(employeeId);
     } catch (error) {
-      logger.error('Error fetching time off balance', {
+      logger.error('Error fetching time off balance', error instanceof Error ? error : new Error('Unknown error'), {
         employeeId,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -173,9 +164,8 @@ export class ERPConnector {
     try {
       return await this.provider.getTimeOffRequests(employeeId, options);
     } catch (error) {
-      logger.error('Error fetching time off requests', {
+      logger.error('Error fetching time off requests', error instanceof Error ? error : new Error('Unknown error'), {
         employeeId,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -190,9 +180,8 @@ export class ERPConnector {
     try {
       return await this.provider.getPayStubs(employeeId, options);
     } catch (error) {
-      logger.error('Error fetching pay stubs', {
+      logger.error('Error fetching pay stubs', error instanceof Error ? error : new Error('Unknown error'), {
         employeeId,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -211,9 +200,7 @@ export class ERPConnector {
     try {
       return await this.provider.createExpenseReport(expense);
     } catch (error) {
-      logger.error('Error creating expense report', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error creating expense report', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -227,9 +214,8 @@ export class ERPConnector {
     try {
       return await this.provider.getExpenseReports(employeeId, options);
     } catch (error) {
-      logger.error('Error fetching expense reports', {
+      logger.error('Error fetching expense reports', error instanceof Error ? error : new Error('Unknown error'), {
         employeeId,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -244,9 +230,8 @@ export class ERPConnector {
     try {
       return await this.provider.getDepartment(departmentId);
     } catch (error) {
-      logger.error('Error fetching department', {
+      logger.error('Error fetching department', error instanceof Error ? error : new Error('Unknown error'), {
         departmentId,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -261,9 +246,7 @@ export class ERPConnector {
     try {
       return await this.provider.getDepartments(options);
     } catch (error) {
-      logger.error('Error fetching departments', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching departments', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -277,9 +260,7 @@ export class ERPConnector {
     try {
       return await this.provider.getJobRequisitions(options);
     } catch (error) {
-      logger.error('Error fetching job requisitions', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching job requisitions', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }

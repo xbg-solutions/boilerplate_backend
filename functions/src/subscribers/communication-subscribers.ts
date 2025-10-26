@@ -46,17 +46,19 @@ function initializeEmailNotifications(): void {
   // User created - Send welcome email
   eventBus.subscribe(EventType.USER_CREATED, async (payload) => {
     try {
+      const userData = payload.data as any;
       await emailConnector.sendTransactional({
-        to: [{ email: payload.data?.email, name: payload.data?.displayName }],
+        to: [{ email: userData?.email, name: userData?.displayName }],
         templateId: 'welcome-email',
         variables: {
-          firstName: payload.data?.firstName || 'there',
+          firstName: userData?.firstName || 'there',
           loginUrl: `${process.env.APP_URL}/login`,
         },
         tags: ['welcome', 'transactional'],
       });
     } catch (error) {
-      logger.error('Failed to send welcome email', { error });
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to send welcome email', err);
     }
   });
 
@@ -96,19 +98,21 @@ function initializeCRMSync(): void {
   // User created - Create contact in CRM
   eventBus.subscribe(EventType.USER_CREATED, async (payload) => {
     try {
+      const userData = payload.data as any;
       await crmConnector.createContact({
-        email: payload.data?.email || '',
-        firstName: payload.data?.firstName,
-        lastName: payload.data?.lastName,
+        email: userData?.email || '',
+        firstName: userData?.firstName,
+        lastName: userData?.lastName,
         source: 'web_app',
         customFields: {
           signup_date: payload.timestamp,
-          user_role: payload.data?.role,
+          user_role: userData?.role,
         },
         tags: ['new-user'],
       });
     } catch (error) {
-      logger.error('Failed to sync user to CRM', { error });
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to sync user to CRM', err);
     }
   });
 
@@ -136,9 +140,9 @@ function initializeRealtimeUpdates(): void {
           timestamp: new Date(),
         });
       } catch (error) {
-        logger.error('Failed to broadcast realtime update', {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('Failed to broadcast realtime update', err, {
           eventType,
-          error: error instanceof Error ? error.message : String(error),
         });
       }
     });

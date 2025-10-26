@@ -38,17 +38,16 @@ export class SMSConnector {
           cost: result.cost,
         });
       } else {
-        logger.error('Failed to send SMS', {
+        logger.warn('Failed to send SMS', {
           to: this.maskPhoneNumber(request.to),
-          error: result.error,
+          errorCode: result.error?.code,
+          errorMessage: result.error?.message,
         });
       }
 
       return result;
     } catch (error) {
-      logger.error('SMS send error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('SMS send error', error instanceof Error ? error : new Error('Unknown error'));
 
       return {
         success: false,
@@ -81,9 +80,7 @@ export class SMSConnector {
 
       return result;
     } catch (error) {
-      logger.error('Bulk SMS error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Bulk SMS error', error instanceof Error ? error : new Error('Unknown error'));
 
       return {
         success: false,

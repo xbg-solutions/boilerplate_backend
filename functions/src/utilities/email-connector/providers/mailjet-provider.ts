@@ -4,6 +4,7 @@
  */
 
 import Mailjet from 'node-mailjet';
+import type { Client } from 'node-mailjet';
 import { EmailProvider } from '../email-connector';
 import {
   TransactionalEmailRequest,
@@ -23,7 +24,7 @@ export interface MailjetConfig {
 }
 
 export class MailjetProvider implements EmailProvider {
-  private client: Mailjet.Client;
+  private client: Client;
   private config: MailjetConfig;
 
   constructor(config: MailjetConfig) {

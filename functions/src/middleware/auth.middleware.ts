@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utilities/logger';
-import { AUTH_CONFIG } from '../config/auth.config';
+import { AuthError } from '../types/errors';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -82,11 +82,11 @@ export function createAuthMiddleware(options: {
         role: (req as AuthenticatedRequest).user?.role,
       });
 
-      next();
+      return next();
     } catch (error) {
-      logger.error('Authentication error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const err = error instanceof Error ? error : new Error(String(error));
+      const authError = new AuthError('Authentication failed', error);
+      logger.error(authError.message, err);
 
       return res.status(500).json({
         success: false,
@@ -173,11 +173,11 @@ export function requireOwnership(getUserIdFromResource: (req: Request) => string
         });
       }
 
-      next();
+      return next();
     } catch (error) {
-      logger.error('Ownership check error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const err = error instanceof Error ? error : new Error(String(error));
+      const authError = new AuthError('Failed to verify resource ownership', error);
+      logger.error(authError.message, err);
 
       return res.status(500).json({
         success: false,
@@ -209,11 +209,11 @@ export function requireApiKey(validApiKeys: string[]) {
         });
       }
 
-      next();
+      return next();
     } catch (error) {
-      logger.error('API key validation error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const err = error instanceof Error ? error : new Error(String(error));
+      const authError = new AuthError('API key validation failed', error);
+      logger.error(authError.message, err);
 
       return res.status(500).json({
         success: false,

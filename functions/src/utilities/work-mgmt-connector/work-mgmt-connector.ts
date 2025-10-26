@@ -71,15 +71,14 @@ export class WorkManagementConnector {
       const task = await this.provider.getTask(taskId);
       return { success: true, data: task };
     } catch (error) {
-      logger.error('Error fetching task', {
+      logger.error('Error fetching task', error instanceof Error ? error : new Error('Unknown error'), {
         taskId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch task',
         },
       };
     }
@@ -95,14 +94,12 @@ export class WorkManagementConnector {
       const tasks = await this.provider.getTasks(listId, options);
       return { success: true, data: tasks };
     } catch (error) {
-      logger.error('Error fetching tasks', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching tasks', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch tasks',
         },
       };
     }
@@ -121,14 +118,12 @@ export class WorkManagementConnector {
       const task = await this.provider.createTask(request);
       return { success: true, data: task };
     } catch (error) {
-      logger.error('Error creating task', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error creating task', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'CREATE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to create task',
         },
       };
     }
@@ -144,15 +139,14 @@ export class WorkManagementConnector {
       const task = await this.provider.updateTask(taskId, updates);
       return { success: true, data: task };
     } catch (error) {
-      logger.error('Error updating task', {
+      logger.error('Error updating task', error instanceof Error ? error : new Error('Unknown error'), {
         taskId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'UPDATE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to update task',
         },
       };
     }
@@ -168,15 +162,14 @@ export class WorkManagementConnector {
       await this.provider.deleteTask(taskId);
       return { success: true };
     } catch (error) {
-      logger.error('Error deleting task', {
+      logger.error('Error deleting task', error instanceof Error ? error : new Error('Unknown error'), {
         taskId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'DELETE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to delete task',
         },
       };
     }
@@ -192,15 +185,14 @@ export class WorkManagementConnector {
       const article = await this.provider.getArticle(articleId);
       return { success: true, data: article };
     } catch (error) {
-      logger.error('Error fetching article', {
+      logger.error('Error fetching article', error instanceof Error ? error : new Error('Unknown error'), {
         articleId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch article',
         },
       };
     }
@@ -216,14 +208,12 @@ export class WorkManagementConnector {
       const articles = await this.provider.getArticles(parentId, options);
       return { success: true, data: articles };
     } catch (error) {
-      logger.error('Error fetching articles', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching articles', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch articles',
         },
       };
     }
@@ -242,14 +232,12 @@ export class WorkManagementConnector {
       const article = await this.provider.createArticle(request);
       return { success: true, data: article };
     } catch (error) {
-      logger.error('Error creating article', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error creating article', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'CREATE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to create article',
         },
       };
     }
@@ -265,15 +253,14 @@ export class WorkManagementConnector {
       const article = await this.provider.updateArticle(articleId, updates);
       return { success: true, data: article };
     } catch (error) {
-      logger.error('Error updating article', {
+      logger.error('Error updating article', error instanceof Error ? error : new Error('Unknown error'), {
         articleId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'UPDATE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to update article',
         },
       };
     }
@@ -289,15 +276,14 @@ export class WorkManagementConnector {
       await this.provider.deleteArticle(articleId);
       return { success: true };
     } catch (error) {
-      logger.error('Error deleting article', {
+      logger.error('Error deleting article', error instanceof Error ? error : new Error('Unknown error'), {
         articleId,
-        error: error instanceof Error ? error.message : String(error),
       });
       return {
         success: false,
         error: {
           code: 'DELETE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to delete article',
         },
       };
     }
@@ -313,14 +299,12 @@ export class WorkManagementConnector {
       const workspaces = await this.provider.getWorkspaces();
       return { success: true, data: workspaces };
     } catch (error) {
-      logger.error('Error fetching workspaces', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching workspaces', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch workspaces',
         },
       };
     }
@@ -336,14 +320,12 @@ export class WorkManagementConnector {
       const lists = await this.provider.getLists(workspaceId);
       return { success: true, data: lists };
     } catch (error) {
-      logger.error('Error fetching lists', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching lists', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch lists',
         },
       };
     }
@@ -359,14 +341,12 @@ export class WorkManagementConnector {
       const comments = await this.provider.getComments(targetId);
       return { success: true, data: comments };
     } catch (error) {
-      logger.error('Error fetching comments', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching comments', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'FETCH_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to fetch comments',
         },
       };
     }
@@ -384,14 +364,12 @@ export class WorkManagementConnector {
       const comment = await this.provider.createComment(request);
       return { success: true, data: comment };
     } catch (error) {
-      logger.error('Error creating comment', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error creating comment', error instanceof Error ? error : new Error('Unknown error'));
       return {
         success: false,
         error: {
           code: 'CREATE_ERROR',
-          message: error instanceof Error ? error.message : String(error),
+          message: 'Failed to create comment',
         },
       };
     }

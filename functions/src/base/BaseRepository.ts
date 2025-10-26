@@ -7,6 +7,7 @@
 import { Firestore, CollectionReference, DocumentData, Query, Timestamp } from 'firebase-admin/firestore';
 import { BaseEntity } from './BaseEntity';
 import { logger } from '../utilities/logger';
+import { RepositoryError } from '../types/errors';
 
 export interface QueryOptions {
   limit?: number;
@@ -55,8 +56,9 @@ export abstract class BaseRepository<T extends BaseEntity> {
         throw new Error(`Validation failed: ${JSON.stringify(validation.errors)}`);
       }
 
-      const docRef = entity.getId() ?
-        this.getCollection().doc(entity.getId()) :
+      const entityId = entity.getId();
+      const docRef = entityId ?
+        this.getCollection().doc(entityId) :
         this.getCollection().doc();
 
       entity.id = docRef.id;
@@ -70,11 +72,15 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
       return entity;
     } catch (error) {
-      logger.error('Failed to create entity', {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to create entity', err, {
         collection: this.collectionName,
-        error: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      const repoError = new RepositoryError(
+        `Failed to create entity: ${err.message}`,
+        this.collectionName
+      );
+      throw repoError;
     }
   }
 
@@ -101,12 +107,16 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
       return this.fromFirestore(doc.id, data);
     } catch (error) {
-      logger.error('Failed to find entity by ID', {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to find entity by ID', err, {
         collection: this.collectionName,
         id,
-        error: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      const repoError = new RepositoryError(
+        `Failed to find entity by ID: ${err.message}`,
+        this.collectionName
+      );
+      throw repoError;
     }
   }
 
@@ -148,11 +158,15 @@ export abstract class BaseRepository<T extends BaseEntity> {
       const snapshot = await query.get();
       return snapshot.docs.map((doc) => this.fromFirestore(doc.id, doc.data()));
     } catch (error) {
-      logger.error('Failed to find entities', {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to find entities', err, {
         collection: this.collectionName,
-        error: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      const repoError = new RepositoryError(
+        `Failed to find entities: ${err.message}`,
+        this.collectionName
+      );
+      throw repoError;
     }
   }
 
@@ -210,12 +224,16 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
       return entity;
     } catch (error) {
-      logger.error('Failed to update entity', {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to update entity', err, {
         collection: this.collectionName,
         id: entity.getId(),
-        error: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      const repoError = new RepositoryError(
+        `Failed to update entity: ${err.message}`,
+        this.collectionName
+      );
+      throw repoError;
     }
   }
 
@@ -241,12 +259,16 @@ export abstract class BaseRepository<T extends BaseEntity> {
         });
       }
     } catch (error) {
-      logger.error('Failed to delete entity', {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to delete entity', err, {
         collection: this.collectionName,
         id,
-        error: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      const repoError = new RepositoryError(
+        `Failed to delete entity: ${err.message}`,
+        this.collectionName
+      );
+      throw repoError;
     }
   }
 
@@ -270,11 +292,15 @@ export abstract class BaseRepository<T extends BaseEntity> {
       const snapshot = await query.count().get();
       return snapshot.data().count;
     } catch (error) {
-      logger.error('Failed to count entities', {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to count entities', err, {
         collection: this.collectionName,
-        error: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      const repoError = new RepositoryError(
+        `Failed to count entities: ${err.message}`,
+        this.collectionName
+      );
+      throw repoError;
     }
   }
 
@@ -298,8 +324,9 @@ export abstract class BaseRepository<T extends BaseEntity> {
         throw new Error(`Validation failed for entity: ${JSON.stringify(validation.errors)}`);
       }
 
-      const docRef = entity.getId() ?
-        this.getCollection().doc(entity.getId()) :
+      const entityId = entity.getId();
+      const docRef = entityId ?
+        this.getCollection().doc(entityId) :
         this.getCollection().doc();
 
       entity.id = docRef.id;

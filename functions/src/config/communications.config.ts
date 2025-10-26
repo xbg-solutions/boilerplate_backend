@@ -50,6 +50,7 @@ export interface SMSConfig {
     messagebird?: {
       apiKey: string;
       originator: string;
+      fromNumber: string;
     };
   };
   defaults: {
@@ -159,9 +160,11 @@ export interface SurveyConfig {
   providers: {
     surveymonkey?: {
       apiKey: string;
+      accessToken: string;
     };
     typeform?: {
       apiKey: string;
+      accessToken: string;
     };
   };
 }
@@ -211,6 +214,7 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
       messagebird: {
         apiKey: process.env.MESSAGEBIRD_API_KEY || '',
         originator: process.env.MESSAGEBIRD_ORIGINATOR || '',
+        fromNumber: process.env.MESSAGEBIRD_FROM_NUMBER || '',
       },
     },
     defaults: {
@@ -320,9 +324,11 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
     providers: {
       surveymonkey: {
         apiKey: process.env.SURVEYMONKEY_API_KEY || '',
+        accessToken: process.env.SURVEYMONKEY_ACCESS_TOKEN || '',
       },
       typeform: {
         apiKey: process.env.TYPEFORM_API_KEY || '',
+        accessToken: process.env.TYPEFORM_ACCESS_TOKEN || '',
       },
     },
   },

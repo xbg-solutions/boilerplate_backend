@@ -73,7 +73,9 @@ export const expectToReject = async (
  * Assert that a promise resolves successfully
  */
 export const expectToResolve = async <T>(promise: Promise<T>): Promise<T> => {
-  return await expect(promise).resolves.toBeDefined();
+  const result = await promise;
+  expect(result).toBeDefined();
+  return result;
 };
 
 /**

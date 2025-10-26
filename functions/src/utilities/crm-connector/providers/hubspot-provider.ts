@@ -19,13 +19,14 @@ export class HubSpotProvider implements CRMProvider {
       const result = await this.client.crm.contacts.basicApi.create({
         properties: {
           email: contact.email,
-          firstname: contact.firstName,
-          lastname: contact.lastName,
-          phone: contact.phone,
-          jobtitle: contact.jobTitle,
-          company: contact.company,
+          firstname: contact.firstName || '',
+          lastname: contact.lastName || '',
+          phone: contact.phone || '',
+          jobtitle: contact.jobTitle || '',
+          company: contact.company || '',
           ...contact.customFields,
         },
+        associations: [],
       });
 
       return {
@@ -41,10 +42,10 @@ export class HubSpotProvider implements CRMProvider {
     try {
       await this.client.crm.contacts.basicApi.update(id, {
         properties: {
-          firstname: updates.firstName,
-          lastname: updates.lastName,
-          phone: updates.phone,
-          jobtitle: updates.jobTitle,
+          firstname: updates.firstName || '',
+          lastname: updates.lastName || '',
+          phone: updates.phone || '',
+          jobtitle: updates.jobTitle || '',
           ...updates.customFields,
         },
       });
@@ -63,11 +64,11 @@ export class HubSpotProvider implements CRMProvider {
         data: {
           id: result.id,
           email: result.properties.email || '',
-          firstName: result.properties.firstname,
-          lastName: result.properties.lastname,
-          phone: result.properties.phone,
-          jobTitle: result.properties.jobtitle,
-          company: result.properties.company,
+          firstName: result.properties.firstname || undefined,
+          lastName: result.properties.lastname || undefined,
+          phone: result.properties.phone || undefined,
+          jobTitle: result.properties.jobtitle || undefined,
+          company: result.properties.company || undefined,
         },
       };
     } catch (error: any) {
@@ -85,7 +86,10 @@ export class HubSpotProvider implements CRMProvider {
       const result = await this.client.crm.contacts.searchApi.doSearch({
         filterGroups: filters.length > 0 ? [{ filters }] : [],
         limit: query.limit || 100,
-      });
+        sorts: [],
+        properties: ['email', 'firstname', 'lastname', 'phone'],
+        after: undefined,
+      } as any);
 
       const contacts = result.results.map((r: any) => ({
         id: r.id,
@@ -106,10 +110,11 @@ export class HubSpotProvider implements CRMProvider {
       const result = await this.client.crm.companies.basicApi.create({
         properties: {
           name: company.name,
-          domain: company.domain,
-          industry: company.industry,
+          domain: company.domain || '',
+          industry: company.industry || '',
           ...company.customFields,
         },
+        associations: [],
       });
 
       return { success: true, data: { ...company, id: result.id } };
@@ -121,7 +126,7 @@ export class HubSpotProvider implements CRMProvider {
   async updateCompany(id: string, updates: Partial<Types.CRMCompany>): Promise<Types.CRMResult<Types.CRMCompany>> {
     try {
       await this.client.crm.companies.basicApi.update(id, {
-        properties: { name: updates.name, domain: updates.domain, ...updates.customFields },
+        properties: { name: updates.name || '', domain: updates.domain || '', ...updates.customFields },
       });
 
       return { success: true, data: { ...updates, id } as Types.CRMCompany };
@@ -135,11 +140,12 @@ export class HubSpotProvider implements CRMProvider {
       const result = await this.client.crm.deals.basicApi.create({
         properties: {
           dealname: deal.name,
-          amount: deal.amount?.toString(),
-          dealstage: deal.stage,
-          closedate: deal.closeDate?.toISOString(),
+          amount: deal.amount?.toString() || '',
+          dealstage: deal.stage || '',
+          closedate: deal.closeDate?.toISOString() || '',
           ...deal.customFields,
         },
+        associations: [],
       });
 
       return { success: true, data: { ...deal, id: result.id } };
@@ -152,9 +158,9 @@ export class HubSpotProvider implements CRMProvider {
     try {
       await this.client.crm.deals.basicApi.update(id, {
         properties: {
-          dealname: updates.name,
-          amount: updates.amount?.toString(),
-          dealstage: updates.stage,
+          dealname: updates.name || '',
+          amount: updates.amount?.toString() || '',
+          dealstage: updates.stage || '',
         },
       });
 
@@ -167,11 +173,11 @@ export class HubSpotProvider implements CRMProvider {
   async logActivity(activity: Types.CRMActivity): Promise<Types.CRMResult<Types.CRMActivity>> {
     try {
       // HubSpot uses engagements for activities
-      const result = await this.client.crm.engagements.basicApi.create({
+      const result = await (this.client.crm as any).engagements.basicApi.create({
         properties: {
           hs_engagement_type: activity.type,
-          hs_engagement_subject: activity.subject,
-          hs_engagement_body: activity.description,
+          hs_engagement_subject: activity.subject || '',
+          hs_engagement_body: activity.description || '',
         },
       } as any);
 

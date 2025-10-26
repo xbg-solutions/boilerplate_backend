@@ -46,7 +46,7 @@ export function createEmailConnector(): EmailConnector | null {
 
     const orttoProvider = new OrttoEmailProvider({
       apiKey: orttoConfig.apiKey,
-      region: orttoConfig.region,
+      region: orttoConfig.region as 'us' | 'au' | 'eu' | undefined,
       fromEmail: COMMUNICATIONS_CONFIG.email.fromAddress,
       fromName: COMMUNICATIONS_CONFIG.email.fromName,
     });

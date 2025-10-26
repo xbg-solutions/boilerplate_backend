@@ -19,10 +19,14 @@ export function createERPConnector(): ERPConnector | null {
 
   if (provider === 'workday') {
     const config = COMMUNICATIONS_CONFIG.erp.providers.workday;
-    if (!config?.tenantName || !config?.username || !config?.password) {
+    if (!config?.tenant || !config?.clientId || !config?.clientSecret) {
       throw new Error('Workday configuration incomplete');
     }
-    return new ERPConnector(new WorkdayProvider(config));
+    return new ERPConnector(new WorkdayProvider({
+      tenantName: config.tenant,
+      username: config.clientId,
+      password: config.clientSecret,
+    }));
   }
 
   throw new Error(`Unsupported ERP provider: ${provider}`);

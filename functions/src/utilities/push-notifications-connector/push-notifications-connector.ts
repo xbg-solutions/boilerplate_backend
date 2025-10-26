@@ -75,9 +75,7 @@ export class PushNotificationsConnector {
 
       return response;
     } catch (error) {
-      logger.error('Failed to send push notification', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Failed to send push notification', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -105,9 +103,7 @@ export class PushNotificationsConnector {
 
       return response;
     } catch (error) {
-      logger.error('Failed to send multicast notification', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Failed to send multicast notification', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -132,9 +128,8 @@ export class PushNotificationsConnector {
 
       return response;
     } catch (error) {
-      logger.error('Failed to subscribe to topic', {
+      logger.error('Failed to subscribe to topic', error instanceof Error ? error : new Error('Unknown error'), {
         topic: request.topic,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -160,9 +155,8 @@ export class PushNotificationsConnector {
 
       return response;
     } catch (error) {
-      logger.error('Failed to unsubscribe from topic', {
+      logger.error('Failed to unsubscribe from topic', error instanceof Error ? error : new Error('Unknown error'), {
         topic: request.topic,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }
@@ -175,9 +169,7 @@ export class PushNotificationsConnector {
     try {
       return await this.provider.validateToken(token);
     } catch (error) {
-      logger.error('Failed to validate token', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Failed to validate token', error instanceof Error ? error : new Error('Unknown error'));
       return false;
     }
   }

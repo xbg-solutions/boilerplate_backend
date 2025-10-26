@@ -30,9 +30,8 @@ export function createApp(options: AppOptions = {}): Express {
   try {
     validateAllConfig();
   } catch (error) {
-    logger.error('Configuration validation failed', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error('Configuration validation failed', err);
     throw error;
   }
 

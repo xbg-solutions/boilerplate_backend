@@ -3,7 +3,7 @@
  * Implementation using MessageBird API
  */
 
-import messagebird from 'messagebird';
+import { initClient, MessageBird } from 'messagebird';
 import { SMSProvider } from '../sms-connector';
 import { SMSRequest, SMSResult, BulkSMSResult, MessageStatus, DeliveryReport } from '../types';
 
@@ -13,12 +13,12 @@ export interface MessageBirdConfig {
 }
 
 export class MessageBirdProvider implements SMSProvider {
-  private client: any;
+  private client: MessageBird;
   private config: MessageBirdConfig;
 
   constructor(config: MessageBirdConfig) {
     this.config = config;
-    this.client = messagebird(config.apiKey);
+    this.client = initClient(config.apiKey);
   }
 
   /**

@@ -26,11 +26,8 @@ export interface WorkdayProviderConfig {
 
 export class WorkdayProvider implements ERPProvider {
   private client: AxiosInstance;
-  private tenantName: string;
 
   constructor(config: WorkdayProviderConfig) {
-    this.tenantName = config.tenantName;
-
     const baseURL = config.baseUrl || `https://wd2-impl-services1.workday.com/ccx/service/${config.tenantName}`;
 
     this.client = axios.create({

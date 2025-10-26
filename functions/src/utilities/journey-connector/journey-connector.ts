@@ -99,9 +99,7 @@ export class JourneyConnector {
 
       return response;
     } catch (error) {
-      logger.error('Error upserting contact', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error upserting contact', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -125,9 +123,7 @@ export class JourneyConnector {
 
       return response;
     } catch (error) {
-      logger.error('Error enrolling in journey', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error enrolling in journey', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -144,9 +140,7 @@ export class JourneyConnector {
     try {
       return await this.provider.unenrollFromJourney(journeyId, email);
     } catch (error) {
-      logger.error('Error unenrolling from journey', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error unenrolling from journey', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -163,9 +157,7 @@ export class JourneyConnector {
     try {
       return await this.provider.trackActivity(event);
     } catch (error) {
-      logger.error('Error tracking activity', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error tracking activity', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -182,9 +174,7 @@ export class JourneyConnector {
     try {
       return await this.provider.subscribeToList(subscription);
     } catch (error) {
-      logger.error('Error subscribing to list', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error subscribing to list', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -201,9 +191,7 @@ export class JourneyConnector {
     try {
       return await this.provider.unsubscribeFromList(listId, email);
     } catch (error) {
-      logger.error('Error unsubscribing from list', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error unsubscribing from list', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -215,9 +203,7 @@ export class JourneyConnector {
     try {
       return await this.provider.getJourneys();
     } catch (error) {
-      logger.error('Error fetching journeys', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching journeys', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -229,9 +215,7 @@ export class JourneyConnector {
     try {
       return await this.provider.getSegments();
     } catch (error) {
-      logger.error('Error fetching segments', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error fetching segments', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -248,9 +232,7 @@ export class JourneyConnector {
     try {
       return await this.provider.addTags(email, tags);
     } catch (error) {
-      logger.error('Error adding tags', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error adding tags', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -267,9 +249,7 @@ export class JourneyConnector {
     try {
       return await this.provider.removeTags(email, tags);
     } catch (error) {
-      logger.error('Error removing tags', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error('Error removing tags', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
