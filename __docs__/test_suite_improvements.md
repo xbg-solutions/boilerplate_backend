@@ -3,6 +3,8 @@
 ## Overview
 This document summarizes the comprehensive unit test suite added for utility functions in the boilerplate backend project, following the testing standards and patterns from the wishlist app testing philosophy.
 
+**Latest Update**: Added 72 token handler tests for authentication/authorization security infrastructure.
+
 ## Testing Philosophy Applied
 
 All tests follow the core principle: **Test WHAT, Not HOW**
@@ -121,17 +123,48 @@ All tests follow the core principle: **Test WHAT, Not HOW**
 
 **Note:** Some tests are pending due to singleton instance + external API mocking complexity. These would be better suited for integration tests with real API calls to emulators.
 
+### 5. Token Handler Utilities (`functions/src/utilities/token-handler/`)
+
+**Files Tested:**
+- `token-blacklist-manager.ts` - Token revocation and blacklisting
+- `generic-token-handler.ts` - Platform-agnostic token verification
+
+**Test Files Created:**
+- `__tests__/token-blacklist-manager.test.ts` (38 tests)
+- `__tests__/generic-token-handler.test.ts` (34 tests)
+
+**Total Tests: 72**
+
+**Key Behaviors Tested:**
+- ✅ Individual token blacklisting with validated reasons
+- ✅ Global user token revocation (logout all, password change)
+- ✅ Token verification through provider adapters
+- ✅ Blacklist checking (individual and global)
+- ✅ Timestamp-based revocation (tokens issued before revocation rejected)
+- ✅ Token normalization (platform-agnostic structure)
+- ✅ Custom claims synchronization
+- ✅ Expired entry cleanup
+- ✅ Configuration validation
+- ✅ Token identifier masking for security
+
+**Security Coverage:**
+- Validates token revocation prevents reuse
+- Ensures global revocation invalidates all tokens
+- Verifies timestamp-based security checks
+- Confirms audit trail with blacklist reasons
+- Protects sensitive token data in logs
+
 ## Test Statistics
 
-**Total Test Files Created:** 4
-**Total Tests Written:** ~285
+**Total Test Files Created:** 6
+**Total Tests Written:** ~357
 **Test Coverage Focus:** Core business logic and security-critical utilities
 
 **Test Results:**
 ```
-Test Suites: 4 passed (hashing-lookup, logger, event-bus) + 2 with known issues
-Tests: 177 passed, 17 pending/skipped
-Time: ~13 seconds
+Test Suites: 11 passed, 2 with known issues, 13 total
+Tests: 412 passed, 17 pending/skipped, 429 total
+Time: ~17 seconds
 ```
 
 ## Testing Patterns Used
@@ -259,17 +292,21 @@ npm run test:coverage -- --testPathPattern="utilities"
 ## Impact
 
 **Before:** 4 utilities with tests (errors, validation, email-connector, timezone)
-**After:** 8 utilities with comprehensive tests
-**Tests Added:** ~285 new tests
+**After:** 10 utilities with comprehensive tests
+**Tests Added:** ~357 new tests
 **Coverage Improvement:** Significant increase in critical utility coverage
-**Security:** PII encryption/decryption and logging sanitization fully validated
+**Security:**
+- PII encryption/decryption fully validated
+- Logging sanitization verified (no PII leaks)
+- Token revocation and blacklisting tested
+- Authentication/authorization security flows validated
 **Reliability:** Event-driven architecture validated
 
 ## Conclusion
 
 This test suite provides comprehensive coverage of the most critical utility functions in the boilerplate backend:
 
-1. **Security Utilities** (hashing/unhashing) - Validates PII protection at rest
+1. **Security Utilities** (hashing/unhashing, token-handler) - Validates PII protection and authentication security
 2. **Observability Utilities** (logger) - Ensures no PII leaks in logs
 3. **Architecture Utilities** (event bus) - Confirms event-driven patterns work
 4. **External Integration** (address validation) - Partial coverage, recommend integration tests
@@ -278,6 +315,6 @@ The test suite follows established patterns from the wishlist app, ensuring cons
 
 ---
 
-**Document Date:** October 26, 2025
+**Document Date:** October 27, 2025
 **Author:** Claude Code
 **Review Status:** Ready for review
