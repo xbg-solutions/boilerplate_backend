@@ -1,0 +1,1 @@
+@CLAUDE: create a copy of the README.md I sent you in the prompt, except tailored to this project's use case: a boilerplate backend. read the project's README if you need context about what we're building.

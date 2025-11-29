@@ -1,0 +1,56 @@
+/**
+ * {{entityName}} Repository
+ * Generated from data model specification
+ */
+
+import { Firestore, DocumentData } from 'firebase-admin/firestore';
+import { BaseRepository } from '@base/BaseRepository';
+import { {{entityName}} } from '../entities/{{entityName}}';
+
+export class {{entityName}}Repository extends BaseRepository<{{entityName}}> {
+  protected collectionName = '{{collectionName}}';
+
+  constructor(db: Firestore) {
+    super(db);
+  }
+
+  /**
+   * Convert Firestore document to entity
+   */
+  protected fromFirestore(id: string, data: DocumentData): {{entityName}} {
+    return {{entityName}}.fromFirestore(id, data);
+  }
+
+{{#each fields}}
+{{#if unique}}
+  /**
+   * Find {{../../entityName}} by {{name}}
+   */
+  async findBy{{capitalize name}}({{name}}: {{{tsType}}}): Promise<{{../../entityName}} | null> {
+    const snapshot = await this.getCollection()
+      .where('{{name}}', '==', {{name}})
+      .where('deletedAt', '==', null)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const doc = snapshot.docs[0];
+    return this.fromFirestore(doc.id, doc.data());
+  }
+{{/if}}
+{{/each}}
+
+{{#each relationships}}
+  /**
+   * Get {{name}} for {{../../entityName}}
+   */
+  async get{{capitalize name}}({{../../entityNameLower}}Id: string): Promise<{{entity}}[]> {
+    // Implementation depends on relationship type
+    // TODO: Implement relationship query
+    return [];
+  }
+{{/each}}
+}

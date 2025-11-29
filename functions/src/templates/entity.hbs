@@ -1,0 +1,80 @@
+/**
+ * {{entityName}} Entity
+ * Generated from data model specification
+ */
+
+{{#each imports}}
+{{{this}}}
+{{/each}}
+
+export interface {{entityName}}Data extends BaseEntityData {
+{{#each fields}}
+  {{name}}{{#unless required}}?{{/unless}}: {{{tsType}}};
+{{/each}}
+}
+
+export class {{entityName}} extends BaseEntity {
+{{#each fields}}
+  {{name}}{{#unless required}}?{{/unless}}: {{{tsType}}};
+{{/each}}
+
+  constructor(data: {{entityName}}Data) {
+    super(data);
+{{#each fields}}
+    this.{{name}} = data.{{name}}{{#if hasDefault}} || {{{defaultValue}}}{{/if}};
+{{/each}}
+  }
+
+  /**
+   * Get entity-specific data for Firestore
+   */
+  protected getEntityData(): Record<string, any> {
+    return {
+{{#each fields}}
+      {{name}}: this.{{name}},
+{{/each}}
+    };
+  }
+
+  /**
+   * Validate entity
+   */
+  validate(): ValidationResult {
+    const errors = ValidationHelper.collectErrors(
+{{#each fields}}
+  {{#each validation}}
+      {{{this}}},
+  {{/each}}
+{{/each}}
+    );
+
+    return ValidationHelper.isValidResult(errors);
+  }
+
+  /**
+   * Create entity from Firestore document
+   */
+  static fromFirestore(id: string, data: Record<string, any>): {{entityName}} {
+    return new {{entityName}}({
+      id,
+      ...data,
+    });
+  }
+
+  /**
+   * Convert to plain object for API responses
+   */
+  toJSON(): Record<string, any> {
+    return {
+      id: this.id,
+{{#each fields}}
+      {{name}}: this.{{name}},
+{{/each}}
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+      {{#if hasSoftDelete}}
+      deletedAt: this.deletedAt,
+      {{/if}}
+    };
+  }
+}
