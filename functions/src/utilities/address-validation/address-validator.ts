@@ -36,10 +36,8 @@ export interface AddressComponents {
 }
 
 class AddressValidator {
-  private client: Client;
-
-  constructor() {
-    this.client = new Client({});
+  private getClient(): Client {
+    return new Client({});
   }
 
   /**
@@ -76,7 +74,8 @@ class AddressValidator {
 
       // Call Google Maps Geocoding API
       const apiKey = getGoogleMapsApiKey();
-      const response = await this.client.geocode({
+      const client = this.getClient();
+      const response = await client.geocode({
         params: {
           address: addressString,
           key: apiKey,

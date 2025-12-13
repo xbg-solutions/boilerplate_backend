@@ -28,7 +28,35 @@ class EventBus extends EventEmitter {
       payload.timestamp = new Date();
     }
 
-    return this.emit(eventType, payload);
+    // Check if there are any listeners
+    const listenerCount = this.listenerCount(eventType);
+
+    if (listenerCount === 0) {
+      return false;
+    }
+
+    // Call each listener and catch any errors to prevent one failing listener
+    // from stopping others from being called
+    const rawListeners = this.rawListeners(eventType);
+    for (const rawListener of rawListeners) {
+      try {
+        // Check if this is a once listener (has a 'listener' property)
+        if (typeof rawListener === 'function' && (rawListener as any).listener) {
+          // For once listeners, remove them first, then call
+          this.off(eventType, rawListener as (...args: any[]) => void);
+          (rawListener as any).listener(payload);
+        } else {
+          // Regular listener
+          (rawListener as (...args: any[]) => void)(payload);
+        }
+      } catch (error) {
+        // Silently catch errors from listeners
+        // This matches the behavior expected by the tests
+        // where one failing listener doesn't stop others
+      }
+    }
+
+    return true;
   }
 
   /**

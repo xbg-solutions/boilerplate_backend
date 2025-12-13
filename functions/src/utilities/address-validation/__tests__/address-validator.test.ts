@@ -53,6 +53,9 @@ describe('Address Validator', () => {
     // Default: Google Maps is configured
     (isGoogleMapsConfigured as jest.Mock).mockReturnValue(true);
     (getGoogleMapsApiKey as jest.Mock).mockReturnValue('test-api-key');
+
+    // Reset the mock implementation to ensure fresh state
+    mockGeocode.mockReset();
   });
 
   describe('validateAddress', () => {

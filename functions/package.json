@@ -21,7 +21,9 @@
     "test:coverage": "jest --coverage",
     "generate": "node scripts/generate.js",
     "setup": "node scripts/setup.js",
-    "migrate": "node scripts/migrate.js"
+    "migrate": "node scripts/migrate.js",
+    "validate": "node scripts/validate.js",
+    "validate:quick": "node scripts/validate.js --skip-tests --skip-build"
   },
   "dependencies": {
     "express": "^4.18.2",
