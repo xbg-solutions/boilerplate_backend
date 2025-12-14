@@ -723,11 +723,18 @@ npm run logs              # View Firebase logs
 - **[Test Suite Documentation](functions/src/__tests__/README.md)**: Testing philosophy and examples
 - **[Test Suite Improvements](__docs__/test_suite_improvements.md)**: Detailed test statistics
 
-### For AI Systems
+### For AI Systems & Agentic Development
+
+**MCP (Model Context Protocol) Documentation**: Complete backend documentation optimized for AI agents is available via MCP at:
+- **URL**: https://xbg.solutions/boilerplates/mcp-config.json
+- **Local**: [mcp/backend/README.md](mcp/backend/README.md)
+
+The MCP provides structured documentation covering:
 - **Declarative Models**: Clear entity/relationship definitions in TypeScript
 - **Consistent Patterns**: BaseController → BaseService → BaseRepository
 - **Type Exports**: All interfaces exported for AI code generation
 - **Predictable Structure**: Follow established layered architecture
+- **Complete API Reference**: All utilities, connectors, and core components
 
 ---
 
