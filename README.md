@@ -726,8 +726,7 @@ npm run logs              # View Firebase logs
 ### For AI Systems & Agentic Development
 
 **MCP (Model Context Protocol) Documentation**: Complete backend documentation optimized for AI agents is available via MCP at:
-- **URL**: https://xbg.solutions/boilerplates/mcp-config.json
-- **Local**: [mcp/backend/README.md](mcp/backend/README.md)
+- **URL**: https://xbg.solutions/mcp/config.json
 
 The MCP provides structured documentation covering:
 - **Declarative Models**: Clear entity/relationship definitions in TypeScript
