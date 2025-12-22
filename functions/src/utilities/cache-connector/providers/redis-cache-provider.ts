@@ -29,7 +29,6 @@ import {
   CacheProviderType,
   CacheSetOptions,
   CacheEntry,
-  CacheEntryMetadata,
   RedisCacheProviderConfig,
 } from '../types';
 import { logger } from '../../logger';
@@ -161,9 +160,10 @@ export class RedisCacheProvider extends BaseCacheProvider {
           })
         )
         .catch((error) => {
-          logger.warn('Failed to update Redis cache metadata', error, {
+          logger.warn('Failed to update Redis cache metadata', {
             operation: 'cache.redis.updateMeta',
             key,
+            error,
           });
         });
 
@@ -471,8 +471,7 @@ export class RedisCacheProvider extends BaseCacheProvider {
         return super.getStats();
       }
 
-      // Get Redis info
-      const info = await this.client.info('stats');
+      // Get Redis keyspace info
       const keyspace = await this.client.info('keyspace');
 
       // Parse keyspace info

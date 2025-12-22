@@ -132,10 +132,11 @@ export abstract class BaseRepository<T extends BaseEntity> {
       });
     } catch (error) {
       // Log error but don't fail the operation
-      logger.warn('Failed to invalidate cache', error as Error, {
+      logger.warn('Failed to invalidate cache', {
         operation: 'cache.invalidate',
         collection: this.collectionName,
         id,
+        error: error as Error,
       });
     }
   }

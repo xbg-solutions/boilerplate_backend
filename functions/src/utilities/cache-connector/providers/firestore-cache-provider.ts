@@ -28,7 +28,6 @@ import {
   CacheProviderType,
   CacheSetOptions,
   CacheEntry,
-  CacheEntryMetadata,
   FirestoreCacheProviderConfig,
 } from '../types';
 import { logger } from '../../logger';
@@ -103,9 +102,10 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
         hitCount: admin.firestore.FieldValue.increment(1),
         lastAccessedAt: Timestamp.now(),
       }).catch((error) => {
-        logger.warn('Failed to update cache access metadata', error, {
+        logger.warn('Failed to update cache access metadata', {
           operation: 'cache.get',
           key,
+          error,
         });
       });
 
@@ -392,7 +392,6 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
   async getStats(): Promise<any> {
     try {
       const snapshot = await this.getCollection().get();
-      const now = new Date();
       let totalSize = 0;
       let expiredCount = 0;
 

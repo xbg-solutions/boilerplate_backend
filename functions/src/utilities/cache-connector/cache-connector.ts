@@ -29,7 +29,6 @@ import {
   CacheEntry,
   CacheStats,
 } from './types';
-import { BaseCacheProvider } from './providers/base-cache-provider';
 import { NoOpCacheProvider } from './providers/noop-cache-provider';
 import { MemoryCacheProvider } from './providers/memory-cache-provider';
 import { FirestoreCacheProvider } from './providers/firestore-cache-provider';
@@ -210,7 +209,9 @@ export class CacheConnector {
    */
   async invalidateByPattern(pattern: string, options: CacheInvalidateOptions = {}): Promise<number> {
     const provider = this.resolveProvider(options.provider);
-    const mode = options.pattern || 'prefix';
+    const mode = (options.pattern === 'prefix' || options.pattern === 'suffix' || options.pattern === 'contains')
+      ? options.pattern
+      : 'prefix';
     return provider.invalidateByPattern(pattern, mode);
   }
 
