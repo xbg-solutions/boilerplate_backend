@@ -8,6 +8,9 @@ import { Firestore, CollectionReference, DocumentData, Query, Timestamp } from '
 import { BaseEntity } from './BaseEntity';
 import { logger } from '../utilities/logger';
 import { RepositoryError } from '../types/errors';
+import { getCacheConnector } from '../utilities/cache-connector';
+import { RepositoryCacheConfig, CacheOptions, CacheProviderType } from '../utilities/cache-connector/types';
+import { CACHE_CONFIG } from '../config/cache.config';
 
 export interface QueryOptions {
   limit?: number;
@@ -35,6 +38,14 @@ export abstract class BaseRepository<T extends BaseEntity> {
   protected abstract collectionName: string;
   protected db: Firestore;
 
+  /**
+   * Cache configuration for this repository
+   * Override in subclasses to enable caching
+   */
+  protected cacheConfig: RepositoryCacheConfig = {
+    enabled: false, // Opt-in per repository
+  };
+
   constructor(db: Firestore) {
     this.db = db;
   }
@@ -44,6 +55,111 @@ export abstract class BaseRepository<T extends BaseEntity> {
    */
   protected getCollection(): CollectionReference<DocumentData> {
     return this.db.collection(this.collectionName);
+  }
+
+  /**
+   * Check if caching is enabled for this repository
+   * Respects both global and repository-level settings
+   */
+  protected isCacheEnabled(): boolean {
+    // Global cache must be enabled
+    if (!CACHE_CONFIG.enabled) {
+      return false;
+    }
+
+    // Repository must opt-in
+    return this.cacheConfig.enabled === true;
+  }
+
+  /**
+   * Get effective cache provider for this repository
+   */
+  protected getCacheProvider(): CacheProviderType {
+    return this.cacheConfig.provider || CACHE_CONFIG.defaultProvider;
+  }
+
+  /**
+   * Get effective TTL for this repository
+   */
+  protected getCacheTTL(override?: number): number {
+    return override || this.cacheConfig.ttl || CACHE_CONFIG.defaultTTL;
+  }
+
+  /**
+   * Build cache key with repository prefix
+   */
+  protected buildCacheKey(type: string, identifier: string): string {
+    const prefix = this.cacheConfig.keyPrefix || this.collectionName;
+    return `${CACHE_CONFIG.namespace}:${prefix}:${type}:${identifier}`;
+  }
+
+  /**
+   * Build cache tags for invalidation
+   */
+  protected buildCacheTags(entity: T, additionalTags?: string[]): string[] {
+    const tags = [
+      this.collectionName,
+      `${this.collectionName}:${entity.id}`,
+      ...(this.cacheConfig.tags || []),
+      ...(additionalTags || []),
+    ];
+    return tags;
+  }
+
+  /**
+   * Invalidate cache for a specific entity
+   * Called automatically on update/delete
+   */
+  protected async invalidateEntityCache(id: string): Promise<void> {
+    if (!this.isCacheEnabled()) {
+      return;
+    }
+
+    const cache = getCacheConnector();
+    const provider = this.getCacheProvider();
+
+    try {
+      // Invalidate by tags
+      await cache.invalidateByTags(
+        [this.collectionName, `${this.collectionName}:${id}`],
+        { provider }
+      );
+
+      logger.debug('Cache invalidated for entity', {
+        operation: 'cache.invalidate',
+        collection: this.collectionName,
+        id,
+      });
+    } catch (error) {
+      // Log error but don't fail the operation
+      logger.warn('Failed to invalidate cache', error as Error, {
+        operation: 'cache.invalidate',
+        collection: this.collectionName,
+        id,
+      });
+    }
+  }
+
+  /**
+   * Log cache hit
+   */
+  protected logCacheHit(key: string): void {
+    logger.debug('Cache hit', {
+      operation: 'cache.hit',
+      collection: this.collectionName,
+      key,
+    });
+  }
+
+  /**
+   * Log cache miss
+   */
+  protected logCacheMiss(key: string): void {
+    logger.debug('Cache miss', {
+      operation: 'cache.miss',
+      collection: this.collectionName,
+      key,
+    });
   }
 
   /**
@@ -109,6 +225,59 @@ export abstract class BaseRepository<T extends BaseEntity> {
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error('Failed to find entity by ID', err, {
+        collection: this.collectionName,
+        id,
+      });
+      const repoError = new RepositoryError(
+        `Failed to find entity by ID: ${err.message}`,
+        this.collectionName
+      );
+      throw repoError;
+    }
+  }
+
+  /**
+   * Find entity by ID with caching
+   * Only uses cache if enabled at both global and repository levels
+   */
+  async findByIdCached(id: string, options: CacheOptions = {}): Promise<T | null> {
+    // If caching disabled, fallback to regular method
+    if (!this.isCacheEnabled()) {
+      return this.findById(id);
+    }
+
+    const cache = getCacheConnector();
+    const cacheKey = this.buildCacheKey('id', id);
+    const provider = this.getCacheProvider();
+
+    try {
+      // Try cache first (unless force refresh)
+      if (!options.forceRefresh) {
+        const cached = await cache.get<T>(cacheKey, { provider });
+
+        if (cached) {
+          this.logCacheHit(cacheKey);
+          return cached;
+        }
+      }
+
+      // Cache miss - fetch from database
+      this.logCacheMiss(cacheKey);
+      const entity = await this.findById(id);
+
+      // Store in cache
+      if (entity) {
+        await cache.set(cacheKey, entity, {
+          ttl: this.getCacheTTL(options.ttl),
+          tags: this.buildCacheTags(entity, options.tags),
+          provider,
+        });
+      }
+
+      return entity;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to find entity by ID (cached)', err, {
         collection: this.collectionName,
         id,
       });
@@ -217,6 +386,9 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
       await this.getCollection().doc(entity.getId()!).update(entity.toFirestore());
 
+      // Invalidate cache after update
+      await this.invalidateEntityCache(entity.getId()!);
+
       logger.info('Entity updated', {
         collection: this.collectionName,
         id: entity.getId(),
@@ -258,6 +430,9 @@ export abstract class BaseRepository<T extends BaseEntity> {
           id,
         });
       }
+
+      // Invalidate cache after delete
+      await this.invalidateEntityCache(id);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error('Failed to delete entity', err, {

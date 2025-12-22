@@ -59,6 +59,7 @@ This boilerplate is specifically designed for:
 - **Security First**: JWT auth, token blacklisting, PII encryption, rate limiting
 - **Event-Driven Architecture**: Internal event bus for loose coupling
 - **Multi-Database Support**: Multiple Firestore databases with connection management
+- **Multi-Level Caching**: Progressive enhancement with Memory, Firestore, and Redis providers
 - **Observability**: Structured logging with PII sanitization and correlation IDs
 - **Deployment Ready**: CI/CD pipelines, validation scripts, multiple hosting options
 
@@ -213,6 +214,7 @@ boilerplate_backend/
 │   │   │   ├── events/                  #    Internal event bus
 │   │   │   ├── token-handler/           #    JWT + blacklisting
 │   │   │   ├── firestore-connector/     #    Multi-database management
+│   │   │   ├── cache-connector/         #    Multi-level caching (Memory, Firestore, Redis)
 │   │   │   ├── address-validation/      #    Google Maps integration
 │   │   │   ├── llm-connector/           #    AI/LLM integration (Claude, OpenAI, Gemini)
 │   │   │   ├── crm-connector/           #    CRM integration (HubSpot, etc.)
@@ -631,6 +633,81 @@ await pushNotificationsConnector.send({
 - **ERP Connector**: HR and finance operations (BambooHR, Gusto, Workday)
 
 See [__docs__/communications-guide.md](__docs__/communications-guide.md) for detailed usage.
+
+---
+
+## ⚡ Caching Utility
+
+Multi-level caching system with progressive enhancement for improved performance.
+
+### Key Features
+
+- **Project-Level Control**: Global enable/disable switch
+- **Repository-Level Granularity**: Per-entity provider selection
+- **Multiple Providers**: Memory (fast), Firestore (distributed), Redis (scalable)
+- **Zero Overhead When Disabled**: No-op provider pattern
+- **Tag-Based Invalidation**: Invalidate related cache entries
+- **Automatic Cache Invalidation**: Repository mutations auto-clear cache
+
+### Quick Start
+
+```typescript
+// 1. Enable caching globally
+// .env: CACHE_ENABLED=true
+
+// 2. Enable caching in a repository
+export class UserRepository extends BaseRepository<User> {
+  protected cacheConfig = {
+    enabled: true,          // Opt-in to caching
+    provider: 'memory',     // Fast in-memory cache
+    ttl: 300,               // 5 minutes
+  };
+}
+
+// 3. Use cached methods
+const user = await userRepo.findByIdCached('user-123');
+
+// Force refresh
+const freshUser = await userRepo.findByIdCached('user-123', {
+  forceRefresh: true
+});
+```
+
+### Cache Providers
+
+**Memory Provider** - Best for hot data within single function instance
+- Fast (~1-5ms latency)
+- Request-scoped caching
+- Auth/permissions data
+
+**Firestore Provider** - Best for distributed caching across instances
+- Shared across function instances
+- Survives cold starts
+- Latency ~50-100ms
+
+**Redis Provider** - Best for high-traffic applications (future)
+- Sub-10ms response time
+- Advanced features
+- ~$50/month minimum cost
+
+### Progressive Enhancement
+
+```bash
+# Stage 1: Start with caching disabled
+CACHE_ENABLED=false
+
+# Stage 2: Enable for auth layer with memory cache
+CACHE_ENABLED=true
+CACHE_DEFAULT_PROVIDER=memory
+
+# Stage 3: Add Firestore cache for products
+# (Per-repository configuration)
+
+# Stage 4: Scale to Redis for high traffic
+# (Add CACHE_REDIS_HOST when needed)
+```
+
+See [/mcp/functions/backend/utilities/cache-connector/README.md](/mcp/functions/backend/utilities/cache-connector/README.md) for detailed usage.
 
 ---
 
