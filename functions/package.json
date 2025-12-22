@@ -39,6 +39,7 @@
     "lodash": "^4.17.21",
     "uuid": "^9.0.1",
     "dotenv": "^16.3.1",
+    "ioredis": "^5.3.2",
     "node-mailjet": "^6.0.5",
     "twilio": "^4.19.0",
     "@hubspot/api-client": "^9.0.0",
