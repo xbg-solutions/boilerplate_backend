@@ -33,6 +33,7 @@ import { BaseCacheProvider } from './providers/base-cache-provider';
 import { NoOpCacheProvider } from './providers/noop-cache-provider';
 import { MemoryCacheProvider } from './providers/memory-cache-provider';
 import { FirestoreCacheProvider } from './providers/firestore-cache-provider';
+import { RedisCacheProvider } from './providers/redis-cache-provider';
 import { logger } from '../logger';
 
 export class CacheConnector {
@@ -108,8 +109,7 @@ export class CacheConnector {
         if (!this.config.providers.redis) {
           throw new Error('Redis provider configuration not found');
         }
-        // TODO: Implement Redis provider when needed
-        throw new Error('Redis provider not yet implemented');
+        return new RedisCacheProvider(this.config.providers.redis);
 
       case 'noop':
         return this.noopProvider;

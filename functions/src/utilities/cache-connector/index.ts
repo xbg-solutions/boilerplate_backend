@@ -60,3 +60,4 @@ export { BaseCacheProvider } from './providers/base-cache-provider';
 export { NoOpCacheProvider } from './providers/noop-cache-provider';
 export { MemoryCacheProvider } from './providers/memory-cache-provider';
 export { FirestoreCacheProvider } from './providers/firestore-cache-provider';
+export { RedisCacheProvider } from './providers/redis-cache-provider';
