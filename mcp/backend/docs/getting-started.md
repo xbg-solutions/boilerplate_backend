@@ -4,7 +4,7 @@
 
 Before you begin, ensure you have:
 
-- **Node.js 18+** installed
+- **Node.js 22+** installed
 - **npm** or **yarn** package manager
 - **Firebase CLI** installed globally: `npm install -g firebase-tools`
 - A **Firebase project** (create one at [console.firebase.google.com](https://console.firebase.google.com))

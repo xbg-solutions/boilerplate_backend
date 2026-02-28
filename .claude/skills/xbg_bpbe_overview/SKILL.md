@@ -57,7 +57,6 @@ boilerplate_backend/
 │   │   ├── app.ts            ← Express setup, middleware pipeline
 │   │   ├── index.ts          ← Firebase Functions entry, controller registration
 │   │   └── server.ts         ← Local dev server
-│   ├── scripts/              ← setup.js, validate.js, generate.js, deploy.js
 │   └── .env.example
 ├── __examples__/             ← Sample DataModelSpecification files
 ├── __scripts__/              ← Project-level scripts
@@ -103,12 +102,12 @@ import { createAuthMiddleware, requireRoles, requireAdmin } from './middleware/a
 
 ## Tech Stack
 
-- **Runtime:** Node.js 18+, TypeScript (strict mode)
+- **Runtime:** Node.js 22+, TypeScript (strict mode)
 - **Framework:** Express.js
 - **Deployment:** Firebase Functions (also runs on Cloud Run, AWS Lambda, Docker)
 - **Database:** Firestore (multi-database support)
 - **Auth:** Firebase Auth + custom JWT token handler with blacklisting
-- **Testing:** Jest, 807 passing tests
+- **Testing:** Jest, 796 passing tests
 - **Caching:** Memory / Firestore / Redis (progressive, per-repository opt-in)
 - **Events:** Internal EventEmitter-based event bus (not Pub/Sub)
 

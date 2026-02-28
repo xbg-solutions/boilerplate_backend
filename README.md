@@ -7,7 +7,7 @@ An experiment by [XBG Solutions](https://xbg.solutions) aided by [Claude Code](h
 Build and launch backend APIs in **days, not months** using modern AI-assisted development patterns.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-807%20Passing-green)](./functions/src/__tests__)
+[![Tests](https://img.shields.io/badge/Tests-796%20Passing-green)](./functions/src/__tests__)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](./LICENSE)
 
 **Sister Project:** [boilerplate_frontend](https://github.com/xbg-solutions/boilerplate_frontend) - SvelteKit 5 frontend boilerplate
@@ -20,7 +20,7 @@ This boilerplate is specifically designed for:
 - **AI-Assisted Development**: Declarative data models that AI can understand and generate code from
 - **Rapid API Development**: Define your data model, generate CRUD endpoints in seconds
 - **Design-to-Production Pipeline**: MoSCoW requirements → Data Model → Generated API → Deployment
-- **Production Readiness**: 807 passing tests, security-first architecture, deployment infrastructure
+- **Production Readiness**: 796 passing tests, security-first architecture, deployment infrastructure
 - **Developer Experience**: Type-safe, event-driven, following modern best practices
 
 ### The Modern Development Workflow
@@ -39,12 +39,12 @@ This boilerplate is specifically designed for:
 ## ✨ Key Features
 
 ### Core Stack
-- **Node.js 18+**: Modern JavaScript runtime with ES2022+ features
+- **Node.js 22+**: Modern JavaScript runtime with ES2022+ features
 - **TypeScript**: Strict mode enabled with comprehensive type definitions
 - **Express.js**: Battle-tested web framework with custom middleware pipeline
 - **Firebase Functions**: Serverless deployment with automatic scaling
 - **Firestore**: NoSQL database with real-time capabilities
-- **Jest**: Modern testing framework with 807 passing tests
+- **Jest**: Modern testing framework with 796 passing tests
 
 ### AI-Optimized Architecture
 - **Declarative Data Models**: Define entities, relationships, and rules in one place
@@ -55,7 +55,7 @@ This boilerplate is specifically designed for:
 - **Predictable Structure**: Layered architecture for reliable code generation
 
 ### Production Features
-- **807 Passing Tests**: Comprehensive behavioral testing with Jest
+- **796 Passing Tests**: Comprehensive behavioral testing with Jest
 - **Security First**: JWT auth, token blacklisting, PII encryption, rate limiting
 - **Event-Driven Architecture**: Internal event bus for loose coupling
 - **Multi-Database Support**: Multiple Firestore databases with connection management
@@ -69,7 +69,7 @@ This boilerplate is specifically designed for:
 
 ### Prerequisites
 
-- Node.js 18+ ([Download](https://nodejs.org/))
+- Node.js 22+ ([Download](https://nodejs.org/))
 - Firebase account ([Create free](https://firebase.google.com/))
 - Firebase CLI (`npm install -g firebase-tools`)
 - Git
@@ -234,11 +234,6 @@ boilerplate_backend/
 │   │   ├── app.ts                       # Express app setup
 │   │   ├── index.ts                     # Firebase Functions entry
 │   │   └── server.ts                    # Local dev server
-│   ├── scripts/                         # CLI tools and automation
-│   │   ├── setup.js                     #    Interactive setup wizard
-│   │   ├── validate.js                  #    Configuration validation
-│   │   ├── generate.js                  #    Code generation CLI
-│   │   └── deploy.js                    #    Deployment automation
 │   ├── package.json
 │   └── tsconfig.json
 ├── __examples__/
@@ -248,9 +243,10 @@ boilerplate_backend/
 │   ├── communications-guide.md          # Communication utilities guide
 │   └── test_suite_improvements.md       # Testing philosophy and statistics
 ├── __scripts__/                         # Project-level scripts
-│   ├── setup.js                         # Project setup
-│   ├── generate.js                      # Code generation
-│   └── deploy.js                        # Deployment
+│   ├── setup.js                         # Interactive setup wizard
+│   ├── validate.js                      # Configuration validation
+│   ├── generate.js                      # Code generation CLI
+│   └── deploy.js                        # Deployment automation
 ├── firebase.json                        # Firebase configuration
 ├── .firebaserc                          # Firebase project mapping
 └── README.md                            # This file
@@ -473,7 +469,7 @@ test('calls repository.insert with transformed data', async () => {
 ### Test Commands
 
 ```bash
-npm test                      # Run all 807 tests
+npm test                      # Run all 796 tests
 npm run test:coverage         # Run with coverage report
 npm run test:watch            # Watch mode
 ```
@@ -481,7 +477,7 @@ npm run test:watch            # Watch mode
 ### Current Test Statistics
 
 - **Test Suites**: 25 passed, 25 total
-- **Tests**: 807 passed, 807 total
+- **Tests**: 796 passed, 796 total
 - **Execution Time**: ~35 seconds
 - **Coverage**: Core utilities 80%+, security utilities 100%
 
@@ -934,7 +930,7 @@ export class ProductService extends BaseService<Product> {
 
 ## 📊 Project Status
 
-- **807 Tests Passing**: Comprehensive test coverage ✅
+- **796 Tests Passing**: Comprehensive test coverage ✅
 - **100% TypeScript**: Strict mode with full type safety ✅
 - **Security First**: PII encryption, JWT auth, token blacklisting ✅
 - **Production Ready**: Deployment infrastructure complete ✅

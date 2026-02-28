@@ -167,7 +167,7 @@ npm run build          # TypeScript compile
 npm run build:watch    # Watch mode
 
 # Testing
-npm test               # All 807 tests
+npm test               # All 796 tests
 npm run test:coverage  # Coverage report
 npm run test:watch     # Watch mode
 
@@ -230,7 +230,7 @@ FIRESTORE_EMULATOR_HOST=localhost:8080
 
 Run `npm run validate` before deploying. It checks:
 
-- Node.js version (18+)
+- Node.js version (22+)
 - Firebase CLI installed
 - TypeScript compiles cleanly
 - All tests pass

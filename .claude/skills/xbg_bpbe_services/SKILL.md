@@ -226,13 +226,9 @@ The event bus is a singleton Node.js `EventEmitter`. Services publish events; su
 import { eventBus, EventType } from '../utilities/events';
 
 // In your service method:
-eventBus.publish(EventType.ITEM_CLAIMED, {
-  claimUID: claim.id!,
-  itemUID: item.id!,
-  listUID: list.id!,
-  contactUID: contact.id!,
-  claimType: 'full_purchase',
-  claimedBy: context.userId!,
+eventBus.publish(EventType.USER_CREATED, {
+  userUID: user.id!,
+  email: user.email,
 });
 ```
 

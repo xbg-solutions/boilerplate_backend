@@ -94,8 +94,7 @@ const encrypted = hashValue('user@example.com');
 
 // Encrypt specific PII fields on a data object (uses hashed-fields-lookup config)
 const encryptedUserData = hashFields(userData, 'user');
-const encryptedContactData = hashFields(contactData, 'contact');
-const encryptedAddressData = hashFields(addressData, 'address');
+// Add project-specific entity types to hashed-fields-lookup.ts as needed
 ```
 
 ### Decrypting Fields
@@ -118,9 +117,10 @@ Configured in `functions/src/utilities/hashing/hashed-fields-lookup.ts`. To add 
 import { isHashedField, HASHED_FIELDS } from './utilities/hashing';
 
 // Check if a field path should be hashed:
-isHashedField('user.email')    // → true
-isHashedField('user.name')     // → true
-isHashedField('product.name')  // → false
+isHashedField('user.email')        // → true
+isHashedField('user.phoneNumber')  // → true
+isHashedField('user.name')         // → false
+isHashedField('product.name')      // → false
 ```
 
 ### Anti-Examples
