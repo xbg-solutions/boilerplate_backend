@@ -15,7 +15,7 @@ This utility provides a **generic, reusable Firestore connector** that:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Your Project (e.g., Wishlist Platform)            │
+│  Your Project                                      │
 │  ┌───────────────────────────────────────────────┐ │
 │  │ config/firestore.config.ts                    │ │
 │  │  - DatabaseName type                          │ │
@@ -670,9 +670,9 @@ Keep all Firestore configuration in `config/firestore.config.ts`:
 ### 2. Consistent Naming
 
 Use consistent naming throughout:
-- **Database names**: camelCase + 'DB' suffix (e.g., `identityDB`, `wishlistDB`)
-- **Firestore names**: lowercase (e.g., `identity`, `wishlist`)
-- **Collections**: camelCase (e.g., `userProfiles`, `accountMemberships`)
+- **Database names**: short descriptive names (e.g., `main`, `analytics`)
+- **Firestore names**: match database purpose (e.g., `(default)`, `analytics`)
+- **Collections**: camelCase (e.g., `userProfiles`, `tokenBlacklist`)
 
 ### 3. Type Safety
 
@@ -770,32 +770,30 @@ export const DATABASE_CONFIG: DatabaseConfig<DatabaseName> = {
 
 ---
 
-## Real-World Example: Wishlist Platform
+## Real-World Example
 
-See how the Wishlist Platform uses this connector:
+The boilerplate ships with a two-database configuration:
 
 **File: `functions/src/config/firestore.config.ts`**
 
 ```typescript
-// 6 databases with clear domain separation
-export type DatabaseName =
-  | 'identityDB'         // Users, accounts, auth
-  | 'wishlistDB'         // Lists, items, occasions
-  | 'relationshipsDB'    // Contacts, addresses
-  | 'coordinationDB'     // Claims, group gifts, subscriptions
-  | 'communicationsDB'   // Notifications, messages
-  | 'systemDB';          // Logs, analytics
+// Two databases: main for application data, analytics for metrics
+export type DatabaseName = 'main' | 'analytics';
 
 export const DATABASE_CONFIG: DatabaseConfig<DatabaseName> = {
-  identityDB: {
-    firestoreName: 'identity',
-    collections: ['users', 'accounts', 'accountMemberships'],
+  main: {
+    firestoreName: '(default)',
+    collections: ['sessions', 'tokenBlacklist', 'auditLogs'],
     emulatorSupport: true
   },
-  // ... other databases
+  analytics: {
+    firestoreName: 'analytics',
+    collections: ['events', 'metrics'],
+    emulatorSupport: true
+  },
 };
 
-export const connector = createWishlistConnector();
+export const connector = createProjectConnector();
 export const initializeFirebase = () => connector.initializeFirebase();
 export const getDbByName = (dbName: DatabaseName) => connector.getDbByName(dbName);
 ```
@@ -810,7 +808,7 @@ export class UsersRepository {
   private collection: FirebaseFirestore.CollectionReference;
 
   constructor() {
-    this.db = getDbByName('identityDB');
+    this.db = getDbByName('main');
     this.collection = this.db.collection('users');
   }
 
@@ -821,6 +819,8 @@ export class UsersRepository {
   }
 }
 ```
+
+Entity-specific collections (users, products, orders, etc.) are defined by generated repositories, not in the database config. The config only lists framework-level collections.
 
 ---
 

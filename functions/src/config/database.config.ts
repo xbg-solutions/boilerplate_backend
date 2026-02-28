@@ -1,6 +1,22 @@
 /**
  * Database Configuration
- * Multi-database setup with connection pooling and retry logic
+ *
+ * Multi-database setup with connection pooling and retry logic.
+ *
+ * This boilerplate encourages multi-database by default — separating
+ * concerns (e.g. main data vs analytics) into different Firestore
+ * databases gives you independent scaling and regional control.
+ *
+ * Single-database mode is also supported: set MAIN_DATABASE_ID and
+ * ANALYTICS_DATABASE_ID both to "(default)".
+ *
+ * ─── Collections ──────────────────────────────────────────────────────
+ *
+ * Entity collections are NOT hard-coded here. The code generator creates
+ * per-entity repository classes that specify their own collection names.
+ * The collections map below is only for framework-level collections
+ * (sessions, token blacklist, audit logs) that exist regardless of
+ * which entities you generate.
  */
 
 export interface DatabaseConfig {
@@ -57,11 +73,9 @@ export const DATABASE_CONFIG: DatabaseConfig = {
     enableCache: process.env.DB_ENABLE_CACHE !== 'false',
   },
 
+  // Framework-level collections only.
+  // Entity collections are defined by generated repository classes.
   collections: {
-    users: {
-      database: 'main',
-      name: 'users',
-    },
     sessions: {
       database: 'main',
       name: 'sessions',

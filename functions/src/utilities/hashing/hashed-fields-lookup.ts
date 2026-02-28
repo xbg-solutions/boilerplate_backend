@@ -6,21 +6,13 @@
  */
 
 export const HASHED_FIELDS = {
-  // Users (identityDB)
+  // User PII
   'user.email': true,
   'user.phoneNumber': true,
 
-  // Contacts (relationshipsDB)
-  'contact.email': true,
-  'contact.phoneNumber': true,
-
-  // Addresses (relationshipsDB)
-  'address.addressLine1': true,
-  'address.addressLine2': true,
-  'address.city': true,
-  'address.state': true,
-  'address.postalCode': true,
-  'address.country': true,
+  // Add project-specific PII fields here, e.g.:
+  // 'customer.email': true,
+  // 'address.addressLine1': true,
 } as const;
 
 export type HashedFieldPath = keyof typeof HASHED_FIELDS;

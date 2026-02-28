@@ -38,12 +38,8 @@ export class FirestoreAdapter {
    */
   private getDatabaseIdentifier(databaseName: DatabaseName): string {
     const mapping: Record<DatabaseName, string> = {
-      identityDB: 'identity',
-      wishlistDB: 'wishlist',
-      relationshipsDB: 'relationships',
-      coordinationDB: 'coordination',
-      communicationsDB: 'communications',
-      systemDB: 'system'
+      main: process.env.MAIN_DATABASE_ID || '(default)',
+      analytics: process.env.ANALYTICS_DATABASE_ID || 'analytics',
     };
     return mapping[databaseName];
   }
@@ -182,8 +178,8 @@ export class FirestoreAdapter {
     operation: string,
     eventNameOverride?: string
   ): string {
-    // Remove database suffix and convert to camelCase
-    const dbPrefix = databaseName.replace('DB', '');
+    // Use database name as prefix
+    const dbPrefix = databaseName;
     
     // Use override if provided, otherwise extract from path
     const collection = eventNameOverride || extractCollectionName(collectionPath);

@@ -113,8 +113,8 @@ if (checkCommand('node', 'Node.js')) {
 
   // Check Node.js version
   const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0]);
-  if (majorVersion < 18) {
-    printWarning(`Node.js version ${nodeVersion} is below recommended 18+`);
+  if (majorVersion < 22) {
+    printWarning(`Node.js version ${nodeVersion} is below recommended 22+`);
   }
 } else {
   printError('Node.js not found - install from https://nodejs.org');
@@ -264,7 +264,7 @@ if (!skipTests) {
 
   console.log(`${colors.dim}Running test suite...${colors.reset}`);
   if (runCommand('npm test')) {
-    printSuccess('All tests passed (807 tests)');
+    printSuccess('All tests passed');
   } else {
     printError('Some tests failed - run: npm test');
   }

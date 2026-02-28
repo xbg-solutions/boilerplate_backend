@@ -30,12 +30,10 @@ describe('Event Bus', () => {
       eventBus.subscribe(EventType.USER_CREATED, handler);
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(handler).toHaveBeenCalledWith({
         userUID: 'user-123',
-        accountUID: 'account-456',
         timestamp: expect.any(Date),
       });
     });
@@ -51,7 +49,6 @@ describe('Event Bus', () => {
 
       const payload: UserCreatedPayload = {
         userUID: 'user-123',
-        accountUID: 'account-456',
       };
 
       eventBus.publish(EventType.USER_CREATED, payload);
@@ -63,18 +60,17 @@ describe('Event Bus', () => {
 
     it('only notifies subscribers of the correct event type', () => {
       const userCreatedHandler = jest.fn();
-      const listCreatedHandler = jest.fn();
+      const fileUploadedHandler = jest.fn();
 
       eventBus.subscribe(EventType.USER_CREATED, userCreatedHandler);
-      eventBus.subscribe(EventType.LIST_CREATED, listCreatedHandler);
+      eventBus.subscribe(EventType.FILE_UPLOADED, fileUploadedHandler);
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(userCreatedHandler).toHaveBeenCalled();
-      expect(listCreatedHandler).not.toHaveBeenCalled();
+      expect(fileUploadedHandler).not.toHaveBeenCalled();
     });
 
     it('adds timestamp to payload if not provided', () => {
@@ -83,7 +79,6 @@ describe('Event Bus', () => {
       eventBus.subscribe(EventType.USER_CREATED, handler);
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(handler).toHaveBeenCalledWith(
@@ -100,7 +95,6 @@ describe('Event Bus', () => {
       eventBus.subscribe(EventType.USER_CREATED, handler);
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
         timestamp: customTimestamp,
       });
 
@@ -117,7 +111,6 @@ describe('Event Bus', () => {
       eventBus.subscribe(EventType.USER_CREATED, handler);
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       // Wait for async handler to complete
@@ -136,11 +129,9 @@ describe('Event Bus', () => {
       // Emit event twice
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-789',
-        accountUID: 'account-101',
       });
 
       // Handler should be called only once
@@ -162,11 +153,9 @@ describe('Event Bus', () => {
       // Emit event twice
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-789',
-        accountUID: 'account-101',
       });
 
       expect(onceHandler).toHaveBeenCalledTimes(1);
@@ -183,7 +172,6 @@ describe('Event Bus', () => {
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(handler).not.toHaveBeenCalled();
@@ -200,7 +188,6 @@ describe('Event Bus', () => {
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(handler1).not.toHaveBeenCalled();
@@ -231,7 +218,6 @@ describe('Event Bus', () => {
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(handler1).not.toHaveBeenCalled();
@@ -241,25 +227,22 @@ describe('Event Bus', () => {
 
     it('only unsubscribes from specified event type', () => {
       const userHandler = jest.fn();
-      const listHandler = jest.fn();
+      const fileHandler = jest.fn();
 
       eventBus.subscribe(EventType.USER_CREATED, userHandler);
-      eventBus.subscribe(EventType.LIST_CREATED, listHandler);
+      eventBus.subscribe(EventType.FILE_UPLOADED, fileHandler);
 
       eventBus.unsubscribeAll(EventType.USER_CREATED);
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
-      eventBus.publish(EventType.LIST_CREATED, {
-        listUID: 'list-123',
-        listOwnerUID: 'user-123',
-        accountUID: 'account-456',
+      eventBus.publish(EventType.FILE_UPLOADED, {
+        filePath: '/uploads/test.jpg',
       });
 
       expect(userHandler).not.toHaveBeenCalled();
-      expect(listHandler).toHaveBeenCalled();
+      expect(fileHandler).toHaveBeenCalled();
     });
 
     it('handles unsubscribing from event with no listeners', () => {
@@ -305,11 +288,11 @@ describe('Event Bus', () => {
       const handler2 = jest.fn();
 
       eventBus.subscribe(EventType.USER_CREATED, handler1);
-      eventBus.subscribe(EventType.LIST_CREATED, handler2);
+      eventBus.subscribe(EventType.FILE_UPLOADED, handler2);
 
       expect(eventBus.listenerCount(EventType.USER_CREATED)).toBe(1);
-      expect(eventBus.listenerCount(EventType.LIST_CREATED)).toBe(1);
-      expect(eventBus.listenerCount(EventType.ITEM_CREATED)).toBe(0);
+      expect(eventBus.listenerCount(EventType.FILE_UPLOADED)).toBe(1);
+      expect(eventBus.listenerCount(EventType.FILE_DELETED)).toBe(0);
     });
   });
 
@@ -319,18 +302,15 @@ describe('Event Bus', () => {
       const handler2 = jest.fn();
 
       eventBus.subscribe(EventType.USER_CREATED, handler1);
-      eventBus.subscribe(EventType.LIST_CREATED, handler2);
+      eventBus.subscribe(EventType.FILE_UPLOADED, handler2);
 
       eventBus.clear();
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
-      eventBus.publish(EventType.LIST_CREATED, {
-        listUID: 'list-123',
-        listOwnerUID: 'user-123',
-        accountUID: 'account-456',
+      eventBus.publish(EventType.FILE_UPLOADED, {
+        filePath: '/uploads/test.jpg',
       });
 
       expect(handler1).not.toHaveBeenCalled();
@@ -342,12 +322,12 @@ describe('Event Bus', () => {
       const handler2 = jest.fn();
 
       eventBus.subscribe(EventType.USER_CREATED, handler1);
-      eventBus.subscribe(EventType.LIST_CREATED, handler2);
+      eventBus.subscribe(EventType.FILE_UPLOADED, handler2);
 
       eventBus.clear();
 
       expect(eventBus.listenerCount(EventType.USER_CREATED)).toBe(0);
-      expect(eventBus.listenerCount(EventType.LIST_CREATED)).toBe(0);
+      expect(eventBus.listenerCount(EventType.FILE_UPLOADED)).toBe(0);
     });
 
     it('allows new subscriptions after clear', () => {
@@ -360,7 +340,6 @@ describe('Event Bus', () => {
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(handler1).not.toHaveBeenCalled();
@@ -408,7 +387,6 @@ describe('Event Bus', () => {
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       // Handler called multiple times (once per subscription)
@@ -428,7 +406,6 @@ describe('Event Bus', () => {
       expect(() => {
         eventBus.publish(EventType.USER_CREATED, {
           userUID: 'user-123',
-          accountUID: 'account-456',
         });
       }).not.toThrow();
 
@@ -455,13 +432,11 @@ describe('Event Bus', () => {
       const handler = jest.fn((payload: UserCreatedPayload) => {
         // Type-safe access to payload fields
         expect(payload.userUID).toBeDefined();
-        expect(payload.accountUID).toBeDefined();
       });
 
       eventBus.subscribe(EventType.USER_CREATED, handler);
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(handler).toHaveBeenCalled();
@@ -474,7 +449,6 @@ describe('Event Bus', () => {
 
       const result = eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(result).toBe(true);
@@ -483,7 +457,6 @@ describe('Event Bus', () => {
     it('returns false when event has no listeners', () => {
       const result = eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
       expect(result).toBe(false);
@@ -493,27 +466,24 @@ describe('Event Bus', () => {
   describe('multiple event types', () => {
     it('handles multiple different event types independently', () => {
       const userHandler = jest.fn();
-      const listHandler = jest.fn();
-      const itemHandler = jest.fn();
+      const fileHandler = jest.fn();
+      const notifHandler = jest.fn();
 
       eventBus.subscribe(EventType.USER_CREATED, userHandler);
-      eventBus.subscribe(EventType.LIST_CREATED, listHandler);
-      eventBus.subscribe(EventType.ITEM_CREATED, itemHandler);
+      eventBus.subscribe(EventType.FILE_UPLOADED, fileHandler);
+      eventBus.subscribe(EventType.NOTIFICATION_SENT, notifHandler);
 
       eventBus.publish(EventType.USER_CREATED, {
         userUID: 'user-123',
-        accountUID: 'account-456',
       });
 
-      eventBus.publish(EventType.LIST_CREATED, {
-        listUID: 'list-123',
-        listOwnerUID: 'user-123',
-        accountUID: 'account-456',
+      eventBus.publish(EventType.FILE_UPLOADED, {
+        filePath: '/uploads/test.jpg',
       });
 
       expect(userHandler).toHaveBeenCalledTimes(1);
-      expect(listHandler).toHaveBeenCalledTimes(1);
-      expect(itemHandler).not.toHaveBeenCalled();
+      expect(fileHandler).toHaveBeenCalledTimes(1);
+      expect(notifHandler).not.toHaveBeenCalled();
     });
   });
 });

@@ -148,50 +148,38 @@ describe('Hasher Utilities', () => {
       expect(result.fullName).toBe(userData.fullName);
     });
 
-    it('hashes specified fields for contact entity', () => {
-      const contactData = {
-        contactUID: 'contact123',
-        email: 'contact@example.com',
-        phoneNumber: '+61412345678',
-        fullName: 'Jane Smith',
+    it('hashes user entity fields with multiple data objects', () => {
+      const userData2 = {
+        userUID: 'user456',
+        email: 'another@example.com',
+        phoneNumber: '+61487654321',
+        displayName: 'Jane Smith',
       };
 
-      const result = hashFields(contactData, 'contact');
+      const result = hashFields(userData2, 'user');
 
       // Hashed fields should be encrypted
       expect(result.email).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
       expect(result.phoneNumber).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
 
       // Non-hashed fields should remain unchanged
-      expect(result.contactUID).toBe(contactData.contactUID);
-      expect(result.fullName).toBe(contactData.fullName);
+      expect(result.userUID).toBe(userData2.userUID);
+      expect(result.displayName).toBe(userData2.displayName);
     });
 
-    it('hashes specified fields for address entity', () => {
-      const addressData = {
-        addressUID: 'address123',
-        addressLine1: '123 Main St',
-        addressLine2: 'Apt 4',
-        city: 'Sydney',
-        state: 'NSW',
-        postalCode: '2000',
-        country: 'Australia',
+    it('does not hash fields for unregistered entity types', () => {
+      const unknownData = {
+        email: 'unknown@example.com',
+        phoneNumber: '+61412345678',
         isDefault: true,
       };
 
-      const result = hashFields(addressData, 'address');
+      const result = hashFields(unknownData, 'unknown_entity' as any);
 
-      // All address fields should be encrypted
-      expect(result.addressLine1).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-      expect(result.addressLine2).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-      expect(result.city).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-      expect(result.state).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-      expect(result.postalCode).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-      expect(result.country).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-
-      // Non-hashed fields should remain unchanged
-      expect(result.addressUID).toBe(addressData.addressUID);
-      expect(result.isDefault).toBe(addressData.isDefault);
+      // No fields should be encrypted for an unregistered entity
+      expect(result.email).toBe('unknown@example.com');
+      expect(result.phoneNumber).toBe('+61412345678');
+      expect(result.isDefault).toBe(true);
     });
 
     it('does not modify original object', () => {
@@ -292,26 +280,26 @@ describe('Hasher Utilities', () => {
   });
 
   describe('Integration', () => {
-    it('can hash multiple entities independently', () => {
-      const user = {
-        email: 'user@example.com',
+    it('can hash same entity type independently with different values', () => {
+      const user1 = {
+        email: 'user1@example.com',
         phoneNumber: '+61412345678',
       };
 
-      const contact = {
-        email: 'contact@example.com',
+      const user2 = {
+        email: 'user2@example.com',
         phoneNumber: '+61487654321',
       };
 
-      const hashedUser = hashFields(user, 'user');
-      const hashedContact = hashFields(contact, 'contact');
+      const hashedUser1 = hashFields(user1, 'user');
+      const hashedUser2 = hashFields(user2, 'user');
 
       // Both should be encrypted
-      expect(hashedUser.email).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-      expect(hashedContact.email).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+      expect(hashedUser1.email).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+      expect(hashedUser2.email).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
 
       // Should have different encrypted values (different IVs)
-      expect(hashedUser.email).not.toBe(hashedContact.email);
+      expect(hashedUser1.email).not.toBe(hashedUser2.email);
     });
   });
 });

@@ -177,79 +177,70 @@ describe('Unhashing Utilities', () => {
 
   describe('unhashFields', () => {
     it('unhashes requested fields only', () => {
-      const contactData = {
-        contactUID: 'contact123',
-        email: hashValue('contact@example.com'),
+      const userData = {
+        userUID: 'user123',
+        email: hashValue('user@example.com'),
         phoneNumber: hashValue('+61412345678'),
         fullName: 'Jane Smith',
       };
 
       // Request to unhash only email
-      const result = unhashFields(contactData, ['contact.email']);
+      const result = unhashFields(userData, ['user.email']);
 
       // Email should be decrypted
-      expect(result.email).toBe('contact@example.com');
+      expect(result.email).toBe('user@example.com');
 
       // Phone number should remain encrypted
       expect(result.phoneNumber).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
       expect(result.phoneNumber).not.toBe('+61412345678');
 
       // Other fields unchanged
-      expect(result.contactUID).toBe('contact123');
+      expect(result.userUID).toBe('user123');
       expect(result.fullName).toBe('Jane Smith');
     });
 
     it('unhashes multiple requested fields', () => {
-      const contactData = {
-        contactUID: 'contact123',
-        email: hashValue('contact@example.com'),
+      const userData = {
+        userUID: 'user123',
+        email: hashValue('user@example.com'),
         phoneNumber: hashValue('+61412345678'),
         fullName: 'Jane Smith',
       };
 
       // Request to unhash both email and phone
-      const result = unhashFields(contactData, ['contact.email', 'contact.phoneNumber']);
+      const result = unhashFields(userData, ['user.email', 'user.phoneNumber']);
 
       // Both should be decrypted
-      expect(result.email).toBe('contact@example.com');
+      expect(result.email).toBe('user@example.com');
       expect(result.phoneNumber).toBe('+61412345678');
 
       // Other fields unchanged
-      expect(result.contactUID).toBe('contact123');
+      expect(result.userUID).toBe('user123');
       expect(result.fullName).toBe('Jane Smith');
     });
 
-    it('unhashes address fields', () => {
-      const addressData = {
-        addressUID: 'address123',
-        addressLine1: hashValue('123 Main St'),
-        addressLine2: hashValue('Apt 4'),
-        city: hashValue('Sydney'),
-        state: hashValue('NSW'),
-        postalCode: hashValue('2000'),
-        country: hashValue('Australia'),
-        isDefault: true,
+    it('unhashes selected fields from a larger object', () => {
+      const userData = {
+        userUID: 'user123',
+        email: hashValue('user@example.com'),
+        phoneNumber: hashValue('+61412345678'),
+        displayName: 'Jane Smith',
+        isActive: true,
       };
 
-      const result = unhashFields(addressData, [
-        'address.addressLine1',
-        'address.city',
-        'address.postalCode',
-      ]);
+      // Only unhash email
+      const result = unhashFields(userData, ['user.email']);
 
-      // Requested fields should be decrypted
-      expect(result.addressLine1).toBe('123 Main St');
-      expect(result.city).toBe('Sydney');
-      expect(result.postalCode).toBe('2000');
+      // Requested field should be decrypted
+      expect(result.email).toBe('user@example.com');
 
-      // Non-requested fields should remain encrypted
-      expect(result.addressLine2).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-      expect(result.state).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
-      expect(result.country).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+      // Non-requested hashed fields should remain encrypted
+      expect(result.phoneNumber).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
 
       // Other fields unchanged
-      expect(result.addressUID).toBe('address123');
-      expect(result.isDefault).toBe(true);
+      expect(result.userUID).toBe('user123');
+      expect(result.displayName).toBe('Jane Smith');
+      expect(result.isActive).toBe(true);
     });
 
     it('does not modify original object', () => {
@@ -390,10 +381,10 @@ describe('Unhashing Utilities', () => {
       expect(decrypted.userUID).toBe(original.userUID);
     });
 
-    it('successfully encrypts and partially decrypts contact data', () => {
+    it('successfully encrypts and partially decrypts user data', () => {
       const original = {
-        contactUID: 'contact123',
-        email: 'contact@example.com',
+        userUID: 'user123',
+        email: 'user@example.com',
         phoneNumber: '+61412345678',
         fullName: 'Jane Smith',
       };
@@ -406,7 +397,7 @@ describe('Unhashing Utilities', () => {
       };
 
       // Partially decrypt (email only)
-      const partiallyDecrypted = unhashFields(encrypted, ['contact.email']);
+      const partiallyDecrypted = unhashFields(encrypted, ['user.email']);
 
       expect(partiallyDecrypted.email).toBe(original.email);
       expect(partiallyDecrypted.phoneNumber).not.toBe(original.phoneNumber);

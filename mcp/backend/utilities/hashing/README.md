@@ -1,6 +1,6 @@
 # PII Encryption Utility
 
-A defensive security utility for protecting Personally Identifiable Information (PII) in the Wishlist Coordination Platform. This utility implements reversible encryption with lazy decryption patterns for GDPR compliance.
+A defensive security utility for protecting Personally Identifiable Information (PII). This utility implements reversible encryption with lazy decryption patterns for GDPR compliance.
 
 ## Overview
 
@@ -17,23 +17,13 @@ The encryption utility follows the **lazy decryption pattern** described in the 
 
 ## Protected Fields
 
-The following PII fields are automatically hashed at rest:
+The following PII fields are automatically hashed at rest by default:
 
-### User Fields (identityDB)
+### User Fields
 - `user.email`
 - `user.phoneNumber`
 
-### Contact Fields (relationshipsDB)
-- `contact.email`
-- `contact.phoneNumber`
-
-### Address Fields (relationshipsDB)
-- `address.addressLine1`
-- `address.addressLine2`
-- `address.city`
-- `address.state`
-- `address.postalCode`
-- `address.country`
+Additional project-specific PII fields (e.g., `contact.email`, `address.city`) can be added to the registry in `hashed-fields-lookup.ts`.
 
 ## Setup
 
