@@ -51,7 +51,7 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
     super();
 
     // Get Firestore instance
-    // We use the default app's Firestore and access the systemDB
+    // We use the default app's Firestore (configured via CACHE_FIRESTORE_DATABASE)
     this.db = admin.firestore();
 
     // Start automatic cleanup if enabled

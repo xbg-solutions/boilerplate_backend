@@ -28,40 +28,20 @@ npm run setup
 **Interactive Prompts:**
 - Project name
 - Firebase project ID
+- Deployment mode (backend-only or mono-repo)
 - Environment (development/staging/production)
-- CORS origins
-- Feature flags (authentication, multi-tenant, file uploads, notifications)
+- Database mode (multi-DB recommended, or single-DB)
+- CORS origins, API base path
+- Feature flags (authentication, multi-tenant, file uploads, notifications, analytics, realtime)
 
 **Output:**
-- Creates `.env` file with configuration
+- Creates `functions/.env` with full configuration
 - Updates `.firebaserc` with project ID
-- Generates initial `functions/src/config/` files
+- Updates `firebase.json` with runtime and emulator ports
 
-**Environment Variables Created:**
-```
-APP_NAME
-NODE_ENV
-PORT
-FIREBASE_PROJECT_ID
-API_BASE_PATH
-CORS_ORIGINS
-FEATURE_AUTHENTICATION
-FEATURE_MULTI_TENANT
-FEATURE_FILE_UPLOADS
-FEATURE_NOTIFICATIONS
-RATE_LIMIT_ENABLED
-LOG_LEVEL
-```
-
-**Gaps:**
-- [ ] Database initialization scripts
-- [ ] API key generation
-- [ ] Admin user creation
-- [ ] Sample data seeding
-- [ ] CI/CD configuration setup
-- [ ] Docker configuration generation
-- [ ] SSL certificate setup
-- [ ] Custom domain configuration
+**Mono-repo awareness:** When mono-repo mode is selected the wizard prints
+guidance on directory structure (`.claude/skills/` at root, frontend in
+`frontend/`, backend in `functions/`).
 
 ---
 
@@ -182,28 +162,26 @@ npm run deploy -- --force  # Skip tests
 
 ### From package.json
 
-All scripts are defined in `functions/package.json`:
+All scripts are defined in `functions/package.json` and resolve to `__scripts__/`:
 
 ```json
 {
   "scripts": {
-    "setup": "node ../scripts/setup.js",
-    "generate": "node ../scripts/generate.js",
-    "deploy": "node ../scripts/deploy.js"
+    "setup": "node ../__scripts__/setup.js",
+    "generate": "node ../__scripts__/generate.js",
+    "validate": "node ../__scripts__/validate.js",
+    "deploy:full": "node ../__scripts__/deploy.js"
   }
 }
 ```
 
 ### Direct Execution
 
-Scripts can also be run directly:
+Scripts can also be run directly from the repo root:
 
 ```bash
-# Make executable
-chmod +x scripts/setup.js
-
-# Run directly
-./scripts/setup.js
+node __scripts__/setup.js
+node __scripts__/validate.js
 ```
 
 ## Script Development

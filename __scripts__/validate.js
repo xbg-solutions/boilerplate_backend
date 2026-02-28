@@ -264,7 +264,7 @@ if (!skipTests) {
 
   console.log(`${colors.dim}Running test suite...${colors.reset}`);
   if (runCommand('npm test')) {
-    printSuccess('All tests passed (807 tests)');
+    printSuccess('All tests passed');
   } else {
     printError('Some tests failed - run: npm test');
   }

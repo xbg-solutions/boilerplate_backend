@@ -111,9 +111,9 @@ export const CACHE_CONFIG: CacheConfig = {
     firestore: {
       /**
        * Database to use for cache storage
-       * Default: 'systemDB'
+       * Default: 'main'
        */
-      database: process.env.CACHE_FIRESTORE_DATABASE || 'systemDB',
+      database: process.env.CACHE_FIRESTORE_DATABASE || 'main',
 
       /**
        * Collection name for cache entries

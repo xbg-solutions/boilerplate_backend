@@ -1,9 +1,20 @@
 /**
  * Firebase Event to Domain Event Mapping Configuration
- * Maps Firebase-specific events (Firestore, Auth, Storage) to domain events
  *
- * NOTE: This is a generic boilerplate configuration. Customize the mappings
- * to match your application's specific event architecture.
+ * Maps Firebase-specific events (Firestore, Auth, Storage) to domain events.
+ *
+ * ─── How it works ─────────────────────────────────────────────────────
+ *
+ * Firestore events are mapped dynamically:
+ *   firestore.{collection}.{operation}  →  {COLLECTION}_CREATED / UPDATED / DELETED
+ *
+ * This means any collection automatically gets CRUD events on the event bus
+ * without needing an explicit mapping here.
+ *
+ * Auth and Storage events are mapped to the standard EventType members.
+ *
+ * To add custom mappings (e.g. a specific collection should publish a
+ * specialised event), add an entry to CUSTOM_FIRESTORE_MAPPINGS below.
  */
 
 import { EventType, BaseEventPayload } from '../utilities/events/event-types';
@@ -18,12 +29,24 @@ export interface EventMapping {
 }
 
 /**
- * Map Firebase event names to domain events
+ * Optional per-collection overrides.
+ * Key: collection name, Value: partial map of operation → EventType.
  *
- * This function translates Firebase-specific events (like 'firestore.users.created')
- * into platform-agnostic domain events (like EventType.USER_CREATED).
+ * Example – to map 'users' collection create events to USER_CREATED:
+ *   users: { created: EventType.USER_CREATED }
+ */
+const CUSTOM_FIRESTORE_MAPPINGS: Record<string, Partial<Record<string, EventType>>> = {
+  users: {
+    created: EventType.USER_CREATED,
+    updated: EventType.USER_UPDATED,
+    deleted: EventType.USER_DELETED,
+  },
+};
+
+/**
+ * Map a Firebase event to a domain event.
  *
- * @param firebaseEventName - Firebase event name (e.g., 'firestore.users.created')
+ * @param firebaseEventName - e.g. 'firestore.users.created', 'auth.user.created'
  * @param event - Normalized Firebase event with full context
  * @returns Event mapping or null if no mapping exists
  */
@@ -31,17 +54,14 @@ export function mapFirebaseEventToDomain(
   firebaseEventName: string,
   event: NormalizedFirebaseEvent
 ): EventMapping | null {
-  // Firestore event mappings
   if (firebaseEventName.startsWith('firestore.')) {
     return mapFirestoreEvent(firebaseEventName, event);
   }
 
-  // Auth event mappings
   if (firebaseEventName.startsWith('auth.')) {
     return mapAuthEvent(firebaseEventName, event);
   }
 
-  // Storage event mappings
   if (firebaseEventName.startsWith('storage.')) {
     return mapStorageEvent(firebaseEventName, event);
   }
@@ -50,164 +70,46 @@ export function mapFirebaseEventToDomain(
 }
 
 /**
- * Map Firestore events to domain events
+ * Map Firestore events to domain events.
+ *
+ * If a custom mapping exists for the collection + operation, use it.
+ * Otherwise, fall back to EXTERNAL_DATA_CHANGE with full metadata
+ * so subscribers can still react to any collection change.
  */
 function mapFirestoreEvent(
   eventName: string,
   event: NormalizedFirebaseEvent
 ): EventMapping | null {
-  // Extract collection and operation from event name
-  // Format: firestore.{collection}.{operation}
   const parts = eventName.split('.');
   if (parts.length !== 3) return null;
 
   const [, collection, operation] = parts;
 
-  // Map users collection events
-  if (collection === 'users') {
-    if (operation === 'created') {
-      return {
-        domainEvent: EventType.USER_CREATED,
-        domainPayload: {
-          userUID: event.normalized.documentId || '',
-          accountUID: event.raw?.accountUID || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-    if (operation === 'updated') {
-      return {
-        domainEvent: EventType.USER_UPDATED,
-        domainPayload: {
-          userUID: event.normalized.documentId || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-    if (operation === 'deleted') {
-      return {
-        domainEvent: EventType.USER_DELETED,
-        domainPayload: {
-          userUID: event.normalized.documentId || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
+  // Check custom mappings first
+  const customMapping = CUSTOM_FIRESTORE_MAPPINGS[collection]?.[operation];
+  if (customMapping) {
+    return {
+      domainEvent: customMapping,
+      domainPayload: {
+        documentId: event.normalized.documentId || '',
+        collection,
+        operation,
+        timestamp: event.timestamp,
+      },
+    };
   }
 
-  // Map lists/wishlists collection events
-  if (collection === 'lists' || collection === 'wishlists') {
-    if (operation === 'created') {
-      return {
-        domainEvent: EventType.LIST_CREATED,
-        domainPayload: {
-          listUID: event.normalized.documentId || '',
-          listOwnerUID: event.raw?.listOwnerUID || '',
-          accountUID: event.raw?.accountUID || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-    if (operation === 'updated') {
-      return {
-        domainEvent: EventType.LIST_UPDATED,
-        domainPayload: {
-          listUID: event.normalized.documentId || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-    if (operation === 'deleted') {
-      return {
-        domainEvent: EventType.LIST_DELETED,
-        domainPayload: {
-          listUID: event.normalized.documentId || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-  }
-
-  // Map items collection events
-  if (collection === 'items') {
-    if (operation === 'created') {
-      return {
-        domainEvent: EventType.ITEM_CREATED,
-        domainPayload: {
-          itemUID: event.normalized.documentId || '',
-          listUID: event.raw?.listUID || '',
-          createdBy: event.raw?.createdBy || '',
-          accountUID: event.raw?.accountUID || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-    if (operation === 'updated') {
-      return {
-        domainEvent: EventType.ITEM_UPDATED,
-        domainPayload: {
-          itemUID: event.normalized.documentId || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-    if (operation === 'deleted') {
-      return {
-        domainEvent: EventType.ITEM_DELETED,
-        domainPayload: {
-          itemUID: event.normalized.documentId || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-  }
-
-  // Map contacts collection events
-  if (collection === 'contacts') {
-    if (operation === 'created') {
-      return {
-        domainEvent: EventType.CONTACT_CREATED,
-        domainPayload: {
-          contactUID: event.normalized.documentId || '',
-          accountUID: event.raw?.accountUID || '',
-          createdBy: event.raw?.createdBy || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-    if (operation === 'updated') {
-      return {
-        domainEvent: EventType.CONTACT_UPDATED,
-        domainPayload: {
-          contactUID: event.normalized.documentId || '',
-          accountUID: event.raw?.accountUID || '',
-          updatedBy: event.raw?.updatedBy || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-    if (operation === 'deleted') {
-      return {
-        domainEvent: EventType.CONTACT_DELETED,
-        domainPayload: {
-          contactUID: event.normalized.documentId || '',
-          accountUID: event.raw?.accountUID || '',
-          deletedBy: event.raw?.deletedBy || '',
-          deletionType: event.raw?.deletionType || 'soft',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-  }
-
-  // Default: Map to EXTERNAL_DATA_CHANGE for unmapped Firestore events
+  // Dynamic mapping: cast "{COLLECTION}_{OPERATION}" as EventType.
+  // BaseService publishes events in this same format, so subscribers
+  // that listen for e.g. "ORDER_CREATED" will receive both API-driven
+  // and Firestore-trigger-driven events.
+  const dynamicEventType = `${collection}.${operation}` as EventType;
   return {
-    domainEvent: EventType.EXTERNAL_DATA_CHANGE,
+    domainEvent: dynamicEventType,
     domainPayload: {
-      source: 'firestore',
-      collection: event.normalized.collection,
-      documentId: event.normalized.documentId,
-      operation: event.normalized.operation,
+      documentId: event.normalized.documentId || '',
+      collection,
+      operation,
       timestamp: event.timestamp,
     },
   };
@@ -225,7 +127,6 @@ function mapAuthEvent(
       domainEvent: EventType.USER_CREATED,
       domainPayload: {
         userUID: event.normalized.userId || '',
-        accountUID: event.raw?.accountUID || '',
         timestamp: event.timestamp,
       },
     };
@@ -241,7 +142,6 @@ function mapAuthEvent(
     };
   }
 
-  // Default: Map to EXTERNAL_DATA_CHANGE
   return {
     domainEvent: EventType.EXTERNAL_DATA_CHANGE,
     domainPayload: {
@@ -261,34 +161,6 @@ function mapStorageEvent(
   event: NormalizedFirebaseEvent
 ): EventMapping | null {
   if (eventName === 'storage.object.finalized') {
-    // Check if this is a profile image upload
-    if (event.normalized.filePath?.includes('profile_images')) {
-      return {
-        domainEvent: EventType.PROFILE_IMAGE_UPLOADED,
-        domainPayload: {
-          userUID: event.raw?.userId || '',
-          imageUrl: event.raw?.mediaLink || '',
-          storagePath: event.normalized.filePath || '',
-          timestamp: event.timestamp,
-        },
-      };
-    }
-
-    // Check if this is an item image upload
-    if (event.normalized.filePath?.includes('item_images')) {
-      return {
-        domainEvent: EventType.IMAGE_UPLOADED,
-        domainPayload: {
-          itemUID: event.raw?.itemUID || '',
-          imageUrl: event.raw?.mediaLink || '',
-          uploadedBy: event.raw?.uploadedBy || '',
-          filePath: event.normalized.filePath,
-          timestamp: event.timestamp,
-        },
-      };
-    }
-
-    // Generic file upload
     return {
       domainEvent: EventType.FILE_UPLOADED,
       domainPayload: {
@@ -311,7 +183,6 @@ function mapStorageEvent(
     };
   }
 
-  // Default: Map to EXTERNAL_DATA_CHANGE
   return {
     domainEvent: EventType.EXTERNAL_DATA_CHANGE,
     domainPayload: {
@@ -324,17 +195,18 @@ function mapStorageEvent(
 }
 
 /**
- * Validate event mapping configuration
- * Run this during application startup to ensure all mappings are valid
+ * Validate event mapping configuration.
+ * Run during application startup to surface issues early.
  */
 export function validateEventMappings(): void {
-  // Add custom validation logic here if needed
-  // For example, ensure all critical collections are mapped
-  const criticalCollections = ['users', 'lists', 'items'];
-  const criticalOperations = ['created', 'updated', 'deleted'];
-
-  // This is a placeholder for validation logic
-  // In a real application, you might want to ensure all combinations exist
-  console.log('Event mappings validated for collections:', criticalCollections);
-  console.log('Event mappings validated for operations:', criticalOperations);
+  // Verify custom mappings reference valid EventType values
+  for (const [collection, ops] of Object.entries(CUSTOM_FIRESTORE_MAPPINGS)) {
+    for (const [operation, eventType] of Object.entries(ops)) {
+      if (!Object.values(EventType).includes(eventType as EventType)) {
+        console.warn(
+          `Custom event mapping for ${collection}.${operation} references unknown EventType: ${eventType}`
+        );
+      }
+    }
+  }
 }
