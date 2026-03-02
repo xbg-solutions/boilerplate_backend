@@ -291,6 +291,8 @@ registerProductSubscribers();
 
 **File:** `functions/src/middleware/auth.middleware.ts`
 
+All middleware functions accept a typed `ITokenHandler` — they call `verifyAndUnpack()` (which includes blacklist checking).
+
 ### Middleware Functions Available
 
 ```typescript
@@ -308,7 +310,7 @@ import {
 ### Using in Routes (in Controller)
 
 ```typescript
-import { tokenHandler } from '../utilities/token-handler';
+import { tokenHandler } from '../config/tokens.config';
 
 export class ProductController extends BaseController<Product> {
   protected registerRoutes(): void {
@@ -319,19 +321,40 @@ export class ProductController extends BaseController<Product> {
     // Require auth for writes
     this.router.post('/', requiredAuth(tokenHandler), this.handleCreate.bind(this));
 
-    // Admin only for updates/deletes
+    // Admin only (default role: 'admin', configurable per project)
     this.router.put('/:id', requireAdmin(tokenHandler), this.handleUpdate.bind(this));
     this.router.delete('/:id', requireAdmin(tokenHandler), this.handleDelete.bind(this));
 
-    // Owner or admin
+    // Custom admin roles (not hardcoded — pass your project's roles)
+    this.router.put('/:id', requireAdmin(tokenHandler, ['admin', 'sysAdmin']), this.handleUpdate.bind(this));
+
+    // Owner or admin (admin bypass roles also configurable)
     this.router.get(
       '/:id/my-orders',
       requiredAuth(tokenHandler),
-      requireOwnership((req) => req.params.id),
+      requireOwnership((req) => req.params.id, ['admin', 'sysAdmin']),
       this.handleGetMyOrders.bind(this)
     );
   }
 }
+```
+
+### RBAC Is Configurable, Not Hardcoded
+
+Roles are defined per project through data model specs and custom claims. The auth middleware defaults (`['admin']`) are overridable:
+
+```typescript
+// Default: only 'admin' role
+requireAdmin(tokenHandler);
+
+// Your project's admin roles
+requireAdmin(tokenHandler, ['admin', 'sysAdmin', 'superAdmin']);
+
+// Ownership with custom bypass roles
+requireOwnership((req) => req.params.userId, ['admin', 'manager']);
+
+// Arbitrary role requirements
+requireRoles(tokenHandler, ['consultant', 'admin']);
 ```
 
 ### Accessing User in Service

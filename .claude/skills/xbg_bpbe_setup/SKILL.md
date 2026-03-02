@@ -196,7 +196,11 @@ npm run logs           # View Firebase logs
 
 ### `firebase.json` (project root)
 
-Defines which directory contains functions. Generally don't modify this.
+Defines functions source directory and references `firestore.rules`. Generally don't modify this.
+
+### `firestore.rules` (project root)
+
+Deny-all rules for client SDK access. This backend uses the Admin SDK (which bypasses rules). These rules act as defense-in-depth against accidental client-side database exposure.
 
 ### `.firebaserc` (project root)
 

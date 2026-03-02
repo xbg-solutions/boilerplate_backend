@@ -248,6 +248,7 @@ boilerplate_backend/
 │   ├── generate.js                      # Code generation CLI
 │   └── deploy.js                        # Deployment automation
 ├── firebase.json                        # Firebase configuration
+├── firestore.rules                      # Firestore security rules (deny-all client)
 ├── .firebaserc                          # Firebase project mapping
 └── README.md                            # This file
 ```
@@ -259,36 +260,35 @@ boilerplate_backend/
 Built-in Firebase authentication with JWT token management:
 
 ```typescript
-import { authService } from '$lib/services/auth';
+import { tokenHandler } from './config/tokens.config';
+import { logger } from './utilities/logger';
 
-// Email/password authentication
-const user = await authService.signInWithEmailAndPassword(email, password);
-
-// Phone authentication
-const user = await authService.signInWithPhoneNumber(phoneNumber);
-
-// Token verification with blacklist checking
-const tokenData = await tokenHandler.verifyAndUnpack(bearerToken);
+// Token verification with blacklist checking (uses verifyAndUnpack)
+const result = await tokenHandler.verifyAndUnpack(bearerToken, logger);
+if (result.isValid) {
+  const { authUID, userUID, email, customClaims } = result.token!;
+}
 
 // Token blacklisting
-await tokenHandler.blacklistToken(token, 'user_logout');
-await tokenHandler.blacklistAllUserTokens(userId, 'password_changed');
+const tokenId = await tokenHandler.getTokenIdentifier(rawToken);
+await tokenHandler.blacklistToken(tokenId, authUID, 'LOGOUT', tokenExpiresAt, null, logger);
+await tokenHandler.blacklistAllUserTokens(authUID, 'PASSWORD_CHANGE', null, logger);
 ```
 
 ### Protected Endpoints
 
 ```typescript
-// Protect routes with authentication middleware
-app.use('/api/v1/admin', authMiddleware({ requiredRole: 'admin' }));
+import { requiredAuth, requireAdmin, requireRoles } from './middleware/auth.middleware';
+import { tokenHandler } from './config/tokens.config';
 
-// In your controller
-export class UserController extends BaseController<User> {
-  async getProfile(req: AuthenticatedRequest, res: Response) {
-    const userId = req.user.uid; // Available after authentication
-    const user = await this.service.getUserById(userId);
-    res.json(user);
-  }
-}
+// Protect routes with authentication middleware
+this.router.get('/', requiredAuth(tokenHandler), this.handleFindAll.bind(this));
+
+// Admin only (role names are configurable per project)
+this.router.delete('/:id', requireAdmin(tokenHandler, ['admin', 'sysAdmin']), this.handleDelete.bind(this));
+
+// Custom roles
+this.router.put('/:id', requireRoles(tokenHandler, ['editor', 'admin']), this.handleUpdate.bind(this));
 ```
 
 ---
@@ -932,7 +932,7 @@ export class ProductService extends BaseService<Product> {
 
 - **796 Tests Passing**: Comprehensive test coverage ✅
 - **100% TypeScript**: Strict mode with full type safety ✅
-- **Security First**: PII encryption, JWT auth, token blacklisting ✅
+- **Security First**: PII encryption, token blacklisting, Helmet, Firestore rules, timing-safe auth ✅
 - **Production Ready**: Deployment infrastructure complete ✅
 - **Event-Driven**: Internal event bus for loose coupling ✅
 - **Multi-Database**: Support for multiple Firestore databases ✅

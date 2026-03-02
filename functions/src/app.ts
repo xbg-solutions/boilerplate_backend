@@ -37,17 +37,16 @@ export function createApp(options: AppOptions = {}): Express {
 
   const app = express();
 
-  // Trust proxy for accurate IP addresses when behind load balancer
-  app.set('trust proxy', true);
+  // Trust one proxy hop (Cloud Functions / Cloud Run behind Google's LB).
+  // Setting to `true` trusts ALL proxies, allowing X-Forwarded-For spoofing.
+  app.set('trust proxy', 1);
 
   // ===== SECURITY MIDDLEWARE =====
-  // Helmet for security headers (production only)
-  if (APP_CONFIG.app.environment === 'production') {
-    app.use(helmet({
-      contentSecurityPolicy: false, // Disable CSP for API
-      crossOriginEmbedderPolicy: false,
-    }));
-  }
+  // Helmet for security headers (all environments)
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP for API
+    crossOriginEmbedderPolicy: false,
+  }));
 
   // CORS
   app.use(createCorsMiddleware());
@@ -74,15 +73,18 @@ export function createApp(options: AppOptions = {}): Express {
 
   // ===== HEALTH CHECK =====
   app.get('/health', (_req, res) => {
-    res.json({
-      success: true,
-      data: {
-        status: 'healthy',
-        version: APP_CONFIG.app.version,
-        environment: APP_CONFIG.app.environment,
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data: Record<string, any> = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+    };
+
+    // Only expose version/environment in non-production
+    if (APP_CONFIG.app.environment !== 'production') {
+      data.version = APP_CONFIG.app.version;
+      data.environment = APP_CONFIG.app.environment;
+    }
+
+    res.json({ success: true, data });
   });
 
   app.get('/health/ready', (_req, res) => {
