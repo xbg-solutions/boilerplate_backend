@@ -1,5 +1,15 @@
 /**
  * Rate Limiting Middleware
+ *
+ * IMPORTANT: express-rate-limit uses an in-memory store by default.
+ * In serverless environments (Cloud Functions), each instance has its own
+ * memory and rate limits reset on cold starts. This means rate limiting
+ * is per-instance and won't protect against distributed abuse at scale.
+ *
+ * For production hardening, replace the default store with a shared store:
+ *   - Redis: use rate-limit-redis with the existing redis-cache-provider
+ *   - Firestore: implement a custom store using firestore-connector
+ *   - Firebase App Check: for client-side abuse prevention
  */
 
 import rateLimit from 'express-rate-limit';

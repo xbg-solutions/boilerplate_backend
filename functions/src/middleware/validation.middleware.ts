@@ -85,9 +85,6 @@ function sanitizeString(str: string): string {
   // Remove null bytes
   str = str.replace(/\0/g, '');
 
-  // Basic XSS prevention (use a proper library like DOMPurify for production)
-  str = str.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-
   return str.trim();
 }
 

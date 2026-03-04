@@ -3,9 +3,11 @@
  * Integrates with the token handler utility
  */
 
+import * as crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utilities/logger';
 import { AuthError } from '../types/errors';
+import type { ITokenHandler } from '../utilities/token-handler/token-types';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -21,7 +23,7 @@ export interface AuthenticatedRequest extends Request {
  * Verifies JWT tokens and attaches user to request
  */
 export function createAuthMiddleware(options: {
-  tokenHandler: any;
+  tokenHandler: ITokenHandler;
   required?: boolean;
   roles?: string[];
 }) {
@@ -42,14 +44,14 @@ export function createAuthMiddleware(options: {
         return next();
       }
 
-      // Verify token using token handler
-      const verificationResult = await options.tokenHandler.verifyToken(token);
+      // Verify token using token handler (includes blacklist check)
+      const verificationResult = await options.tokenHandler.verifyAndUnpack(token, logger);
 
-      if (!verificationResult.valid) {
+      if (!verificationResult.isValid) {
         return res.status(401).json({
           success: false,
           error: {
-            code: 'INVALID_TOKEN',
+            code: verificationResult.isBlacklisted ? 'TOKEN_REVOKED' : 'INVALID_TOKEN',
             message: verificationResult.error || 'Invalid or expired token',
           },
         });
@@ -57,10 +59,10 @@ export function createAuthMiddleware(options: {
 
       // Attach user to request
       (req as AuthenticatedRequest).user = {
-        uid: verificationResult.token.uid,
-        email: verificationResult.token.email,
-        role: verificationResult.customClaims?.role || 'user',
-        customClaims: verificationResult.customClaims,
+        uid: verificationResult.token!.authUID,
+        email: verificationResult.token!.email || undefined,
+        role: verificationResult.token!.customClaims?.role || 'user',
+        customClaims: verificationResult.token!.customClaims,
       };
 
       // Check role requirements
@@ -122,7 +124,7 @@ function extractTokenFromHeader(req: Request): string | null {
  * Optional authentication middleware
  * Attaches user if token is present but doesn't require it
  */
-export function optionalAuth(tokenHandler: any) {
+export function optionalAuth(tokenHandler: ITokenHandler) {
   return createAuthMiddleware({ tokenHandler, required: false });
 }
 
@@ -130,7 +132,7 @@ export function optionalAuth(tokenHandler: any) {
  * Required authentication middleware
  * Requires valid token
  */
-export function requiredAuth(tokenHandler: any) {
+export function requiredAuth(tokenHandler: ITokenHandler) {
   return createAuthMiddleware({ tokenHandler, required: true });
 }
 
@@ -138,29 +140,36 @@ export function requiredAuth(tokenHandler: any) {
  * Role-based authentication middleware
  * Requires valid token and specific roles
  */
-export function requireRoles(tokenHandler: any, roles: string[]) {
+export function requireRoles(tokenHandler: ITokenHandler, roles: string[]) {
   return createAuthMiddleware({ tokenHandler, required: true, roles });
 }
 
 /**
  * Admin-only middleware
+ * Pass custom admin roles array to match your project's role names.
+ * Default: ['admin']
  */
-export function requireAdmin(tokenHandler: any) {
-  return requireRoles(tokenHandler, ['admin']);
+export function requireAdmin(tokenHandler: ITokenHandler, adminRoles: string[] = ['admin']) {
+  return requireRoles(tokenHandler, adminRoles);
 }
 
 /**
  * Check if user owns resource
+ * Pass adminRoles to configure which roles bypass the ownership check.
+ * Default: ['admin']
  */
-export function requireOwnership(getUserIdFromResource: (req: Request) => string | undefined) {
+export function requireOwnership(
+  getUserIdFromResource: (req: Request) => string | undefined,
+  adminRoles: string[] = ['admin']
+) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?.uid;
       const resourceUserId = getUserIdFromResource(req);
 
       if (!userId || !resourceUserId || userId !== resourceUserId) {
-        // Allow if user is admin
-        if (req.user?.role === 'admin') {
+        // Allow if user has an admin role
+        if (req.user?.role && adminRoles.includes(req.user.role)) {
           return next();
         }
 
@@ -192,14 +201,15 @@ export function requireOwnership(getUserIdFromResource: (req: Request) => string
 
 /**
  * API Key authentication middleware
- * For service-to-service communication
+ * For service-to-service communication.
+ * Uses timing-safe comparison to prevent timing attacks.
  */
 export function requireApiKey(validApiKeys: string[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const apiKey = req.headers['x-api-key'] as string;
 
-      if (!apiKey || !validApiKeys.includes(apiKey)) {
+      if (!apiKey || !timingSafeIncludes(validApiKeys, apiKey)) {
         return res.status(401).json({
           success: false,
           error: {
@@ -224,4 +234,24 @@ export function requireApiKey(validApiKeys: string[]) {
       });
     }
   };
+}
+
+/**
+ * Timing-safe comparison of an API key against a list of valid keys.
+ * Prevents timing side-channel attacks that could leak key information.
+ */
+function timingSafeIncludes(validKeys: string[], candidate: string): boolean {
+  const candidateBuffer = Buffer.from(candidate);
+  let found = false;
+
+  for (const key of validKeys) {
+    const keyBuffer = Buffer.from(key);
+    if (candidateBuffer.length === keyBuffer.length) {
+      if (crypto.timingSafeEqual(candidateBuffer, keyBuffer)) {
+        found = true;
+      }
+    }
+  }
+
+  return found;
 }

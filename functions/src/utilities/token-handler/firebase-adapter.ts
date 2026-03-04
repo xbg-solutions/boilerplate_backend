@@ -23,7 +23,7 @@ export class FirebaseAuthAdapter<TCustomClaims = Record<string, any>>
     logger.debug('FirebaseAuthAdapter: Verifying token with Firebase');
 
     try {
-      const decodedToken = await admin.auth().verifyIdToken(rawToken);
+      const decodedToken = await admin.auth().verifyIdToken(rawToken, true);
       
       logger.debug('FirebaseAuthAdapter: Token verified successfully', {
         authUID: decodedToken.uid

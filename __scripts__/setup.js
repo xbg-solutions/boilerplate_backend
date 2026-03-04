@@ -261,6 +261,13 @@ RATE_LIMIT_MAX=100
 LOG_LEVEL=info
 
 # ──────────────────────────────────────────────────────────
+# PII Encryption
+# Required for AES-256-GCM PII encryption (hashValue/hashFields).
+# Generate with: openssl rand -hex 32
+# ──────────────────────────────────────────────────────────
+PII_ENCRYPTION_KEY=
+
+# ──────────────────────────────────────────────────────────
 # JWT / Authentication
 # ──────────────────────────────────────────────────────────
 JWT_ISSUER=${config.projectName}
@@ -328,6 +335,10 @@ function updateFirebaseJson(config) {
     // Create a fresh firebase.json if it doesn't exist or is invalid
     firebaseJson = {};
   }
+
+  firebaseJson.firestore = {
+    rules: 'firestore.rules',
+  };
 
   firebaseJson.functions = {
     source: 'functions',

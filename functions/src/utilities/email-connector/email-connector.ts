@@ -37,7 +37,7 @@ export class EmailConnector {
   async sendTransactional(request: TransactionalEmailRequest): Promise<EmailResult> {
     try {
       logger.info('Sending transactional email', {
-        to: request.to.map((r) => r.email),
+        recipientCount: request.to.length,
         subject: request.subject,
         templateId: request.templateId,
       });
@@ -78,7 +78,7 @@ export class EmailConnector {
   async sendMarketing(request: MarketingEmailRequest): Promise<EmailResult> {
     try {
       logger.info('Sending marketing email', {
-        to: request.to.map((r) => r.email),
+        recipientCount: request.to.length,
         campaignId: request.campaignId,
       });
 

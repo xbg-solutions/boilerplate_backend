@@ -247,8 +247,8 @@ The `api` export becomes your Cloud Function. All routes are mounted under `API_
 ### Middleware Stack (Order is Critical)
 
 ```
-1.  app.set('trust proxy', true)           ← real IP behind load balancer
-2.  helmet()                               ← security headers (prod only)
+1.  app.set('trust proxy', 1)              ← real IP (1 hop behind Google's LB)
+2.  helmet()                               ← security headers (all environments)
 3.  createCorsMiddleware()                 ← CORS from CORS_ORIGINS env
 4.  requestIdMiddleware()                  ← X-Request-ID header
 5.  requestLoggingMiddleware()             ← logs all requests
@@ -285,7 +285,8 @@ Or apply per-route as shown in the controller example above.
 ### Health Endpoints (Built-In)
 
 ```
-GET /health         → { success: true, data: { status: 'healthy', version, environment, timestamp } }
+GET /health         → { success: true, data: { status: 'healthy', timestamp } }
+                      (version and environment included in non-production only)
 GET /health/ready   → { success: true, data: { status: 'ready', checks: { database: 'ok' } } }
 ```
 

@@ -156,30 +156,33 @@ Wraps Firebase Auth token verification with blacklisting support and normalized 
 
 ```typescript
 import { tokenHandler } from './utilities/token-handler';
+import { logger } from './utilities/logger';
 
-const result = await tokenHandler.verifyToken(bearerToken);
-if (!result.valid) {
-  // result.error contains reason
+const result = await tokenHandler.verifyAndUnpack(bearerToken, logger);
+if (!result.isValid) {
+  // result.error contains reason, result.isBlacklisted indicates revocation
   return res.status(401).json({ error: result.error });
 }
 
 // Normalized token
-const { authUID, userUID, email, customClaims } = result.token;
+const { authUID, userUID, email, customClaims } = result.token!;
 ```
 
 ### Token Blacklisting
 
 ```typescript
 import { tokenHandler } from './utilities/token-handler';
+import { logger } from './utilities/logger';
 
 // Blacklist a single token (e.g., on logout)
-await tokenHandler.blacklistToken(token, 'user_logout');
+const tokenId = await tokenHandler.getTokenIdentifier(rawToken);
+await tokenHandler.blacklistToken(tokenId, authUID, 'LOGOUT', tokenExpiresAt, null, logger);
 
 // Blacklist all tokens for a user (e.g., password change, account compromise)
-await tokenHandler.blacklistAllUserTokens(userId, 'password_changed');
+await tokenHandler.blacklistAllUserTokens(authUID, 'PASSWORD_CHANGE', null, logger);
 ```
 
-Blacklisted tokens are checked on every `verifyToken()` call. Cleanup of expired blacklist entries runs on schedule.
+Blacklisted tokens are checked on every `verifyAndUnpack()` call. Firebase's own revocation list is also checked (`checkRevoked: true`). Cleanup of expired blacklist entries runs on schedule.
 
 ### Normalized Token Shape
 
