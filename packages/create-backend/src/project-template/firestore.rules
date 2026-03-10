@@ -1,0 +1,12 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Deny all client SDK access by default.
+    // This backend uses the Admin SDK (which bypasses rules).
+    // These rules act as defense-in-depth against accidental
+    // client-side database exposure.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

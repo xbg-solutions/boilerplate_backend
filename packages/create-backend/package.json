@@ -1,0 +1,38 @@
+{
+  "name": "@xbg/create-backend",
+  "version": "1.0.0",
+  "description": "CLI tool to scaffold and sync XBG backend projects",
+  "main": "lib/cli.js",
+  "bin": {
+    "create-xbg-backend": "bin/create-backend.js"
+  },
+  "files": [
+    "lib",
+    "bin",
+    "src/project-template"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf lib",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "fs-extra": "^11.2.0",
+    "inquirer": "^8.2.6"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

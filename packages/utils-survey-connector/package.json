@@ -1,0 +1,30 @@
+{
+  "name": "@xbg/utils-survey-connector",
+  "version": "1.0.0",
+  "description": "Survey integration",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf lib",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@xbg/utils-logger": "^1.0.0",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
