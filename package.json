@@ -1,0 +1,22 @@
+{
+  "name": "@xbg/boilerplate-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "XBG Backend Boilerplate - Monorepo",
+  "workspaces": [
+    "packages/core",
+    "packages/utils-*",
+    "packages/create-backend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:core": "npm run build -w packages/core",
+    "build:cli": "npm run build -w packages/create-backend",
+    "test": "npm test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "engines": {
+    "node": "22"
+  }
+}

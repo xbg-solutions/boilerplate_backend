@@ -1,0 +1,22 @@
+{
+  "name": "@xbg/utils-events",
+  "version": "1.0.0",
+  "description": "Event bus for domain events",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": ["lib"],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf lib",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {"@types/node": "^20.11.0", "typescript": "^5.3.3"},
+  "engines": {
+    "node": "22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
