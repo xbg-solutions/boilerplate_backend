@@ -1,18 +1,25 @@
 ---
-description: "Setup, configuration, and development workflow for the XBG boilerplate backend: .env variables, npm scripts, Firebase config, setup wizard, validation, and local dev server."
+description: "Setup, configuration, and development workflow for the XBG boilerplate backend: creating projects with the CLI, .env variables, npm scripts, Firebase config, validation, and local dev server."
 ---
 
 # XBG Boilerplate Backend — Setup & Configuration
 
-Everything lives in `functions/` directory. All commands are run from `functions/`.
-
 ---
 
-## Quick Start
+## Quick Start — New Project
 
 ```bash
-cd boilerplate_backend/functions
-npm install
+# Scaffold a new project with the CLI
+npx @xbg/create-backend init
+
+# The CLI will:
+#   - Ask about your project (name, Firebase project, features)
+#   - Let you select which utilities to include
+#   - Generate project structure with selected @xbg/* packages
+#   - Install dependencies
+
+# Once scaffolded:
+cd my-project/functions
 
 # Interactive setup wizard (generates .env, configures Firebase)
 npm run setup
@@ -25,11 +32,41 @@ npm start
 # Visit: http://localhost:5001/health
 ```
 
+### What a Generated Project Looks Like
+
+```
+my-project/
+├── functions/
+│   ├── src/
+│   │   ├── index.ts              # Firebase Functions entry point
+│   │   └── generated/            # Code generator output
+│   ├── package.json              # Depends on @xbg/* packages
+│   ├── tsconfig.json
+│   └── .env
+├── __scripts__/                  # Setup, generate, deploy, validate
+├── __examples__/                 # Example data models
+├── firebase.json
+└── .firebaserc
+```
+
+### Updating an Existing Project
+
+```bash
+# Check for and apply boilerplate updates
+npx @xbg/create-backend sync
+
+# Update packages to latest versions
+cd functions && npm update
+
+# Add a new utility
+npx @xbg/create-backend add-util
+```
+
 ---
 
 ## Environment Variables
 
-Copy `functions/.env.example` to `functions/.env`. All config is env-driven — never hardcode values.
+Copy `.env.example` to `.env` in the `functions/` directory. All config is env-driven — never hardcode values.
 
 ### Core Variables
 
@@ -63,7 +100,7 @@ FEATURE_REALTIME=true
 Feature flags gate entire subsystems. Check them in code:
 
 ```typescript
-import { isFeatureEnabled } from './config/app.config';
+import { isFeatureEnabled } from '@xbg/backend-core';
 
 if (isFeatureEnabled('notifications')) {
   await pushNotificationsConnector.send({ ... });
@@ -100,7 +137,7 @@ DB_ENABLE_CACHE=true
 PII_ENCRYPTION_KEY=your-64-hex-char-key
 ```
 
-Required for the hashing utility. Without it, `hashValue()` will throw at runtime.
+Required for the hashing utility (`@xbg/utils-hashing`). Without it, `hashValue()` will throw at runtime.
 
 ### Caching
 
@@ -124,28 +161,15 @@ RATE_LIMIT_MAX=100               # requests per window
 
 ---
 
-## Configuration Files
+## Configuration in Code
 
-All config is centralized in `functions/src/config/`:
-
-```
-config/
-├── app.config.ts        ← APP_CONFIG: app, api, features, integrations, logging
-├── auth.config.ts       ← Auth providers, JWT settings
-├── cache.config.ts      ← CACHE_CONFIG: enabled, provider, TTL, namespace
-├── database.config.ts   ← Database connections, retry settings
-├── middleware.config.ts ← Rate limits, CORS settings
-├── tokens.config.ts     ← Token blacklist settings
-├── maps.config.ts       ← Google Maps API config
-├── communications.config.ts ← Email, SMS, push provider config
-└── index.ts             ← Re-exports + validateAllConfig()
-```
+All config is centralized via `@xbg/backend-core`. In a generated project, configuration is driven entirely by environment variables.
 
 Reading config in your code:
 
 ```typescript
-// ✅ Correct — import from config, not process.env directly
-import { APP_CONFIG } from './config/app.config';
+// ✅ Correct — import from @xbg/backend-core
+import { APP_CONFIG, isFeatureEnabled } from '@xbg/backend-core';
 const basePath = APP_CONFIG.api.basePath;
 const env = APP_CONFIG.app.environment;
 
@@ -157,7 +181,7 @@ const basePath = process.env.API_BASE_PATH; // don't do this
 
 ## npm Scripts
 
-Run from `functions/`:
+Run from `functions/` in a generated project:
 
 ```bash
 # Development
@@ -167,7 +191,7 @@ npm run build          # TypeScript compile
 npm run build:watch    # Watch mode
 
 # Testing
-npm test               # All 796 tests
+npm test               # All tests
 npm run test:coverage  # Coverage report
 npm run test:watch     # Watch mode
 

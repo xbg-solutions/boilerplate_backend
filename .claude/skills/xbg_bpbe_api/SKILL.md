@@ -6,11 +6,13 @@ description: "API layer for the XBG boilerplate backend: implementing controller
 
 Covers: `BaseController`, custom routes, middleware pipeline, response shapes, registering controllers in `index.ts`, and the Express app setup.
 
+All base classes and middleware are imported from `@xbg/backend-core`.
+
 ---
 
 ## BaseController — HTTP Layer
 
-**File:** `functions/src/base/BaseController.ts`
+**Package:** `@xbg/backend-core`
 
 Controllers handle HTTP: extract request data, delegate to service, format response. No business logic here.
 
@@ -18,11 +20,10 @@ Controllers handle HTTP: extract request data, delegate to service, format respo
 
 ```typescript
 import { Request, Response, NextFunction } from 'express';
-import { BaseController, ApiResponse } from '../base/BaseController';
+import { BaseController, ApiResponse, requiredAuth, requireAdmin } from '@xbg/backend-core';
 import { Product } from '../entities/Product';
 import { ProductService } from '../services/ProductService';
-import { requiredAuth, requireAdmin } from '../middleware/auth.middleware';
-import { tokenHandler } from '../utilities/token-handler';
+import { tokenHandler } from '@xbg/utils-token-handler';
 
 export class ProductController extends BaseController<Product> {
   constructor(private productService: ProductService) {
@@ -189,14 +190,14 @@ this.sendError(res, { code: 'NOT_FOUND', message: 'Product not found', details: 
 
 ## Registering Controllers
 
-**File:** `functions/src/index.ts`
+**File:** `functions/src/index.ts` (in your generated project)
 
 This is the Firebase Functions entry point. Add your controllers here.
 
 ```typescript
 import * as functions from 'firebase-functions';
-import { createApp } from './app';
-import { logger } from './utilities/logger';
+import { createApp, getFirestoreDb } from '@xbg/backend-core';
+import { logger } from '@xbg/utils-logger';
 
 // 1. Import your generated/custom controllers
 import { ProductController } from './generated/controllers/ProductController';
@@ -207,9 +208,6 @@ import { ProductRepository } from './generated/repositories/ProductRepository';
 import { ProductService } from './generated/services/ProductService';
 import { OrderRepository } from './orders/OrderRepository';
 import { OrderService } from './orders/OrderService';
-
-// 3. Import database
-import { getFirestoreDb } from './config/database.config';
 
 function initializeControllers(): Array<{ getRouter: () => any; getBasePath: () => string }> {
   const db = getFirestoreDb('main');
@@ -242,7 +240,7 @@ The `api` export becomes your Cloud Function. All routes are mounted under `API_
 
 ## Express App & Middleware Pipeline
 
-**File:** `functions/src/app.ts`
+**Package:** `@xbg/backend-core` (`createApp`)
 
 ### Middleware Stack (Order is Critical)
 
@@ -296,13 +294,12 @@ Use `/health/ready` for Kubernetes liveness/readiness probes and Firebase health
 
 ## Validation Middleware
 
-**File:** `functions/src/middleware/validation.middleware.ts`
+**Package:** `@xbg/backend-core` (middleware exports)
 
 Add request body validation using `express-validator` in your routes:
 
 ```typescript
 import { body, validationResult } from 'express-validator';
-import { ValidationError } from '../types/errors';
 
 // Define validation rules
 const createProductValidation = [
