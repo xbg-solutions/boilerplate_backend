@@ -6,11 +6,13 @@ description: "Services layer for the XBG boilerplate backend: implementing BaseS
 
 Covers: `BaseService`, lifecycle hooks, access control, events (`eventBus`, `EventType`), and auth middleware patterns.
 
+All base classes are imported from `@xbg/backend-core`. Events from `@xbg/utils-events`.
+
 ---
 
 ## BaseService — Business Logic Layer
 
-**File:** `functions/src/base/BaseService.ts`
+**Package:** `@xbg/backend-core`
 
 Services sit between controllers and repositories. They own:
 - Business validation (beyond field-level validation)
@@ -22,10 +24,10 @@ Services sit between controllers and repositories. They own:
 ### Implementing a Service
 
 ```typescript
-import { BaseService, RequestContext, ServiceResult } from '../base/BaseService';
+import { BaseService, RequestContext, ServiceResult } from '@xbg/backend-core';
 import { Product } from '../entities/Product';
 import { ProductRepository } from '../repositories/ProductRepository';
-import { eventBus, EventType } from '../utilities/events';
+import { eventBus, EventType } from '@xbg/utils-events';
 
 export class ProductService extends BaseService<Product> {
   protected entityName = 'Product';
@@ -139,7 +141,7 @@ export class ProductService extends BaseService<Product> {
     // Cleanup: remove product from search index, etc.
   }
 
-  // ... buildEntity, mergeEntity, fromFirestore
+  // ... buildEntity, mergeEntity
 }
 ```
 
@@ -214,7 +216,7 @@ interface RequestContext {
 
 ## Event Bus
 
-**Files:** `functions/src/utilities/events/event-bus.ts`, `event-types.ts`
+**Package:** `@xbg/utils-events`
 
 The event bus is a singleton Node.js `EventEmitter`. Services publish events; subscribers react to them.
 
@@ -223,7 +225,7 @@ The event bus is a singleton Node.js `EventEmitter`. Services publish events; su
 `BaseService.publishEvent()` handles this automatically on create/update/delete. For custom events:
 
 ```typescript
-import { eventBus, EventType } from '../utilities/events';
+import { eventBus, EventType } from '@xbg/utils-events';
 
 // In your service method:
 eventBus.publish(EventType.USER_CREATED, {
@@ -234,7 +236,7 @@ eventBus.publish(EventType.USER_CREATED, {
 
 ### Adding Event Types
 
-Add new events to `functions/src/utilities/events/event-types.ts`:
+Add new events to `@xbg/utils-events` event types (or extend locally in your project):
 
 ```typescript
 // In EventType enum:
@@ -258,11 +260,11 @@ export interface EventPayloadMap {
 
 ### Subscribing to Events
 
-Register subscribers in `functions/src/subscribers/` or at app startup:
+Register subscribers in your project's `src/subscribers/` directory or at app startup:
 
 ```typescript
-import { eventBus, EventType, ProductPriceChangedPayload } from '../utilities/events';
-import { emailConnector } from '../utilities/email-connector';
+import { eventBus, EventType, ProductPriceChangedPayload } from '@xbg/utils-events';
+import { emailConnector } from '@xbg/utils-email-connector';
 
 // Register in subscribers/product-subscribers.ts
 export function registerProductSubscribers(): void {
@@ -289,7 +291,7 @@ registerProductSubscribers();
 
 ## Authentication Patterns
 
-**File:** `functions/src/middleware/auth.middleware.ts`
+**Package:** `@xbg/backend-core` (middleware exports)
 
 All middleware functions accept a typed `ITokenHandler` — they call `verifyAndUnpack()` (which includes blacklist checking).
 
@@ -304,13 +306,13 @@ import {
   requireAdmin,
   requireOwnership,
   requireApiKey,
-} from '../middleware/auth.middleware';
+} from '@xbg/backend-core';
 ```
 
 ### Using in Routes (in Controller)
 
 ```typescript
-import { tokenHandler } from '../config/tokens.config';
+import { tokenHandler } from '@xbg/utils-token-handler';
 
 export class ProductController extends BaseController<Product> {
   protected registerRoutes(): void {
@@ -396,7 +398,7 @@ export class OrderService extends BaseService<Order> {
 
   constructor(
     private orderRepo: OrderRepository,
-    private productService: ProductService,   // inject other services
+    private productService: ProductService,
     private emailConnector: EmailConnector,
   ) {
     super(orderRepo);

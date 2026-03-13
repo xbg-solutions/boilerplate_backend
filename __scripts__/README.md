@@ -6,15 +6,17 @@
 
 The scripts directory contains Node.js scripts that automate common development tasks: project setup, code generation from data models, and deployment to Firebase Functions.
 
+In a generated project (created via `npx @xbg/create-backend init`), these scripts are scaffolded into your project's `__scripts__/` directory and wired up in `functions/package.json`.
+
 ## Available Scripts
 
 ### setup.js
 
-Interactive setup wizard for initializing a new project.
+Interactive setup wizard for initializing a new project's configuration.
 
 **Purpose:**
 - Configure project settings
-- Generate environment files
+- Generate environment files (`.env`)
 - Set up Firebase configuration
 - Enable/disable features
 - Create initial project structure
@@ -50,7 +52,7 @@ guidance on directory structure (`.claude/skills/` at root, frontend in
 Code generation script that creates entities, repositories, services, and controllers from data model specifications.
 
 **Purpose:**
-- Parse data model specifications
+- Parse `DataModelSpecification` files (imported from `@xbg/backend-core`)
 - Generate TypeScript code from templates
 - Create CRUD operations automatically
 - Generate validation logic
@@ -58,7 +60,7 @@ Code generation script that creates entities, repositories, services, and contro
 
 **Usage:**
 ```bash
-npm run generate examples/user.model.ts
+npm run generate __examples__/user.model.ts
 ```
 
 **Input:** Data model specification file (TypeScript)
@@ -69,41 +71,14 @@ npm run generate examples/user.model.ts
 - `services/[EntityName]Service.ts` - Business logic
 - `controllers/[EntityName]Controller.ts` - HTTP endpoints
 
-**Example Model:**
-```typescript
-export const UserModel = {
-  entities: {
-    User: {
-      fields: {
-        email: { type: 'email', unique: true, required: true },
-        name: { type: 'string', required: true },
-        role: { type: 'enum', values: ['admin', 'user'] },
-      },
-      relationships: {
-        posts: { type: 'one-to-many', entity: 'Post' },
-      },
-      access: {
-        create: ['public'],
-        read: ['self', 'admin'],
-        update: ['self', 'admin'],
-        delete: ['admin'],
-      },
-    },
-  },
-};
-```
+Generated code imports from `@xbg/*` packages:
 
-**Gaps:**
-- [ ] Support for JavaScript model files (not just TypeScript)
-- [ ] Incremental generation (update existing code)
-- [ ] Custom template directory configuration
-- [ ] Dry-run mode (preview changes)
-- [ ] Validation of model specification
-- [ ] Relationship validation
-- [ ] Migration generation for schema changes
-- [ ] Rollback capability
-- [ ] Integration test generation
-- [ ] API documentation generation
+```typescript
+import { BaseEntity, ValidationHelper, ValidationResult } from '@xbg/backend-core';
+import { BaseRepository } from '@xbg/backend-core';
+import { BaseService, RequestContext, ServiceResult } from '@xbg/backend-core';
+import { BaseController } from '@xbg/backend-core';
+```
 
 ---
 
@@ -117,7 +92,6 @@ Deployment automation script for Firebase Functions.
 - Build TypeScript code
 - Deploy to Firebase Functions
 - Environment-specific deployment
-- Rollback support
 
 **Usage:**
 ```bash
@@ -143,18 +117,25 @@ npm run deploy -- --force  # Skip tests
 6. Tag release (if production)
 ```
 
-**Gaps:**
-- [ ] Blue-green deployment support
-- [ ] Canary deployment support
-- [ ] Automatic rollback on errors
-- [ ] Deployment notifications (Slack, email)
-- [ ] Performance benchmarking post-deploy
-- [ ] Smoke tests after deployment
-- [ ] Database migration execution
-- [ ] Secret rotation during deployment
-- [ ] Multi-region deployment
-- [ ] Traffic splitting configuration
-- [ ] Deployment approval workflow
+---
+
+### validate.js
+
+Pre-deployment validation script.
+
+**Usage:**
+```bash
+npm run validate        # Full: build + lint + tests
+npm run validate:quick  # Quick: build + lint only
+```
+
+**Checks:**
+- Node.js version (22+)
+- Firebase CLI installed
+- TypeScript compiles cleanly
+- All tests pass
+- `.env` has required variables
+- No placeholder values left in config
 
 ---
 
@@ -184,91 +165,6 @@ node __scripts__/setup.js
 node __scripts__/validate.js
 ```
 
-## Script Development
-
-### Adding New Scripts
-
-1. Create new script in `scripts/` directory
-2. Add shebang: `#!/usr/bin/env node`
-3. Make executable: `chmod +x scripts/your-script.js`
-4. Add to `package.json` scripts
-5. Document in this README
-
-### Common Utilities
-
-Scripts share common utilities:
-
-```javascript
-// Colors for console output
-const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  green: '\x1b[32m',
-  blue: '\x1b[34m',
-  yellow: '\x1b[33m',
-  red: '\x1b[31m',
-};
-
-// Interactive prompts
-const readline = require('readline');
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-function question(prompt) {
-  return new Promise((resolve) => {
-    rl.question(prompt, resolve);
-  });
-}
-
-// File system operations
-const fs = require('fs');
-const path = require('path');
-
-// Execute shell commands
-const { execSync } = require('child_process');
-execSync('npm run build', { stdio: 'inherit' });
-```
-
-## Known Gaps & Future Enhancements
-
-### Missing Scripts
-- [ ] **migrate.js** - Database migration execution
-- [ ] **seed.js** - Database seeding with test data
-- [ ] **backup.js** - Database backup automation
-- [ ] **restore.js** - Database restore from backup
-- [ ] **test.js** - Enhanced test runner with reporting
-- [ ] **lint-fix.js** - Auto-fix linting issues
-- [ ] **clean.js** - Clean build artifacts and cache
-- [ ] **docs.js** - Generate API documentation
-- [ ] **analyze.js** - Bundle size analysis
-- [ ] **security-audit.js** - Security vulnerability scanning
-- [ ] **performance-test.js** - Load testing automation
-- [ ] **rollback.js** - Rollback deployment
-
-### Script Improvements
-- [ ] Better error handling and recovery
-- [ ] Progress bars for long operations
-- [ ] Colored diff output
-- [ ] Confirmation prompts for destructive operations
-- [ ] Verbose/debug mode flags
-- [ ] JSON output mode for CI/CD
-- [ ] Script composition (call one script from another)
-- [ ] Configuration file support (.scriptrc)
-
-### Testing Gaps
-- [ ] Unit tests for script functions
-- [ ] Integration tests for full workflows
-- [ ] Mock file system for testing
-- [ ] CI/CD integration tests
-
-### Documentation Gaps
-- [ ] Video tutorials for each script
-- [ ] Troubleshooting guide
-- [ ] Common error messages and solutions
-- [ ] Best practices guide
-
 ## Best Practices
 
 1. **Run setup first**: Always run `npm run setup` for new projects
@@ -278,63 +174,10 @@ execSync('npm run build', { stdio: 'inherit' });
 5. **Environment variables**: Never commit `.env` files
 6. **Backup before migration**: Always backup data before migrations
 
-## Troubleshooting
-
-### Setup Script Issues
-
-**Problem:** Firebase project not found
-```bash
-Solution: Verify Firebase project ID with `firebase projects:list`
-```
-
-**Problem:** Permission denied
-```bash
-Solution: Make script executable with `chmod +x scripts/setup.js`
-```
-
-### Generate Script Issues
-
-**Problem:** Model file not found
-```bash
-Solution: Use absolute or relative path to model file
-```
-
-**Problem:** TypeScript compilation error
-```bash
-Solution: Run `npm run build` manually to see detailed errors
-```
-
-### Deploy Script Issues
-
-**Problem:** Tests failing
-```bash
-Solution: Fix tests or use `--force` flag to skip (not recommended)
-```
-
-**Problem:** Firebase authentication error
-```bash
-Solution: Run `firebase login` to authenticate
-```
-
 ## Related Components
 
-- **functions/src/generator/**: Code generation engine
-- **functions/src/templates/**: Handlebars templates for code generation
-- **examples/**: Example data model files
+- **@xbg/backend-core**: Code generator engine and Handlebars templates
+- **@xbg/create-backend**: CLI tool for project scaffolding (`init`, `sync`, `add-util`)
+- **__examples__/**: Example data model files
 - **.firebaserc**: Firebase project configuration
 - **firebase.json**: Firebase deployment configuration
-
-## Support
-
-For issues or questions:
-- Check script output for error messages
-- Review logs in `logs/` directory (if available)
-- Verify environment variables are set
-- Check Firebase project permissions
-- Review generated code for issues
-
-## References
-
-- [Firebase CLI Documentation](https://firebase.google.com/docs/cli)
-- [Node.js Child Process](https://nodejs.org/api/child_process.html)
-- [Readline Module](https://nodejs.org/api/readline.html)
