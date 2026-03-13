@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import {
   TextGenerationRequest,
   TextGenerationResponse,
@@ -75,7 +76,7 @@ export abstract class BaseProvider {
    * Generate a unique request ID for tracking
    */
   protected generateRequestId(): string {
-    return `${this.name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `${this.name}_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
   }
 
   /**

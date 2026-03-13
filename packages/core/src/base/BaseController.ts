@@ -258,15 +258,22 @@ export abstract class BaseController<T extends BaseEntity> {
     // Parse where clauses (basic implementation)
     // Expected format: ?where=field:operator:value
     if (req.query.where) {
+      const allowedOperators = ['<', '<=', '==', '!=', '>=', '>', 'array-contains', 'array-contains-any', 'in', 'not-in'];
       const whereStr = Array.isArray(req.query.where) ? req.query.where : [req.query.where];
-      options.where = whereStr.map((clause: any) => {
-        const [field, operator, value] = clause.split(':');
-        return {
-          field,
-          operator: operator as FirebaseFirestore.WhereFilterOp,
-          value: this.parseValue(value),
-        };
-      });
+      options.where = whereStr
+        .map((clause: any) => {
+          const [field, operator, ...valueParts] = clause.split(':');
+          const value = valueParts.join(':');
+          if (!field || !allowedOperators.includes(operator)) {
+            return null;
+          }
+          return {
+            field,
+            operator: operator as FirebaseFirestore.WhereFilterOp,
+            value: this.parseValue(value),
+          };
+        })
+        .filter(Boolean) as any[];
     }
 
     return options;

@@ -142,7 +142,7 @@ function initializeRealtimeUpdates(): void {
     eventBus.subscribe(eventType, async (payload) => {
       try {
         await realtimeConnector.broadcast({
-          id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: `${Date.now()}_${require('crypto').randomBytes(6).toString('hex')}`,
           type: eventType,
           data: payload,
           timestamp: new Date(),

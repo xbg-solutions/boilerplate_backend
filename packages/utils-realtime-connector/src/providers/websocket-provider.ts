@@ -2,6 +2,7 @@
  * WebSocket Provider
  */
 
+import * as crypto from 'crypto';
 import { WebSocket, WebSocketServer } from 'ws';
 import { RealtimeProvider } from '../realtime-connector';
 import { RealtimeMessage, RealtimeClient, BroadcastOptions } from '../types';
@@ -91,6 +92,6 @@ export class WebSocketProvider implements RealtimeProvider {
   }
 
   private generateClientId(): string {
-    return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `client_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
   }
 }

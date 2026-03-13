@@ -67,8 +67,15 @@ export async function addUtility(options: AddUtilOptions): Promise<void> {
     return;
   }
 
-  // Install packages
-  const packages = (selected as string[]).join(' ');
+  // Install packages — validate each name against the registry whitelist
+  const validPackages = (selected as string[]).filter((pkg) =>
+    UTILITY_REGISTRY.some((u) => u.package === pkg)
+  );
+  if (validPackages.length === 0) {
+    console.log(chalk.dim('No valid packages selected.'));
+    return;
+  }
+  const packages = validPackages.join(' ');
   console.log(chalk.cyan(`\nInstalling: ${packages}\n`));
 
   try {

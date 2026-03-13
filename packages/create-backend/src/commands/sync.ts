@@ -52,6 +52,7 @@ export async function syncProject(options: SyncOptions): Promise<void> {
   for (const pkg of installedXbgPackages) {
     const currentVersion = deps[pkg];
     try {
+      if (!/^@xbg\/[a-z0-9-]+$/.test(pkg)) continue;
       const latestVersion = execSync(`npm view ${pkg} version 2>/dev/null`, {
         encoding: 'utf8',
         timeout: 10000,
