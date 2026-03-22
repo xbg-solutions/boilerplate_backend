@@ -95,11 +95,11 @@ All generated code follows this exact pattern. Never put business logic in contr
 
 | Skill | Use when you need to... |
 |---|---|
-| `/xbg_bpbe_setup` | Create a new project, configure .env, understand npm scripts, validate config |
-| `/xbg_bpbe_data` | Define entities, understand BaseEntity, use the generator, work with Firestore schemas |
-| `/xbg_bpbe_services` | Write service methods, handle events, implement auth/access control, lifecycle hooks |
-| `/xbg_bpbe_utils` | Use logger, PII hashing, cache, token handler, or any communication connector |
-| `/xbg_bpbe_api` | Add routes, register controllers, use middleware, understand API response shapes |
+| `bpbe/setup/skill.md` | Create a new project, configure .env, understand npm scripts, validate config |
+| `bpbe/data/skill.md` | Define entities, understand BaseEntity, use the generator, work with Firestore schemas |
+| `bpbe/services/skill.md` | Write service methods, handle events, implement auth/access control, lifecycle hooks |
+| `bpbe/utils/skill.md` | Use logger, PII hashing, cache, token handler, or any communication connector |
+| `bpbe/api/skill.md` | Add routes, register controllers, use middleware, understand API response shapes |
 
 ---
 
