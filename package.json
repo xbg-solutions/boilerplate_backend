@@ -4,12 +4,13 @@
   "private": true,
   "description": "XBG Backend Boilerplate - Monorepo",
   "workspaces": [
-    "packages/core",
     "packages/utils-*",
-    "packages/create-backend"
+    "packages/create-backend",
+    "packages/core"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build:utils && npm run build:core && npm run build:cli",
+    "build:utils": "npm run build -w packages/utils-errors -w packages/utils-events -w packages/utils-hashing -w packages/utils-logger -w packages/utils-timezone -w packages/utils-validation && npm run build --workspace=packages/utils-cache-connector --workspace=packages/utils-crm-connector --workspace=packages/utils-document-connector --workspace=packages/utils-email-connector --workspace=packages/utils-erp-connector --workspace=packages/utils-firestore-connector --workspace=packages/utils-journey-connector --workspace=packages/utils-llm-connector --workspace=packages/utils-push-notifications-connector --workspace=packages/utils-realtime-connector --workspace=packages/utils-sms-connector --workspace=packages/utils-survey-connector --workspace=packages/utils-token-handler --workspace=packages/utils-work-mgmt-connector --workspace=packages/utils-address-validation && npm run build -w packages/utils-firebase-event-bridge",
     "build:core": "npm run build -w packages/core",
     "build:cli": "npm run build -w packages/create-backend",
     "test": "npm test --workspaces --if-present",
