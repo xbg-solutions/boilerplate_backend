@@ -137,10 +137,10 @@ export abstract class BaseEntity {
 
 export interface ValidationResult {
   valid: boolean;
-  errors: ValidationError[];
+  errors: FieldValidationError[];
 }
 
-export interface ValidationError {
+export interface FieldValidationError {
   field: string;
   message: string;
   code: string;
@@ -150,25 +150,25 @@ export interface ValidationError {
  * Validation helper functions
  */
 export class ValidationHelper {
-  static createError(field: string, message: string, code: string): ValidationError {
+  static createError(field: string, message: string, code: string): FieldValidationError {
     return { field, message, code };
   }
 
-  static isValidResult(errors: ValidationError[]): ValidationResult {
+  static isValidResult(errors: FieldValidationError[]): ValidationResult {
     return {
       valid: errors.length === 0,
       errors,
     };
   }
 
-  static required(value: any, field: string): ValidationError | null {
+  static required(value: any, field: string): FieldValidationError | null {
     if (value === undefined || value === null || value === '') {
       return this.createError(field, `${field} is required`, 'REQUIRED');
     }
     return null;
   }
 
-  static minLength(value: string, minLen: number, field: string): ValidationError | null {
+  static minLength(value: string, minLen: number, field: string): FieldValidationError | null {
     if (value && value.length < minLen) {
       return this.createError(
         field,
@@ -179,7 +179,7 @@ export class ValidationHelper {
     return null;
   }
 
-  static maxLength(value: string, maxLen: number, field: string): ValidationError | null {
+  static maxLength(value: string, maxLen: number, field: string): FieldValidationError | null {
     if (value && value.length > maxLen) {
       return this.createError(
         field,
@@ -190,7 +190,7 @@ export class ValidationHelper {
     return null;
   }
 
-  static email(value: string, field: string): ValidationError | null {
+  static email(value: string, field: string): FieldValidationError | null {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (value && !emailRegex.test(value)) {
       return this.createError(field, `${field} must be a valid email`, 'INVALID_EMAIL');
@@ -198,7 +198,7 @@ export class ValidationHelper {
     return null;
   }
 
-  static pattern(value: string, pattern: RegExp, field: string, message?: string): ValidationError | null {
+  static pattern(value: string, pattern: RegExp, field: string, message?: string): FieldValidationError | null {
     if (value && !pattern.test(value)) {
       return this.createError(
         field,
@@ -209,7 +209,7 @@ export class ValidationHelper {
     return null;
   }
 
-  static range(value: number, min: number, max: number, field: string): ValidationError | null {
+  static range(value: number, min: number, max: number, field: string): FieldValidationError | null {
     if (value !== undefined && (value < min || value > max)) {
       return this.createError(
         field,
@@ -220,7 +220,7 @@ export class ValidationHelper {
     return null;
   }
 
-  static oneOf(value: any, allowedValues: any[], field: string): ValidationError | null {
+  static oneOf(value: any, allowedValues: any[], field: string): FieldValidationError | null {
     if (value !== undefined && !allowedValues.includes(value)) {
       return this.createError(
         field,
@@ -231,7 +231,7 @@ export class ValidationHelper {
     return null;
   }
 
-  static collectErrors(...errors: (ValidationError | null)[]): ValidationError[] {
-    return errors.filter((e): e is ValidationError => e !== null);
+  static collectErrors(...errors: (FieldValidationError | null)[]): FieldValidationError[] {
+    return errors.filter((e): e is FieldValidationError => e !== null);
   }
 }

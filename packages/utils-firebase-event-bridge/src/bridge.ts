@@ -1,6 +1,7 @@
 // src/utilities/firebase-event-bridge/bridge.ts
 
 import { Logger } from '@xbg/utils-logger';
+import { EventType } from '@xbg/utils-events';
 import { FirebaseEventBridgeConfig } from './config-types';
 import { TriggerFactory } from './trigger-factory';
 import { NormalizedFirebaseEvent } from './normalizer';
@@ -128,13 +129,13 @@ export class FirebaseEventBridge {
       });
 
       // Publish domain event to internal event bus
-      this.config.eventBus.publish(domainEvent, domainPayload);
+      this.config.eventBus.publish(domainEvent as EventType, domainPayload);
 
       // ✅ Safe logging - only metadata
       this.logger.debug('Domain event published to bus', {
         domainEvent,
         firebaseEventName: event.eventName,
-        listenerCount: this.config.eventBus.listenerCount(domainEvent)
+        listenerCount: this.config.eventBus.listenerCount(domainEvent as EventType)
       });
     } catch (error) {
       // Swallow error and emit error event

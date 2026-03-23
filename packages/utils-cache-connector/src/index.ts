@@ -57,7 +57,7 @@ export function getCacheConnector(): CacheConnector {
       defaultProvider: 'noop' as any,
       defaultTTL: 300,
       namespace: 'app',
-      providers: {},
+      providers: {} as any,
     });
   }
   return cacheConnectorInstance;

@@ -21,10 +21,10 @@ export interface RequestContext {
 export interface ServiceResult<T> {
   success: boolean;
   data?: T;
-  error?: ServiceError;
+  error?: ServiceErrorDetail;
 }
 
-export interface ServiceError {
+export interface ServiceErrorDetail {
   code: string;
   message: string;
   details?: Record<string, any>;
@@ -425,7 +425,7 @@ export abstract class BaseService<T extends BaseEntity> {
   /**
    * Handle errors and convert to ServiceError
    */
-  protected handleError(error: unknown): ServiceError {
+  protected handleError(error: unknown): ServiceErrorDetail {
     if (error instanceof Error) {
       return {
         code: 'INTERNAL_ERROR',
