@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/boilerplate-backend",
+  "name": "@xbg.solutions/boilerplate-backend",
   "version": "1.0.0",
   "private": true,
   "description": "XBG Backend Boilerplate - Monorepo",
