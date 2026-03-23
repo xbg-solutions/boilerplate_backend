@@ -3,7 +3,7 @@
  * Clean implementation without legacy compatibility
  */
 import { Firestore } from 'firebase-admin/firestore';
-import { LogContext } from '@xbg/utils-logger';
+import { LogContext } from '@xbg.solutions/utils-logger';
 
 /**
  * Generic database configuration for any project

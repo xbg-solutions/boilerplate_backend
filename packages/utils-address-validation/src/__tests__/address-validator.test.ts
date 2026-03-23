@@ -9,8 +9,8 @@
  */
 
 import { addressValidator, AddressComponents } from '../address-validator';
-import { Logger } from '@xbg/utils-logger';
-import { ValidationError } from '@xbg/utils-errors';
+import { Logger } from '@xbg.solutions/utils-logger';
+import { ValidationError } from '@xbg.solutions/utils-errors';
 import { Status } from '@googlemaps/google-maps-services-js';
 
 // Mock dependencies

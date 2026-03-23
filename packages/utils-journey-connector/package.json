@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-journey-connector",
+  "name": "@xbg.solutions/utils-journey-connector",
   "version": "1.0.0",
   "description": "Customer journey integration with Ortto",
   "main": "lib/index.js",
@@ -14,7 +14,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@xbg/utils-logger": "^1.0.0",
+    "@xbg.solutions/utils-logger": "^1.0.0",
     "axios": "^1.6.2"
   },
   "devDependencies": {

@@ -12,7 +12,7 @@ import {
   EmailTemplate,
   CreateTemplateRequest,
 } from './types';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 export interface EmailProvider {
   sendTransactional(request: TransactionalEmailRequest): Promise<EmailResult>;

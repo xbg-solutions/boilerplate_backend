@@ -5,9 +5,9 @@
 
 import * as crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 import { AuthError } from '../types/errors';
-import type { ITokenHandler } from '@xbg/utils-token-handler';
+import type { ITokenHandler } from '@xbg.solutions/utils-token-handler';
 
 export interface AuthenticatedRequest extends Request {
   user?: {

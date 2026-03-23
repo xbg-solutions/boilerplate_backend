@@ -14,7 +14,7 @@
 
 import rateLimit from 'express-rate-limit';
 import { MIDDLEWARE_CONFIG } from '../config/middleware.config';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 /**
  * Create standard rate limiter

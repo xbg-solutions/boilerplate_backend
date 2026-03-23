@@ -16,7 +16,7 @@ import {
   extractCollectionName,
   NormalizedFirebaseEvent,
 } from '../normalizer';
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 
 // Mock logger
 jest.mock('../../logger', () => ({

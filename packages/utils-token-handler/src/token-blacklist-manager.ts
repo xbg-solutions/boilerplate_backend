@@ -3,7 +3,7 @@
  * Generic token blacklist implementation with configurable database backend
  */
 
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import {
   TokenBlacklistEntry,
   ITokenDatabase,

@@ -10,7 +10,7 @@
  */
 
 import { TokenBlacklistManager, createTokenBlacklistManager } from '../token-blacklist-manager';
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import { ITokenDatabase, BlacklistConfig } from '../token-types';
 
 describe('Token Blacklist Manager', () => {

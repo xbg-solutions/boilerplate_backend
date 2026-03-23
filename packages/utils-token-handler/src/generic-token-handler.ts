@@ -3,7 +3,7 @@
  * Platform-agnostic token handling with configurable auth providers
  */
 
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import {
   ITokenHandler,
   ITokenAdapter,

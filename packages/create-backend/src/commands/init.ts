@@ -96,7 +96,7 @@ export async function initProject(options: InitOptions): Promise<void> {
       ...categoryUtils.map((u) => ({
         name: `${u.name} - ${chalk.dim(u.description)}`,
         value: u.package,
-        checked: ['@xbg/utils-cache-connector', '@xbg/utils-token-handler', '@xbg/utils-validation'].includes(u.package),
+        checked: ['@xbg.solutions/utils-cache-connector', '@xbg.solutions/utils-token-handler', '@xbg.solutions/utils-validation'].includes(u.package),
       })),
     ];
   });
@@ -168,7 +168,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   // Generate package.json for functions/
   const requiredUtils = getRequiredUtilities();
   const allPackages = [
-    '@xbg/backend-core',
+    '@xbg.solutions/backend-core',
     ...requiredUtils.map((u) => u.package),
     ...(selectedUtils as string[]),
   ];
@@ -362,7 +362,7 @@ ${chalk.bold('Next steps:')}
   6. Run ${chalk.cyan('npm start')} for local development
 
 ${chalk.bold('Update propagation:')}
-  Run ${chalk.cyan('npx @xbg/create-backend sync')} to check for and apply updates
+  Run ${chalk.cyan('npx @xbg.solutions/create-backend sync')} to check for and apply updates
   Run ${chalk.cyan('npm update')} in functions/ to update @xbg packages
 `);
 }

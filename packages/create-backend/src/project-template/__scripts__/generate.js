@@ -4,7 +4,7 @@
  * Code Generation Script
  * Generates entities, repositories, services, and controllers from data model specifications
  *
- * Uses the code generator from @xbg/backend-core
+ * Uses the code generator from @xbg.solutions/backend-core
  */
 
 const path = require('path');
@@ -28,12 +28,12 @@ ${colors.bright}${colors.blue}╔═══════════════�
 ╚════════════════════════════════════════════════════════════╝${colors.reset}
 `);
 
-// Import generator from @xbg/backend-core package
+// Import generator from @xbg.solutions/backend-core package
 let createGenerator;
 try {
-  ({ createGenerator } = require('@xbg/backend-core'));
+  ({ createGenerator } = require('@xbg.solutions/backend-core'));
 } catch (error) {
-  console.error(`${colors.red}❌ @xbg/backend-core not installed. Run 'npm install' first.${colors.reset}`);
+  console.error(`${colors.red}❌ @xbg.solutions/backend-core not installed. Run 'npm install' first.${colors.reset}`);
   process.exit(1);
 }
 
@@ -80,7 +80,7 @@ try {
   });
   console.log('');
 
-  // Create generator - templates come from @xbg/backend-core package
+  // Create generator - templates come from @xbg.solutions/backend-core package
   const outputDir = path.join(__dirname, '../functions/src/generated');
   const generator = createGenerator(outputDir);
 

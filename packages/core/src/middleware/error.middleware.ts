@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 import { APP_CONFIG } from '../config/app.config';
 
 /**

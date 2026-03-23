@@ -1,5 +1,5 @@
 /**
- * @xbg/backend-core
+ * @xbg.solutions/backend-core
  * Core framework for XBG backend projects
  *
  * Exports base classes, middleware, configuration, types, and code generator

@@ -1,7 +1,7 @@
 // src/utilities/firebase-event-bridge/adapters/storage-adapter.ts
 
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import { StorageConfig } from '../config-types';
 import { normalizeStorageEvent, NormalizedFirebaseEvent } from '../normalizer';
 

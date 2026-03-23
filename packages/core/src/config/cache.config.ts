@@ -20,7 +20,7 @@ import {
   MemoryCacheProviderConfig,
   FirestoreCacheProviderConfig,
   RedisCacheProviderConfig,
-} from '@xbg/utils-cache-connector';
+} from '@xbg.solutions/utils-cache-connector';
 
 /**
  * Global cache configuration

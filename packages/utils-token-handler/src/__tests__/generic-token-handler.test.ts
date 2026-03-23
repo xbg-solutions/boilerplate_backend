@@ -10,7 +10,7 @@
  */
 
 import { TokenHandler, createTokenHandler } from '../generic-token-handler';
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import {
   ITokenAdapter,
   ITokenDatabase,

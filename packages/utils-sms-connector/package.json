@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-sms-connector",
+  "name": "@xbg.solutions/utils-sms-connector",
   "version": "1.0.0",
   "description": "SMS sending with Twilio and MessageBird providers",
   "main": "lib/index.js",
@@ -14,7 +14,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@xbg/utils-logger": "^1.0.0",
+    "@xbg.solutions/utils-logger": "^1.0.0",
     "messagebird": "^4.0.0",
     "twilio": "^4.19.0"
   },

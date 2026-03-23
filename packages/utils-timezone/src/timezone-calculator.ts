@@ -327,7 +327,7 @@ export function getCountryInfo(countryCode: string) {
  * 
  * @example
  * ```typescript
- * import { logger } from '@xbg/utils-logger';
+ * import { logger } from '@xbg.solutions/utils-logger';
  * 
  * const result = calculateTimezoneWithLogger('Sydney', 'AU', logger);
  * // Logs to your application logger

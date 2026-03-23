@@ -33,7 +33,7 @@ import { NoOpCacheProvider } from './providers/noop-cache-provider';
 import { MemoryCacheProvider } from './providers/memory-cache-provider';
 import { FirestoreCacheProvider } from './providers/firestore-cache-provider';
 import { RedisCacheProvider } from './providers/redis-cache-provider';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 export class CacheConnector {
   private providers: Map<CacheProviderType, ICacheProvider>;

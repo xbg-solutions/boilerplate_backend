@@ -1,6 +1,6 @@
 // src/utilities/firebase-event-bridge/config-types.ts
 
-import { eventBus } from '@xbg/utils-events';
+import { eventBus } from '@xbg.solutions/utils-events';
 
 /**
  * DatabaseName is defined locally since this is a standalone package.

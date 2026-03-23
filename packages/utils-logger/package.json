@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-logger",
+  "name": "@xbg.solutions/utils-logger",
   "version": "1.0.0",
   "description": "Structured logging with PII sanitization and GCP Cloud Logging",
   "main": "lib/index.js",

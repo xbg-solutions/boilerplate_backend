@@ -12,7 +12,7 @@ import {
   Journey,
   JourneyResponse,
 } from './types';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 /**
  * Journey Provider Interface

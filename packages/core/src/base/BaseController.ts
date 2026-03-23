@@ -7,7 +7,7 @@
 import { Request, Response, NextFunction, Router } from 'express';
 import { BaseService, RequestContext } from './BaseService';
 import { BaseEntity } from './BaseEntity';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 import { QueryOptions } from './BaseRepository';
 
 export interface ApiResponse<T = any> {

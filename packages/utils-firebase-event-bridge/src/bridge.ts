@@ -1,7 +1,7 @@
 // src/utilities/firebase-event-bridge/bridge.ts
 
-import { Logger } from '@xbg/utils-logger';
-import { EventType } from '@xbg/utils-events';
+import { Logger } from '@xbg.solutions/utils-logger';
+import { EventType } from '@xbg.solutions/utils-events';
 import { FirebaseEventBridgeConfig } from './config-types';
 import { TriggerFactory } from './trigger-factory';
 import { NormalizedFirebaseEvent } from './normalizer';

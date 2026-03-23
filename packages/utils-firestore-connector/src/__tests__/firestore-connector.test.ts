@@ -74,7 +74,7 @@ jest.mock('../firebase-types', () => {
 });
 
 import { getFirestore } from 'firebase-admin/firestore';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 import { detectEnvironment } from '../firebase-types';
 
 describe('Firestore Connector', () => {

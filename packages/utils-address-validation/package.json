@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-address-validation",
+  "name": "@xbg.solutions/utils-address-validation",
   "version": "1.0.0",
   "description": "Google Maps address validation",
   "main": "lib/index.js",
@@ -15,8 +15,8 @@
   },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.3.42",
-    "@xbg/utils-errors": "^1.0.0",
-    "@xbg/utils-logger": "^1.0.0"
+    "@xbg.solutions/utils-errors": "^1.0.0",
+    "@xbg.solutions/utils-logger": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

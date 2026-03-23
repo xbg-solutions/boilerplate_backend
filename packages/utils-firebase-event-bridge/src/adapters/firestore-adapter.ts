@@ -1,7 +1,7 @@
 // src/utilities/firebase-event-bridge/adapters/firestore-adapter.ts
 
 import { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import { DatabaseName, FirestoreCollectionConfig, FirestoreOperation } from '../config-types';
 import { normalizeFirestoreEvent, extractCollectionName, NormalizedFirebaseEvent } from '../normalizer';
 

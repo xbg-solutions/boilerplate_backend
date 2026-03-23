@@ -181,7 +181,7 @@ function generateValidationRules(fieldName: string, field: FieldDefinition): str
  */
 function generateImports(fields: FieldContext[], relationships: RelationshipContext[]): string[] {
   const imports: string[] = [
-    "import { BaseEntity, ValidationResult, ValidationHelper } from '@xbg/backend-core';",
+    "import { BaseEntity, ValidationResult, ValidationHelper } from '@xbg.solutions/backend-core';",
     "import { Timestamp, FieldValue } from 'firebase-admin/firestore';",
   ];
 

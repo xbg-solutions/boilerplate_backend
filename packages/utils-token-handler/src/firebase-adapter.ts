@@ -5,7 +5,7 @@
 
 import * as admin from 'firebase-admin';
 import * as crypto from 'crypto';
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import {
   ITokenAdapter,
   NormalizedToken,

@@ -14,7 +14,7 @@ import {
   CustomField,
   CreateCustomFieldRequest,
 } from './types';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 export interface CRMProvider {
   createContact(contact: CRMContact): Promise<CRMResult<CRMContact>>;

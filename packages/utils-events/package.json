@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-events",
+  "name": "@xbg.solutions/utils-events",
   "version": "1.0.0",
   "description": "Event bus for domain events",
   "main": "lib/index.js",
