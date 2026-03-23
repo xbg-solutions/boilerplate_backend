@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-email-connector",
+  "name": "@xbg.solutions/utils-email-connector",
   "version": "1.0.0",
   "description": "Email sending with Mailjet and Ortto providers",
   "main": "lib/index.js",

@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-cache-connector",
+  "name": "@xbg.solutions/utils-cache-connector",
   "version": "1.0.0",
   "description": "Multi-provider caching (memory, Firestore, Redis)",
   "main": "lib/index.js",

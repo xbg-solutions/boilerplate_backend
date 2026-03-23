@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-errors",
+  "name": "@xbg.solutions/utils-errors",
   "version": "1.0.0",
   "description": "Custom error classes for the XBG backend",
   "main": "lib/index.js",

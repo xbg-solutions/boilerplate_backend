@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-crm-connector",
+  "name": "@xbg.solutions/utils-crm-connector",
   "version": "1.0.0",
   "description": "CRM integration with HubSpot and Salesforce",
   "main": "lib/index.js",

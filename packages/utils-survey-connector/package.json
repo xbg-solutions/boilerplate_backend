@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-survey-connector",
+  "name": "@xbg.solutions/utils-survey-connector",
   "version": "1.0.0",
   "description": "Survey integration",
   "main": "lib/index.js",

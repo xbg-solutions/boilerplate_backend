@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-realtime-connector",
+  "name": "@xbg.solutions/utils-realtime-connector",
   "version": "1.0.0",
   "description": "SSE and WebSocket providers",
   "main": "lib/index.js",

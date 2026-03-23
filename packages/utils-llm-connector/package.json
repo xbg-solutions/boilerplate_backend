@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-llm-connector",
+  "name": "@xbg.solutions/utils-llm-connector",
   "version": "1.0.0",
   "description": "LLM integration with OpenAI, Claude, and Gemini",
   "main": "lib/index.js",

@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/backend-core",
+  "name": "@xbg.solutions/backend-core",
   "version": "1.0.0",
   "description": "XBG Backend Core - Base classes, middleware, config, and code generator",
   "main": "lib/index.js",

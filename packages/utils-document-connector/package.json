@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-document-connector",
+  "name": "@xbg.solutions/utils-document-connector",
   "version": "1.0.0",
   "description": "Document processing",
   "main": "lib/index.js",

@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-push-notifications-connector",
+  "name": "@xbg.solutions/utils-push-notifications-connector",
   "version": "1.0.0",
   "description": "Push notifications via FCM",
   "main": "lib/index.js",

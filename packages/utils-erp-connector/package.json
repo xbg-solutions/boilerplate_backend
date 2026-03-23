@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-erp-connector",
+  "name": "@xbg.solutions/utils-erp-connector",
   "version": "1.0.0",
   "description": "ERP integration with Workday",
   "main": "lib/index.js",

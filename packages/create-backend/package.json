@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/create-backend",
+  "name": "@xbg.solutions/create-backend",
   "version": "1.0.0",
   "description": "CLI tool to scaffold and sync XBG backend projects",
   "main": "lib/cli.js",

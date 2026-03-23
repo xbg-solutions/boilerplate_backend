@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-sms-connector",
+  "name": "@xbg.solutions/utils-sms-connector",
   "version": "1.0.0",
   "description": "SMS sending with Twilio and MessageBird providers",
   "main": "lib/index.js",

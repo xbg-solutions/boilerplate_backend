@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-timezone",
+  "name": "@xbg.solutions/utils-timezone",
   "version": "1.0.0",
   "description": "Timezone conversion helper",
   "main": "lib/index.js",

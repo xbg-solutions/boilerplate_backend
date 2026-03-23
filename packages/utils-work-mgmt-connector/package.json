@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-work-mgmt-connector",
+  "name": "@xbg.solutions/utils-work-mgmt-connector",
   "version": "1.0.0",
   "description": "Work management with Notion and Asana",
   "main": "lib/index.js",

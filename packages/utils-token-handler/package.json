@@ -1,5 +1,5 @@
 {
-  "name": "@xbg/utils-token-handler",
+  "name": "@xbg.solutions/utils-token-handler",
   "version": "1.0.0",
   "description": "JWT generation, verification, and blacklist management",
   "main": "lib/index.js",
