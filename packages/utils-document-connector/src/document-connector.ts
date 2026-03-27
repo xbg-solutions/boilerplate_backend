@@ -12,7 +12,7 @@ import {
   DocumentQueryOptions,
   DocumentResponse,
 } from './types';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 /**
  * Document Provider Interface

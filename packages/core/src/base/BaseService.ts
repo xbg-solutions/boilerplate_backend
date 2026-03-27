@@ -6,8 +6,8 @@
 
 import { BaseEntity } from './BaseEntity';
 import { BaseRepository, QueryOptions, PaginationResult } from './BaseRepository';
-import { eventBus, EventType } from '@xbg/utils-events';
-import { logger } from '@xbg/utils-logger';
+import { eventBus, EventType } from '@xbg.solutions/utils-events';
+import { logger } from '@xbg.solutions/utils-logger';
 import { ServiceError as CustomServiceError } from '../types/errors';
 
 export interface RequestContext {

@@ -6,13 +6,13 @@ description: "API layer for the XBG boilerplate backend: implementing controller
 
 Covers: `BaseController`, custom routes, middleware pipeline, response shapes, registering controllers in `index.ts`, and the Express app setup.
 
-All base classes and middleware are imported from `@xbg/backend-core`.
+All base classes and middleware are imported from `@xbg.solutions/backend-core`.
 
 ---
 
 ## BaseController — HTTP Layer
 
-**Package:** `@xbg/backend-core`
+**Package:** `@xbg.solutions/backend-core`
 
 Controllers handle HTTP: extract request data, delegate to service, format response. No business logic here.
 
@@ -20,10 +20,10 @@ Controllers handle HTTP: extract request data, delegate to service, format respo
 
 ```typescript
 import { Request, Response, NextFunction } from 'express';
-import { BaseController, ApiResponse, requiredAuth, requireAdmin } from '@xbg/backend-core';
+import { BaseController, ApiResponse, requiredAuth, requireAdmin } from '@xbg.solutions/backend-core';
 import { Product } from '../entities/Product';
 import { ProductService } from '../services/ProductService';
-import { tokenHandler } from '@xbg/utils-token-handler';
+import { tokenHandler } from '@xbg.solutions/utils-token-handler';
 
 export class ProductController extends BaseController<Product> {
   constructor(private productService: ProductService) {
@@ -196,8 +196,8 @@ This is the Firebase Functions entry point. Add your controllers here.
 
 ```typescript
 import * as functions from 'firebase-functions';
-import { createApp, getFirestoreDb } from '@xbg/backend-core';
-import { logger } from '@xbg/utils-logger';
+import { createApp, getFirestoreDb } from '@xbg.solutions/backend-core';
+import { logger } from '@xbg.solutions/utils-logger';
 
 // 1. Import your generated/custom controllers
 import { ProductController } from './generated/controllers/ProductController';
@@ -240,7 +240,7 @@ The `api` export becomes your Cloud Function. All routes are mounted under `API_
 
 ## Express App & Middleware Pipeline
 
-**Package:** `@xbg/backend-core` (`createApp`)
+**Package:** `@xbg.solutions/backend-core` (`createApp`)
 
 ### Middleware Stack (Order is Critical)
 
@@ -294,7 +294,7 @@ Use `/health/ready` for Kubernetes liveness/readiness probes and Firebase health
 
 ## Validation Middleware
 
-**Package:** `@xbg/backend-core` (middleware exports)
+**Package:** `@xbg.solutions/backend-core` (middleware exports)
 
 Add request body validation using `express-validator` in your routes:
 

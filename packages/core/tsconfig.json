@@ -17,9 +17,9 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@xbg/utils-logger": ["../utils-logger/src"],
-      "@xbg/utils-events": ["../utils-events/src"],
-      "@xbg/utils-cache-connector": ["../utils-cache-connector/src"]
+      "@xbg.solutions/utils-logger": ["../utils-logger/src"],
+      "@xbg.solutions/utils-events": ["../utils-events/src"],
+      "@xbg.solutions/utils-cache-connector": ["../utils-cache-connector/src"]
     }
   },
   "include": ["src/**/*"],

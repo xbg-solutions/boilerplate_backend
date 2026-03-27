@@ -47,7 +47,7 @@ export async function syncProject(options: SyncOptions): Promise<void> {
   const deps = pkgJson.dependencies || {};
 
   // Check installed @xbg packages
-  const installedXbgPackages = Object.keys(deps).filter((d) => d.startsWith('@xbg/'));
+  const installedXbgPackages = Object.keys(deps).filter((d) => d.startsWith('@xbg.solutions/'));
 
   for (const pkg of installedXbgPackages) {
     const currentVersion = deps[pkg];
@@ -81,7 +81,7 @@ export async function syncProject(options: SyncOptions): Promise<void> {
         console.log(chalk.dim(`  ${util.name}: ${util.description} (${pkg})`));
       }
     }
-    console.log(chalk.dim(`\n  Run ${chalk.bold('npx @xbg/create-backend add-util')} to add utilities.`));
+    console.log(chalk.dim(`\n  Run ${chalk.bold('npx @xbg.solutions/create-backend add-util')} to add utilities.`));
   }
 
   // Sync scaffold files (tsconfig, scripts)

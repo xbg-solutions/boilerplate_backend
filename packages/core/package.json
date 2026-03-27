@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/backend-core",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "XBG Backend Core - Base classes, middleware, config, and code generator",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -15,12 +15,12 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@xbg/utils-logger": "^1.0.0",
-    "@xbg/utils-events": "^1.0.0",
-    "@xbg/utils-cache-connector": "^1.0.0",
-    "@xbg/utils-firebase-event-bridge": "^1.0.0",
-    "@xbg/utils-firestore-connector": "^1.0.0",
-    "@xbg/utils-token-handler": "^1.0.0",
+    "@xbg.solutions/utils-logger": "^1.0.0",
+    "@xbg.solutions/utils-events": "^1.0.0",
+    "@xbg.solutions/utils-cache-connector": "^1.0.0",
+    "@xbg.solutions/utils-firebase-event-bridge": "^1.0.0",
+    "@xbg.solutions/utils-firestore-connector": "^1.0.0",
+    "@xbg.solutions/utils-token-handler": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

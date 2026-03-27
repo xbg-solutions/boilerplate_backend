@@ -18,7 +18,7 @@ This repository contains libraries designed to accelerate AI-assisted applicatio
 
 ## Boilerplate Backend — Quick Navigation
 
-A 3-layer (Controller → Service → Repository) backend distributed as `@xbg/*` npm packages. AI generates business logic from declarative data models.
+A 3-layer (Controller → Service → Repository) backend distributed as `@xbg.solutions/*` npm packages. AI generates business logic from declarative data models.
 
 | Topic | Skill | Use when you need to... |
 |---|---|---|

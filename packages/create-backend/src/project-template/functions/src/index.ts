@@ -4,8 +4,8 @@
  */
 
 import * as functions from 'firebase-functions';
-import { createApp } from '@xbg/backend-core';
-import { logger } from '@xbg/utils-logger';
+import { createApp } from '@xbg.solutions/backend-core';
+import { logger } from '@xbg.solutions/utils-logger';
 
 // Import controllers here as they are created
 // import { UserController } from './generated/controllers/UserController';

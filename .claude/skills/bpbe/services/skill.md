@@ -6,13 +6,13 @@ description: "Services layer for the XBG boilerplate backend: implementing BaseS
 
 Covers: `BaseService`, lifecycle hooks, access control, events (`eventBus`, `EventType`), and auth middleware patterns.
 
-All base classes are imported from `@xbg/backend-core`. Events from `@xbg/utils-events`.
+All base classes are imported from `@xbg.solutions/backend-core`. Events from `@xbg.solutions/utils-events`.
 
 ---
 
 ## BaseService — Business Logic Layer
 
-**Package:** `@xbg/backend-core`
+**Package:** `@xbg.solutions/backend-core`
 
 Services sit between controllers and repositories. They own:
 - Business validation (beyond field-level validation)
@@ -24,10 +24,10 @@ Services sit between controllers and repositories. They own:
 ### Implementing a Service
 
 ```typescript
-import { BaseService, RequestContext, ServiceResult } from '@xbg/backend-core';
+import { BaseService, RequestContext, ServiceResult } from '@xbg.solutions/backend-core';
 import { Product } from '../entities/Product';
 import { ProductRepository } from '../repositories/ProductRepository';
-import { eventBus, EventType } from '@xbg/utils-events';
+import { eventBus, EventType } from '@xbg.solutions/utils-events';
 
 export class ProductService extends BaseService<Product> {
   protected entityName = 'Product';
@@ -216,7 +216,7 @@ interface RequestContext {
 
 ## Event Bus
 
-**Package:** `@xbg/utils-events`
+**Package:** `@xbg.solutions/utils-events`
 
 The event bus is a singleton Node.js `EventEmitter`. Services publish events; subscribers react to them.
 
@@ -225,7 +225,7 @@ The event bus is a singleton Node.js `EventEmitter`. Services publish events; su
 `BaseService.publishEvent()` handles this automatically on create/update/delete. For custom events:
 
 ```typescript
-import { eventBus, EventType } from '@xbg/utils-events';
+import { eventBus, EventType } from '@xbg.solutions/utils-events';
 
 // In your service method:
 eventBus.publish(EventType.USER_CREATED, {
@@ -236,7 +236,7 @@ eventBus.publish(EventType.USER_CREATED, {
 
 ### Adding Event Types
 
-Add new events to `@xbg/utils-events` event types (or extend locally in your project):
+Add new events to `@xbg.solutions/utils-events` event types (or extend locally in your project):
 
 ```typescript
 // In EventType enum:
@@ -263,8 +263,8 @@ export interface EventPayloadMap {
 Register subscribers in your project's `src/subscribers/` directory or at app startup:
 
 ```typescript
-import { eventBus, EventType, ProductPriceChangedPayload } from '@xbg/utils-events';
-import { emailConnector } from '@xbg/utils-email-connector';
+import { eventBus, EventType, ProductPriceChangedPayload } from '@xbg.solutions/utils-events';
+import { emailConnector } from '@xbg.solutions/utils-email-connector';
 
 // Register in subscribers/product-subscribers.ts
 export function registerProductSubscribers(): void {
@@ -291,7 +291,7 @@ registerProductSubscribers();
 
 ## Authentication Patterns
 
-**Package:** `@xbg/backend-core` (middleware exports)
+**Package:** `@xbg.solutions/backend-core` (middleware exports)
 
 All middleware functions accept a typed `ITokenHandler` — they call `verifyAndUnpack()` (which includes blacklist checking).
 
@@ -306,13 +306,13 @@ import {
   requireAdmin,
   requireOwnership,
   requireApiKey,
-} from '@xbg/backend-core';
+} from '@xbg.solutions/backend-core';
 ```
 
 ### Using in Routes (in Controller)
 
 ```typescript
-import { tokenHandler } from '@xbg/utils-token-handler';
+import { tokenHandler } from '@xbg.solutions/utils-token-handler';
 
 export class ProductController extends BaseController<Product> {
   protected registerRoutes(): void {

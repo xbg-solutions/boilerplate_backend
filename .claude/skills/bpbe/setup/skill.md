@@ -10,12 +10,12 @@ description: "Setup, configuration, and development workflow for the XBG boilerp
 
 ```bash
 # Scaffold a new project with the CLI
-npx @xbg/create-backend init
+npx @xbg.solutions/create-backend init
 
 # The CLI will:
 #   - Ask about your project (name, Firebase project, features)
 #   - Let you select which utilities to include
-#   - Generate project structure with selected @xbg/* packages
+#   - Generate project structure with selected @xbg.solutions/* packages
 #   - Install dependencies
 
 # Once scaffolded:
@@ -40,7 +40,7 @@ my-project/
 │   ├── src/
 │   │   ├── index.ts              # Firebase Functions entry point
 │   │   └── generated/            # Code generator output
-│   ├── package.json              # Depends on @xbg/* packages
+│   ├── package.json              # Depends on @xbg.solutions/* packages
 │   ├── tsconfig.json
 │   └── .env
 ├── __scripts__/                  # Setup, generate, deploy, validate
@@ -53,13 +53,13 @@ my-project/
 
 ```bash
 # Check for and apply boilerplate updates
-npx @xbg/create-backend sync
+npx @xbg.solutions/create-backend sync
 
 # Update packages to latest versions
 cd functions && npm update
 
 # Add a new utility
-npx @xbg/create-backend add-util
+npx @xbg.solutions/create-backend add-util
 ```
 
 ---
@@ -100,7 +100,7 @@ FEATURE_REALTIME=true
 Feature flags gate entire subsystems. Check them in code:
 
 ```typescript
-import { isFeatureEnabled } from '@xbg/backend-core';
+import { isFeatureEnabled } from '@xbg.solutions/backend-core';
 
 if (isFeatureEnabled('notifications')) {
   await pushNotificationsConnector.send({ ... });
@@ -137,7 +137,7 @@ DB_ENABLE_CACHE=true
 PII_ENCRYPTION_KEY=your-64-hex-char-key
 ```
 
-Required for the hashing utility (`@xbg/utils-hashing`). Without it, `hashValue()` will throw at runtime.
+Required for the hashing utility (`@xbg.solutions/utils-hashing`). Without it, `hashValue()` will throw at runtime.
 
 ### Caching
 
@@ -163,13 +163,13 @@ RATE_LIMIT_MAX=100               # requests per window
 
 ## Configuration in Code
 
-All config is centralized via `@xbg/backend-core`. In a generated project, configuration is driven entirely by environment variables.
+All config is centralized via `@xbg.solutions/backend-core`. In a generated project, configuration is driven entirely by environment variables.
 
 Reading config in your code:
 
 ```typescript
-// ✅ Correct — import from @xbg/backend-core
-import { APP_CONFIG, isFeatureEnabled } from '@xbg/backend-core';
+// ✅ Correct — import from @xbg.solutions/backend-core
+import { APP_CONFIG, isFeatureEnabled } from '@xbg.solutions/backend-core';
 const basePath = APP_CONFIG.api.basePath;
 const env = APP_CONFIG.app.environment;
 

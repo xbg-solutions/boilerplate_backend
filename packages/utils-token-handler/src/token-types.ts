@@ -3,7 +3,7 @@
  * Platform-agnostic types for token handling utilities
  */
 
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 
 /**
  * Normalized token payload - platform-agnostic structure

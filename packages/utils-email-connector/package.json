@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-email-connector",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Email sending with Mailjet and Ortto providers",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -14,7 +14,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@xbg/utils-logger": "^1.0.0",
+    "@xbg.solutions/utils-logger": "^1.0.0",
     "axios": "^1.6.2",
     "node-mailjet": "^6.0.5"
   },

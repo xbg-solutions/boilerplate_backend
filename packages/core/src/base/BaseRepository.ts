@@ -6,9 +6,9 @@
 
 import { Firestore, CollectionReference, DocumentData, Query, Timestamp } from 'firebase-admin/firestore';
 import { BaseEntity } from './BaseEntity';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 import { RepositoryError } from '../types/errors';
-import { getCacheConnector, RepositoryCacheConfig, CacheOptions, CacheProviderType } from '@xbg/utils-cache-connector';
+import { getCacheConnector, RepositoryCacheConfig, CacheOptions, CacheProviderType } from '@xbg.solutions/utils-cache-connector';
 import { CACHE_CONFIG } from '../config/cache.config';
 
 export interface QueryOptions {

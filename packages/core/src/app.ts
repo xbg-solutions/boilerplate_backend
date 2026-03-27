@@ -15,7 +15,7 @@ import {
   errorHandler,
   notFoundHandler,
 } from './middleware';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 export interface AppOptions {
   tokenHandler?: any;

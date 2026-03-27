@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * @xbg/create-backend CLI
+ * @xbg.solutions/create-backend CLI
  *
  * Scaffolds and syncs XBG backend projects.
  *
  * Usage:
- *   npx @xbg/create-backend              # Interactive project init
- *   npx @xbg/create-backend --sync       # Sync/update existing project
- *   npx @xbg/create-backend --add-util   # Add a utility to existing project
+ *   npx @xbg.solutions/create-backend              # Interactive project init
+ *   npx @xbg.solutions/create-backend --sync       # Sync/update existing project
+ *   npx @xbg.solutions/create-backend --add-util   # Add a utility to existing project
  */
 
 import { Command } from 'commander';

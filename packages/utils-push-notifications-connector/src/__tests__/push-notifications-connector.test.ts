@@ -16,7 +16,7 @@ import {
   TopicSubscriptionRequest,
   TopicSubscriptionResponse,
 } from '../types';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 // Mock logger
 jest.mock('../../logger', () => ({

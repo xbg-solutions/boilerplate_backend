@@ -4,7 +4,7 @@
  */
 
 import { SMSRequest, SMSResult, BulkSMSResult, MessageStatus, DeliveryReport } from './types';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 export interface SMSProvider {
   sendMessage(request: SMSRequest): Promise<SMSResult>;

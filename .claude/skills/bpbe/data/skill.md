@@ -6,20 +6,20 @@ description: "Data layer for the XBG boilerplate backend: defining entities with
 
 Covers: `BaseEntity`, `BaseRepository`, `DataModelSpecification`, the generator, and Firestore patterns.
 
-All base classes are imported from `@xbg/backend-core`.
+All base classes are imported from `@xbg.solutions/backend-core`.
 
 ---
 
 ## BaseEntity — All Entities Extend This
 
-**Package:** `@xbg/backend-core`
+**Package:** `@xbg.solutions/backend-core`
 
 Every domain entity extends `BaseEntity`, which provides timestamps, soft-delete, versioning, and validation scaffolding.
 
 ### Implementing an Entity
 
 ```typescript
-import { BaseEntity, BaseEntityData, ValidationHelper, ValidationResult } from '@xbg/backend-core';
+import { BaseEntity, BaseEntityData, ValidationHelper, ValidationResult } from '@xbg.solutions/backend-core';
 import { Timestamp } from 'firebase-admin/firestore';
 
 interface ProductData extends BaseEntityData {
@@ -97,13 +97,13 @@ ValidationHelper.isValidResult(errors)                   // { valid, errors }
 
 ## BaseRepository — Data Access Layer
 
-**Package:** `@xbg/backend-core`
+**Package:** `@xbg.solutions/backend-core`
 
 ### Implementing a Repository
 
 ```typescript
 import { Firestore, DocumentData } from 'firebase-admin/firestore';
-import { BaseRepository } from '@xbg/backend-core';
+import { BaseRepository } from '@xbg.solutions/backend-core';
 import { Product } from '../entities/Product';
 
 export class ProductRepository extends BaseRepository<Product> {
@@ -158,7 +158,7 @@ await repo.batchCreate([product1, product2, product3]);
 ### QueryOptions — Filtering and Sorting
 
 ```typescript
-import { QueryOptions } from '@xbg/backend-core';
+import { QueryOptions } from '@xbg.solutions/backend-core';
 
 const options: QueryOptions = {
   limit: 20,
@@ -254,14 +254,14 @@ export class ProductRepository extends BaseRepository<Product> {
 
 ## DataModelSpecification — Generator Input Format
 
-**Package:** `@xbg/backend-core` (exported type)
+**Package:** `@xbg.solutions/backend-core` (exported type)
 
 The generator takes a `DataModelSpecification` and produces Entity/Repository/Service/Controller files.
 
 ### Complete Example
 
 ```typescript
-import { DataModelSpecification } from '@xbg/backend-core';
+import { DataModelSpecification } from '@xbg.solutions/backend-core';
 
 export const EcommerceModel: DataModelSpecification = {
   entities: {
@@ -378,10 +378,10 @@ Create via Firebase Console or `firestore.indexes.json`.
 
 ### Multi-Database Setup
 
-The project supports multiple Firestore databases. Configure via environment variables and the database config exported from `@xbg/backend-core`:
+The project supports multiple Firestore databases. Configure via environment variables and the database config exported from `@xbg.solutions/backend-core`:
 
 ```typescript
-import { getFirestoreDb } from '@xbg/backend-core';
+import { getFirestoreDb } from '@xbg.solutions/backend-core';
 
 const mainDb = getFirestoreDb('main');
 const productRepo = new ProductRepository(mainDb);

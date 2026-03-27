@@ -17,8 +17,8 @@
  * specialised event), add an entry to CUSTOM_FIRESTORE_MAPPINGS below.
  */
 
-import { EventType, BaseEventPayload } from '@xbg/utils-events';
-import { NormalizedFirebaseEvent } from '@xbg/utils-firebase-event-bridge';
+import { EventType, BaseEventPayload } from '@xbg.solutions/utils-events';
+import { NormalizedFirebaseEvent } from '@xbg.solutions/utils-firebase-event-bridge';
 
 /**
  * Event mapping result

@@ -7,10 +7,10 @@
  * to match your application's requirements.
  */
 
-import { createTokenHandler, createTokenBlacklistManager, createFirebaseAuthAdapter, createFirestoreTokenDatabase } from '@xbg/utils-token-handler';
-import { getFirestore } from '@xbg/utils-firestore-connector';
-import type { ITokenHandler } from '@xbg/utils-token-handler';
-import type { TokenBlacklistManager } from '@xbg/utils-token-handler';
+import { createTokenHandler, createTokenBlacklistManager, createFirebaseAuthAdapter, createFirestoreTokenDatabase } from '@xbg.solutions/utils-token-handler';
+import { getFirestore } from '@xbg.solutions/utils-firestore-connector';
+import type { ITokenHandler } from '@xbg.solutions/utils-token-handler';
+import type { TokenBlacklistManager } from '@xbg.solutions/utils-token-handler';
 
 /**
  * Generic custom claims interface

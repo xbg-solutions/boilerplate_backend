@@ -4,20 +4,20 @@ description: "Utilities in the XBG boilerplate backend: logger with PII sanitiza
 
 # XBG Boilerplate Backend — Utilities
 
-Each utility is a standalone npm package under `@xbg/utils-*`. Install only what you need.
+Each utility is a standalone npm package under `@xbg.solutions/utils-*`. Install only what you need.
 
 ---
 
 ## Logger
 
-**Package:** `@xbg/utils-logger`
+**Package:** `@xbg.solutions/utils-logger`
 
 Structured JSON logger with automatic PII sanitization and correlation ID tracking.
 
 ### Import and Basic Use
 
 ```typescript
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 logger.debug('Detailed trace', { userId, queryOptions });
 logger.info('Operation completed', { userId, entityId: product.id });
@@ -70,7 +70,7 @@ reqLogger.info('Custom log', { data });
 
 ## Hashing — PII Encryption (AES-256-GCM)
 
-**Package:** `@xbg/utils-hashing`
+**Package:** `@xbg.solutions/utils-hashing`
 
 Provides **reversible** AES-256-GCM encryption for PII fields. This is encryption, not one-way hashing — the name `hashFields` is the API surface, but the data can be decrypted.
 
@@ -86,7 +86,7 @@ PII_ENCRYPTION_KEY=your-64-char-hex-key
 ### Encrypting Fields
 
 ```typescript
-import { hashValue, hashFields } from '@xbg/utils-hashing';
+import { hashValue, hashFields } from '@xbg.solutions/utils-hashing';
 
 // Encrypt a single value
 const encrypted = hashValue('user@example.com');
@@ -99,7 +99,7 @@ const encryptedUserData = hashFields(userData, 'user');
 ### Decrypting Fields
 
 ```typescript
-import { unhashValue, unhashFields } from '@xbg/utils-hashing';
+import { unhashValue, unhashFields } from '@xbg.solutions/utils-hashing';
 
 // Decrypt a single value
 const plaintext = unhashValue(encrypted);
@@ -113,7 +113,7 @@ const decryptedUser = unhashFields(user, ['user.email', 'user.phone']);
 Configured in the hashing package's hashed-fields-lookup. To check:
 
 ```typescript
-import { isHashedField } from '@xbg/utils-hashing';
+import { isHashedField } from '@xbg.solutions/utils-hashing';
 
 // Check if a field path should be hashed:
 isHashedField('user.email')        // → true
@@ -147,15 +147,15 @@ const users = await userRepo.findAll({ where: [{ field: 'email', operator: '==',
 
 ## Token Handler — JWT & Blacklisting
 
-**Package:** `@xbg/utils-token-handler`
+**Package:** `@xbg.solutions/utils-token-handler`
 
 Wraps Firebase Auth token verification with blacklisting support and normalized token shape.
 
 ### Basic Verification
 
 ```typescript
-import { tokenHandler } from '@xbg/utils-token-handler';
-import { logger } from '@xbg/utils-logger';
+import { tokenHandler } from '@xbg.solutions/utils-token-handler';
+import { logger } from '@xbg.solutions/utils-logger';
 
 const result = await tokenHandler.verifyAndUnpack(bearerToken, logger);
 if (!result.isValid) {
@@ -170,8 +170,8 @@ const { authUID, userUID, email, customClaims } = result.token!;
 ### Token Blacklisting
 
 ```typescript
-import { tokenHandler } from '@xbg/utils-token-handler';
-import { logger } from '@xbg/utils-logger';
+import { tokenHandler } from '@xbg.solutions/utils-token-handler';
+import { logger } from '@xbg.solutions/utils-logger';
 
 // Blacklist a single token (e.g., on logout)
 const tokenId = await tokenHandler.getTokenIdentifier(rawToken);
@@ -203,7 +203,7 @@ interface NormalizedToken<TCustomClaims> {
 ### API Key Auth (Service-to-Service)
 
 ```typescript
-import { requireApiKey } from '@xbg/backend-core';
+import { requireApiKey } from '@xbg.solutions/backend-core';
 
 // In controller routes:
 this.router.post(
@@ -217,7 +217,7 @@ this.router.post(
 
 ## Cache Connector
 
-**Package:** `@xbg/utils-cache-connector`
+**Package:** `@xbg.solutions/utils-cache-connector`
 
 Progressive multi-level cache. Opt-in per repository. Global kill switch.
 
@@ -247,7 +247,7 @@ CACHE_REDIS_PORT=6379
 ### Using in Repositories
 
 ```typescript
-import { BaseRepository } from '@xbg/backend-core';
+import { BaseRepository } from '@xbg.solutions/backend-core';
 
 export class SessionRepository extends BaseRepository<Session> {
   protected collectionName = 'sessions';
@@ -271,7 +271,7 @@ const fresh = await sessionRepo.findByIdCached('sess-123', { forceRefresh: true,
 ### Direct Cache Access (Advanced)
 
 ```typescript
-import { getCacheConnector } from '@xbg/utils-cache-connector';
+import { getCacheConnector } from '@xbg.solutions/utils-cache-connector';
 
 const cache = getCacheConnector();
 
@@ -292,16 +292,16 @@ await cache.invalidateByTags(['sessions'], { provider: 'memory' });
 
 ## Communication Connectors
 
-All connectors follow the same pattern: import the connector singleton from its `@xbg/utils-*` package, call methods, providers handle the transport.
+All connectors follow the same pattern: import the connector singleton from its `@xbg.solutions/utils-*` package, call methods, providers handle the transport.
 
 ### Email Connector
 
-**Package:** `@xbg/utils-email-connector`
+**Package:** `@xbg.solutions/utils-email-connector`
 
 Providers: Mailjet (implemented), Ortto, SendGrid, AWS SES (stub/planned)
 
 ```typescript
-import { emailConnector } from '@xbg/utils-email-connector';
+import { emailConnector } from '@xbg.solutions/utils-email-connector';
 
 // Simple email
 await emailConnector.sendEmail({
@@ -331,12 +331,12 @@ EMAIL_FROM_NAME=MyApp
 
 ### SMS Connector
 
-**Package:** `@xbg/utils-sms-connector`
+**Package:** `@xbg.solutions/utils-sms-connector`
 
 Providers: Twilio (implemented), MessageBird, AWS SNS (stub/planned)
 
 ```typescript
-import { smsConnector } from '@xbg/utils-sms-connector';
+import { smsConnector } from '@xbg.solutions/utils-sms-connector';
 
 await smsConnector.sendMessage({
   to: '+12025551234',
@@ -354,12 +354,12 @@ TWILIO_FROM_NUMBER=+15005550006
 
 ### Push Notifications Connector
 
-**Package:** `@xbg/utils-push-notifications-connector`
+**Package:** `@xbg.solutions/utils-push-notifications-connector`
 
 Provider: Firebase Cloud Messaging (FCM)
 
 ```typescript
-import { pushNotificationsConnector } from '@xbg/utils-push-notifications-connector';
+import { pushNotificationsConnector } from '@xbg.solutions/utils-push-notifications-connector';
 
 // Single device
 await pushNotificationsConnector.send({
@@ -380,12 +380,12 @@ await pushNotificationsConnector.sendMulticast({
 
 ### CRM Connector
 
-**Package:** `@xbg/utils-crm-connector`
+**Package:** `@xbg.solutions/utils-crm-connector`
 
 Providers: HubSpot (implemented), Salesforce, Attio (stub/planned)
 
 ```typescript
-import { crmConnector } from '@xbg/utils-crm-connector';
+import { crmConnector } from '@xbg.solutions/utils-crm-connector';
 
 // Create contact
 const contact = await crmConnector.createContact({
@@ -417,12 +417,12 @@ HUBSPOT_ACCESS_TOKEN=...
 
 ### LLM Connector
 
-**Package:** `@xbg/utils-llm-connector`
+**Package:** `@xbg.solutions/utils-llm-connector`
 
 Providers: Claude/Anthropic, OpenAI, Gemini
 
 ```typescript
-import { llmConnector } from '@xbg/utils-llm-connector';
+import { llmConnector } from '@xbg.solutions/utils-llm-connector';
 
 const response = await llmConnector.complete({
   messages: [
@@ -446,16 +446,16 @@ ANTHROPIC_MODEL=claude-sonnet-4-6
 
 | Package | Description |
 |---|---|
-| `@xbg/utils-document-connector` | E-signature (PandaDoc) |
-| `@xbg/utils-journey-connector` | Marketing automation (Ortto) |
-| `@xbg/utils-survey-connector` | Surveys (Typeform) |
-| `@xbg/utils-work-mgmt-connector` | Tasks (ClickUp/Notion) |
-| `@xbg/utils-erp-connector` | HR/Finance (Workday) |
-| `@xbg/utils-address-validation` | Google Maps validation |
-| `@xbg/utils-realtime-connector` | Firebase Realtime DB |
-| `@xbg/utils-firebase-event-bridge` | Firebase → internal events |
-| `@xbg/utils-firestore-connector` | Multi-DB Firestore setup |
-| `@xbg/utils-timezone` | Timezone conversion utils |
+| `@xbg.solutions/utils-document-connector` | E-signature (PandaDoc) |
+| `@xbg.solutions/utils-journey-connector` | Marketing automation (Ortto) |
+| `@xbg.solutions/utils-survey-connector` | Surveys (Typeform) |
+| `@xbg.solutions/utils-work-mgmt-connector` | Tasks (ClickUp/Notion) |
+| `@xbg.solutions/utils-erp-connector` | HR/Finance (Workday) |
+| `@xbg.solutions/utils-address-validation` | Google Maps validation |
+| `@xbg.solutions/utils-realtime-connector` | Firebase Realtime DB |
+| `@xbg.solutions/utils-firebase-event-bridge` | Firebase → internal events |
+| `@xbg.solutions/utils-firestore-connector` | Multi-DB Firestore setup |
+| `@xbg.solutions/utils-timezone` | Timezone conversion utils |
 
 ---
 
@@ -464,8 +464,8 @@ ANTHROPIC_MODEL=claude-sonnet-4-6
 Register subscribers in your project's `src/subscribers/` directory:
 
 ```typescript
-import { eventBus, EventType, UserCreatedPayload } from '@xbg/utils-events';
-import { emailConnector } from '@xbg/utils-email-connector';
+import { eventBus, EventType, UserCreatedPayload } from '@xbg.solutions/utils-events';
+import { emailConnector } from '@xbg.solutions/utils-email-connector';
 
 export function registerCommunicationSubscribers(): void {
   eventBus.subscribe<UserCreatedPayload>(
@@ -493,7 +493,7 @@ import { logger } from '../../logger';  // wrong — use the package
 import { Logger } from './logger';      // creates new instance, wrong
 
 // ✅ Always import the singleton from the package
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 // ❌ Don't log raw PII
 logger.info('User login', { email: user.email });  // ← logs plaintext email to Cloud Logging
@@ -505,7 +505,7 @@ logger.info('User login', { userId: user.id });
 await emailConnector.send({ ... });
 
 // ✅ Check feature is enabled
-import { isFeatureEnabled } from '@xbg/backend-core';
+import { isFeatureEnabled } from '@xbg.solutions/backend-core';
 if (isFeatureEnabled('notifications')) {
   await emailConnector.send({ ... });
 }

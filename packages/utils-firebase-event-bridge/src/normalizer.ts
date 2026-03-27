@@ -1,7 +1,7 @@
 // src/utilities/firebase-event-bridge/normalizer.ts
 
-import { Logger } from '@xbg/utils-logger';
-import { BaseEventPayload } from '@xbg/utils-events';
+import { Logger } from '@xbg.solutions/utils-logger';
+import { BaseEventPayload } from '@xbg.solutions/utils-events';
 
 /**
  * Normalized event structure for internal event bus

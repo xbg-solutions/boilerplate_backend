@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-cache-connector",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Multi-provider caching (memory, Firestore, Redis)",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -14,7 +14,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@xbg/utils-logger": "^1.0.0",
+    "@xbg.solutions/utils-logger": "^1.0.0",
     "firebase-admin": "^12.0.0",
     "ioredis": "^5.3.2"
   },

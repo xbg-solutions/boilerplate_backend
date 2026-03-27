@@ -5,7 +5,7 @@
 
 import * as admin from 'firebase-admin';
 import { Firestore } from 'firebase-admin/firestore';
-import { logger } from '@xbg/utils-logger';
+import { logger } from '@xbg.solutions/utils-logger';
 
 let firestoreInstance: Firestore | null = null;
 let isInitialized = false;

@@ -1,6 +1,6 @@
 // src/utilities/firebase-event-bridge/adapters/auth-adapter.ts
 
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import { AuthOperation } from '../config-types';
 import { normalizeAuthEvent, NormalizedFirebaseEvent } from '../normalizer';
 

@@ -4,7 +4,7 @@ description: "Overview of the XBG boilerplate backend: architecture, philosophy,
 
 # XBG Boilerplate Backend — Overview
 
-A production-ready Node.js/TypeScript backend distributed as **npm packages** (`@xbg/*`) and optimized for AI-assisted development. Built on Firebase Functions + Firestore + Express.js, designed so that AI can reliably generate, extend, and debug application code.
+A production-ready Node.js/TypeScript backend distributed as **npm packages** (`@xbg.solutions/*`) and optimized for AI-assisted development. Built on Firebase Functions + Firestore + Express.js, designed so that AI can reliably generate, extend, and debug application code.
 
 **Repository:** `boilerplate_backend` (sister: `boilerplate_frontend` — SvelteKit 5)
 
@@ -14,7 +14,7 @@ A production-ready Node.js/TypeScript backend distributed as **npm packages** (`
 
 This boilerplate provides **infrastructure**; you (or AI) provide **business logic**. The pattern is:
 
-1. Scaffold a new project with `npx @xbg/create-backend init`
+1. Scaffold a new project with `npx @xbg.solutions/create-backend init`
 2. Define a declarative data model (`DataModelSpecification`)
 3. Run the generator to scaffold Controller/Service/Repository/Entity
 4. Register the controller in `functions/src/index.ts`
@@ -31,7 +31,7 @@ This boilerplate is structured as a **monorepo of publishable npm packages**, en
 ```
 boilerplate_backend/
 ├── packages/
-│   ├── core/                    → @xbg/backend-core
+│   ├── core/                    → @xbg.solutions/backend-core
 │   │   ├── src/
 │   │   │   ├── base/            #   BaseEntity, BaseRepository, BaseService, BaseController
 │   │   │   ├── middleware/      #   Auth, CORS, rate limiting, error handling, logging
@@ -42,18 +42,18 @@ boilerplate_backend/
 │   │   │   └── app.ts           #   Express app factory
 │   │   └── package.json
 │   │
-│   ├── utils-logger/            → @xbg/utils-logger
-│   ├── utils-events/            → @xbg/utils-events
-│   ├── utils-errors/            → @xbg/utils-errors
-│   ├── utils-cache-connector/   → @xbg/utils-cache-connector
-│   ├── utils-firestore-connector/ → @xbg/utils-firestore-connector
-│   ├── utils-hashing/           → @xbg/utils-hashing
-│   ├── utils-token-handler/     → @xbg/utils-token-handler
-│   ├── utils-email-connector/   → @xbg/utils-email-connector
-│   ├── utils-sms-connector/     → @xbg/utils-sms-connector
+│   ├── utils-logger/            → @xbg.solutions/utils-logger
+│   ├── utils-events/            → @xbg.solutions/utils-events
+│   ├── utils-errors/            → @xbg.solutions/utils-errors
+│   ├── utils-cache-connector/   → @xbg.solutions/utils-cache-connector
+│   ├── utils-firestore-connector/ → @xbg.solutions/utils-firestore-connector
+│   ├── utils-hashing/           → @xbg.solutions/utils-hashing
+│   ├── utils-token-handler/     → @xbg.solutions/utils-token-handler
+│   ├── utils-email-connector/   → @xbg.solutions/utils-email-connector
+│   ├── utils-sms-connector/     → @xbg.solutions/utils-sms-connector
 │   ├── ... (20+ utility packages)
 │   │
-│   └── create-backend/          → @xbg/create-backend (CLI scaffolding tool)
+│   └── create-backend/          → @xbg.solutions/create-backend (CLI scaffolding tool)
 │
 ├── functions/                   ← Local development/testing workspace (not published)
 │   ├── src/                     #   Mirrors packages structure for local dev
@@ -67,7 +67,7 @@ boilerplate_backend/
 
 1. **npm packages** (runtime dependencies) — Base classes, middleware, config, and utilities live in `node_modules/`. Updates propagate via `npm update`. Semver protects against breaking changes.
 
-2. **CLI scaffolding tool** (`@xbg/create-backend`) — Handles project structure, config files, scripts, and templates. Operates in init mode (new project) and sync mode (update existing).
+2. **CLI scaffolding tool** (`@xbg.solutions/create-backend`) — Handles project structure, config files, scripts, and templates. Operates in init mode (new project) and sync mode (update existing).
 
 This is the same pattern as `firebase-tools` + `firebase init`.
 
@@ -108,25 +108,25 @@ All generated code follows this exact pattern. Never put business logic in contr
 All imports come from npm packages — no relative paths to boilerplate internals.
 
 ```typescript
-// Base classes (from @xbg/backend-core)
-import { BaseEntity, ValidationHelper, ValidationResult } from '@xbg/backend-core';
-import { BaseRepository, QueryOptions } from '@xbg/backend-core';
-import { BaseService, RequestContext, ServiceResult } from '@xbg/backend-core';
-import { BaseController, ApiResponse } from '@xbg/backend-core';
+// Base classes (from @xbg.solutions/backend-core)
+import { BaseEntity, ValidationHelper, ValidationResult } from '@xbg.solutions/backend-core';
+import { BaseRepository, QueryOptions } from '@xbg.solutions/backend-core';
+import { BaseService, RequestContext, ServiceResult } from '@xbg.solutions/backend-core';
+import { BaseController, ApiResponse } from '@xbg.solutions/backend-core';
 
 // App factory and config
-import { createApp, APP_CONFIG, isFeatureEnabled } from '@xbg/backend-core';
+import { createApp, APP_CONFIG, isFeatureEnabled } from '@xbg.solutions/backend-core';
 
 // Middleware
-import { createAuthMiddleware, requireRoles, requireAdmin } from '@xbg/backend-core';
+import { createAuthMiddleware, requireRoles, requireAdmin } from '@xbg.solutions/backend-core';
 
 // Utilities (each is a separate package)
-import { logger } from '@xbg/utils-logger';
-import { eventBus, EventType } from '@xbg/utils-events';
-import { hashValue, hashFields, unhashValue } from '@xbg/utils-hashing';
-import { getCacheConnector } from '@xbg/utils-cache-connector';
-import { tokenHandler } from '@xbg/utils-token-handler';
-import { emailConnector } from '@xbg/utils-email-connector';
+import { logger } from '@xbg.solutions/utils-logger';
+import { eventBus, EventType } from '@xbg.solutions/utils-events';
+import { hashValue, hashFields, unhashValue } from '@xbg.solutions/utils-hashing';
+import { getCacheConnector } from '@xbg.solutions/utils-cache-connector';
+import { tokenHandler } from '@xbg.solutions/utils-token-handler';
+import { emailConnector } from '@xbg.solutions/utils-email-connector';
 ```
 
 ---

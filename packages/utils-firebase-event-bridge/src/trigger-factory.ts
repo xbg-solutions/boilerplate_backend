@@ -1,6 +1,6 @@
 // src/utilities/firebase-event-bridge/trigger-factory.ts
 
-import { Logger } from '@xbg/utils-logger';
+import { Logger } from '@xbg.solutions/utils-logger';
 import { FirestoreConfig, AuthConfig, StorageConfig } from './config-types';
 import { FirestoreAdapter } from './adapters/firestore-adapter';
 import { AuthAdapter } from './adapters/auth-adapter';
