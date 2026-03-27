@@ -464,8 +464,10 @@ export abstract class BaseRepository<T extends BaseEntity> {
         }
       }
 
-      const snapshot = await query.count().get();
-      return snapshot.data().count;
+      // In firebase-admin v10, count() is not available on Query
+      // We need to fetch all documents and count them
+      const snapshot = await query.select().get();
+      return snapshot.size;
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error('Failed to count entities', err, {

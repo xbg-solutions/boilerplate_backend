@@ -66,14 +66,14 @@ export class FCMProvider implements PushNotificationsProvider {
     try {
       const message = this.buildMulticastMessage(request);
 
-      const response = await this.messaging.sendEachForMulticast(message);
+      const response = await this.messaging.sendMulticast(message);
 
       const errors = response.responses
-        .map((resp, idx) => ({
+        .map((resp: any, idx: number) => ({
           token: request.target.tokens![idx],
           error: resp.error?.message || '',
         }))
-        .filter(item => item.error);
+        .filter((item: any) => item.error);
 
       return {
         success: response.successCount > 0,
