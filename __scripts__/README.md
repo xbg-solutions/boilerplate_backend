@@ -6,7 +6,7 @@
 
 The scripts directory contains Node.js scripts that automate common development tasks: project setup, code generation from data models, and deployment to Firebase Functions.
 
-In a generated project (created via `npx @xbg/create-backend init`), these scripts are scaffolded into your project's `__scripts__/` directory and wired up in `functions/package.json`.
+In a generated project (created via `npx @xbg.solutions/create-backend init`), these scripts are scaffolded into your project's `__scripts__/` directory and wired up in `functions/package.json`.
 
 ## Available Scripts
 
@@ -52,7 +52,7 @@ guidance on directory structure (`.claude/skills/` at root, frontend in
 Code generation script that creates entities, repositories, services, and controllers from data model specifications.
 
 **Purpose:**
-- Parse `DataModelSpecification` files (imported from `@xbg/backend-core`)
+- Parse `DataModelSpecification` files (imported from `@xbg.solutions/backend-core`)
 - Generate TypeScript code from templates
 - Create CRUD operations automatically
 - Generate validation logic
@@ -71,13 +71,13 @@ npm run generate __examples__/user.model.ts
 - `services/[EntityName]Service.ts` - Business logic
 - `controllers/[EntityName]Controller.ts` - HTTP endpoints
 
-Generated code imports from `@xbg/*` packages:
+Generated code imports from `@xbg.solutions/*` packages:
 
 ```typescript
-import { BaseEntity, ValidationHelper, ValidationResult } from '@xbg/backend-core';
-import { BaseRepository } from '@xbg/backend-core';
-import { BaseService, RequestContext, ServiceResult } from '@xbg/backend-core';
-import { BaseController } from '@xbg/backend-core';
+import { BaseEntity, ValidationHelper, ValidationResult } from '@xbg.solutions/backend-core';
+import { BaseRepository } from '@xbg.solutions/backend-core';
+import { BaseService, RequestContext, ServiceResult } from '@xbg.solutions/backend-core';
+import { BaseController } from '@xbg.solutions/backend-core';
 ```
 
 ---
@@ -176,8 +176,8 @@ node __scripts__/validate.js
 
 ## Related Components
 
-- **@xbg/backend-core**: Code generator engine and Handlebars templates
-- **@xbg/create-backend**: CLI tool for project scaffolding (`init`, `sync`, `add-util`)
+- **@xbg.solutions/backend-core**: Code generator engine and Handlebars templates
+- **@xbg.solutions/create-backend**: CLI tool for project scaffolding (`init`, `sync`, `add-util`)
 - **__examples__/**: Example data model files
 - **.firebaserc**: Firebase project configuration
 - **firebase.json**: Firebase deployment configuration

@@ -21,7 +21,7 @@ This boilerplate is structured as a **monorepo of publishable npm packages**, en
 ```
 boilerplate_backend/
 ├── packages/
-│   ├── core/                    → @xbg/backend-core
+│   ├── core/                    → @xbg.solutions/backend-core
 │   │   ├── src/
 │   │   │   ├── base/            #   BaseEntity, BaseRepository, BaseService, BaseController
 │   │   │   ├── middleware/      #   Auth, CORS, rate limiting, error handling, logging
@@ -32,20 +32,20 @@ boilerplate_backend/
 │   │   │   └── app.ts           #   Express app factory
 │   │   └── package.json
 │   │
-│   ├── utils-logger/            → @xbg/utils-logger
-│   ├── utils-events/            → @xbg/utils-events
-│   ├── utils-errors/            → @xbg/utils-errors
-│   ├── utils-cache-connector/   → @xbg/utils-cache-connector
-│   ├── utils-firestore-connector/ → @xbg/utils-firestore-connector
-│   ├── utils-email-connector/   → @xbg/utils-email-connector
-│   ├── utils-sms-connector/     → @xbg/utils-sms-connector
-│   ├── utils-crm-connector/     → @xbg/utils-crm-connector
-│   ├── utils-llm-connector/     → @xbg/utils-llm-connector
-│   ├── utils-token-handler/     → @xbg/utils-token-handler
-│   ├── utils-hashing/           → @xbg/utils-hashing
+│   ├── utils-logger/            → @xbg.solutions/utils-logger
+│   ├── utils-events/            → @xbg.solutions/utils-events
+│   ├── utils-errors/            → @xbg.solutions/utils-errors
+│   ├── utils-cache-connector/   → @xbg.solutions/utils-cache-connector
+│   ├── utils-firestore-connector/ → @xbg.solutions/utils-firestore-connector
+│   ├── utils-email-connector/   → @xbg.solutions/utils-email-connector
+│   ├── utils-sms-connector/     → @xbg.solutions/utils-sms-connector
+│   ├── utils-crm-connector/     → @xbg.solutions/utils-crm-connector
+│   ├── utils-llm-connector/     → @xbg.solutions/utils-llm-connector
+│   ├── utils-token-handler/     → @xbg.solutions/utils-token-handler
+│   ├── utils-hashing/           → @xbg.solutions/utils-hashing
 │   ├── ... (20+ utility packages)
 │   │
-│   └── create-backend/          → @xbg/create-backend (CLI scaffolding tool)
+│   └── create-backend/          → @xbg.solutions/create-backend (CLI scaffolding tool)
 │       ├── src/
 │       │   ├── cli.ts           #   CLI entry point
 │       │   ├── commands/        #   init, sync, add-util commands
@@ -63,7 +63,7 @@ boilerplate_backend/
 
 1. **npm packages** (runtime dependencies) — Base classes, middleware, config, and utilities live in `node_modules/`. Updates propagate via `npm update`. Semver protects against breaking changes.
 
-2. **CLI scaffolding tool** (`@xbg/create-backend`) — Handles project structure, config files, scripts, and templates. Operates in init mode (new project) and sync mode (update existing).
+2. **CLI scaffolding tool** (`@xbg.solutions/create-backend`) — Handles project structure, config files, scripts, and templates. Operates in init mode (new project) and sync mode (update existing).
 
 This is the same pattern as `firebase-tools` + `firebase init`.
 
@@ -75,7 +75,7 @@ This is the same pattern as `firebase-tools` + `firebase init`.
 
 ```bash
 # Scaffold a new project
-npx @xbg/create-backend init
+npx @xbg.solutions/create-backend init
 
 # The CLI will:
 #   - Ask about your project (name, Firebase project, features)
@@ -92,7 +92,7 @@ my-project/
 │   ├── src/
 │   │   ├── index.ts              # Firebase Functions entry point
 │   │   └── generated/            # Code generator output
-│   ├── package.json              # Depends on @xbg/* packages
+│   ├── package.json              # Depends on @xbg.solutions/* packages
 │   └── tsconfig.json
 ├── __scripts__/                  # Setup, generate, deploy, validate
 ├── __examples__/                 # Example data models
@@ -104,23 +104,23 @@ my-project/
 
 ```typescript
 // Import from packages instead of relative paths
-import { createApp, BaseService, BaseController } from '@xbg/backend-core';
-import { logger } from '@xbg/utils-logger';
-import { eventBus } from '@xbg/utils-events';
-import { getCacheConnector } from '@xbg/utils-cache-connector';
+import { createApp, BaseService, BaseController } from '@xbg.solutions/backend-core';
+import { logger } from '@xbg.solutions/utils-logger';
+import { eventBus } from '@xbg.solutions/utils-events';
+import { getCacheConnector } from '@xbg.solutions/utils-cache-connector';
 ```
 
 ### Update an Existing Project
 
 ```bash
 # Check for and apply boilerplate updates
-npx @xbg/create-backend sync
+npx @xbg.solutions/create-backend sync
 
 # Update packages to latest versions
 cd functions && npm update
 
 # Add a new utility
-npx @xbg/create-backend add-util
+npx @xbg.solutions/create-backend add-util
 ```
 
 ---
@@ -136,7 +136,7 @@ npx @xbg/create-backend add-util
 ### The Development Workflow
 
 ```
-1. npx @xbg/create-backend init    →  2. Define Data Model         →  3. Generate & Deploy
+1. npx @xbg.solutions/create-backend init    →  2. Define Data Model         →  3. Generate & Deploy
    (select utilities)                   (declarative TypeScript)         npm run generate
                                                                          npm run deploy
    ↓                                    ↓                               ↓
@@ -148,7 +148,7 @@ npx @xbg/create-backend add-util
 
 ## Packages
 
-### @xbg/backend-core
+### @xbg.solutions/backend-core
 
 The foundation. Always required. Includes:
 
@@ -164,37 +164,37 @@ Each utility is a standalone package. Install only what you need:
 
 | Package | Description |
 |---------|-------------|
-| `@xbg/utils-logger` | Structured logging with PII sanitization and GCP Cloud Logging |
-| `@xbg/utils-events` | Event bus for domain events |
-| `@xbg/utils-errors` | Custom error classes |
-| `@xbg/utils-cache-connector` | Multi-provider caching (memory, Firestore, Redis) |
-| `@xbg/utils-firestore-connector` | Multi-database Firestore access and Firebase Admin SDK init |
-| `@xbg/utils-firebase-event-bridge` | Firebase triggers to domain event normalization |
-| `@xbg/utils-email-connector` | Email sending with Mailjet and Ortto providers |
-| `@xbg/utils-sms-connector` | SMS sending with Twilio and MessageBird providers |
-| `@xbg/utils-push-notifications-connector` | Push notifications via FCM |
-| `@xbg/utils-realtime-connector` | SSE and WebSocket providers |
-| `@xbg/utils-crm-connector` | CRM integration with HubSpot and Salesforce |
-| `@xbg/utils-llm-connector` | LLM integration with OpenAI, Claude, and Gemini |
-| `@xbg/utils-erp-connector` | ERP integration with Workday |
-| `@xbg/utils-journey-connector` | Customer journey integration with Ortto |
-| `@xbg/utils-survey-connector` | Survey integration |
-| `@xbg/utils-work-mgmt-connector` | Work management with Notion and Asana |
-| `@xbg/utils-document-connector` | Document processing |
-| `@xbg/utils-token-handler` | JWT generation, verification, and blacklist management |
-| `@xbg/utils-hashing` | PII encryption with AES-256-GCM |
-| `@xbg/utils-validation` | Input validation with Joi and express-validator |
-| `@xbg/utils-timezone` | Timezone conversion helper |
-| `@xbg/utils-address-validation` | Google Maps address validation |
+| `@xbg.solutions/utils-logger` | Structured logging with PII sanitization and GCP Cloud Logging |
+| `@xbg.solutions/utils-events` | Event bus for domain events |
+| `@xbg.solutions/utils-errors` | Custom error classes |
+| `@xbg.solutions/utils-cache-connector` | Multi-provider caching (memory, Firestore, Redis) |
+| `@xbg.solutions/utils-firestore-connector` | Multi-database Firestore access and Firebase Admin SDK init |
+| `@xbg.solutions/utils-firebase-event-bridge` | Firebase triggers to domain event normalization |
+| `@xbg.solutions/utils-email-connector` | Email sending with Mailjet and Ortto providers |
+| `@xbg.solutions/utils-sms-connector` | SMS sending with Twilio and MessageBird providers |
+| `@xbg.solutions/utils-push-notifications-connector` | Push notifications via FCM |
+| `@xbg.solutions/utils-realtime-connector` | SSE and WebSocket providers |
+| `@xbg.solutions/utils-crm-connector` | CRM integration with HubSpot and Salesforce |
+| `@xbg.solutions/utils-llm-connector` | LLM integration with OpenAI, Claude, and Gemini |
+| `@xbg.solutions/utils-erp-connector` | ERP integration with Workday |
+| `@xbg.solutions/utils-journey-connector` | Customer journey integration with Ortto |
+| `@xbg.solutions/utils-survey-connector` | Survey integration |
+| `@xbg.solutions/utils-work-mgmt-connector` | Work management with Notion and Asana |
+| `@xbg.solutions/utils-document-connector` | Document processing |
+| `@xbg.solutions/utils-token-handler` | JWT generation, verification, and blacklist management |
+| `@xbg.solutions/utils-hashing` | PII encryption with AES-256-GCM |
+| `@xbg.solutions/utils-validation` | Input validation with Joi and express-validator |
+| `@xbg.solutions/utils-timezone` | Timezone conversion helper |
+| `@xbg.solutions/utils-address-validation` | Google Maps address validation |
 
-### @xbg/create-backend
+### @xbg.solutions/create-backend
 
 CLI tool for project scaffolding and lifecycle management:
 
 ```bash
-npx @xbg/create-backend init       # New project
-npx @xbg/create-backend sync       # Update existing project
-npx @xbg/create-backend add-util   # Add a utility package
+npx @xbg.solutions/create-backend init       # New project
+npx @xbg.solutions/create-backend sync       # Update existing project
+npx @xbg.solutions/create-backend add-util   # Add a utility package
 ```
 
 ---
@@ -204,7 +204,7 @@ npx @xbg/create-backend add-util   # Add a utility package
 Define your entities in a declarative format:
 
 ```typescript
-import { DataModelSpecification } from '@xbg/backend-core';
+import { DataModelSpecification } from '@xbg.solutions/backend-core';
 
 export const BlogModel: DataModelSpecification = {
   entities: {
@@ -245,16 +245,16 @@ Generated code imports from packages:
 
 ```typescript
 // Generated entity
-import { BaseEntity, ValidationResult, ValidationHelper } from '@xbg/backend-core';
+import { BaseEntity, ValidationResult, ValidationHelper } from '@xbg.solutions/backend-core';
 
 // Generated repository
-import { BaseRepository } from '@xbg/backend-core';
+import { BaseRepository } from '@xbg.solutions/backend-core';
 
 // Generated service
-import { BaseService, RequestContext } from '@xbg/backend-core';
+import { BaseService, RequestContext } from '@xbg.solutions/backend-core';
 
 // Generated controller
-import { BaseController } from '@xbg/backend-core';
+import { BaseController } from '@xbg.solutions/backend-core';
 ```
 
 ---
@@ -280,7 +280,7 @@ npm test
 
 ### Publishing
 
-Packages are published to npm under the `@xbg` scope:
+Packages are published to npm under the `@xbg.solutions` scope:
 
 ```bash
 # Bump version
