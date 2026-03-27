@@ -99,7 +99,11 @@ export async function syncProject(options: SyncOptions): Promise<void> {
 
       if (!await fs.pathExists(projectScript)) {
         if (!options.checkOnly) {
-          await fs.copy(templateScript, projectScript);
+          await fs.copy(templateScript, projectScript, {
+            preserveTimestamps: false,
+            overwrite: true,
+            errorOnExist: false,
+          });
           result.filesUpdated.push(`__scripts__/${script}`);
           console.log(chalk.green(`  Added: __scripts__/${script}`));
         } else {
@@ -111,7 +115,11 @@ export async function syncProject(options: SyncOptions): Promise<void> {
 
         if (templateContent !== projectContent) {
           if (!options.checkOnly) {
-            await fs.copy(templateScript, projectScript);
+            await fs.copy(templateScript, projectScript, {
+              preserveTimestamps: false,
+              overwrite: true,
+              errorOnExist: false,
+            });
             result.filesUpdated.push(`__scripts__/${script}`);
             console.log(chalk.yellow(`  Updated: __scripts__/${script}`));
           } else {

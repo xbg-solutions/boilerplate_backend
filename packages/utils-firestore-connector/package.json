@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-firestore-connector",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "description": "Multi-database Firestore access",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@xbg.solutions/utils-logger": "^1.0.0",
-    "firebase-admin": "^12.0.0"
+    "firebase-admin": "^10.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

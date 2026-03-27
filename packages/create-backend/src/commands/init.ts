@@ -118,20 +118,102 @@ export async function initProject(options: InitOptions): Promise<void> {
   const functionsDir = path.join(targetDir, 'functions');
   await fs.ensureDir(functionsDir);
 
-  // Copy project structure
-  await fs.copy(path.join(templateDir, 'functions', 'src'), path.join(functionsDir, 'src'), {
-    filter: (src) => !src.includes('node_modules'),
-  });
-  await fs.copy(path.join(templateDir, 'functions', 'tsconfig.json'), path.join(functionsDir, 'tsconfig.json'));
-  await fs.copy(path.join(templateDir, 'functions', 'jest.config.js'), path.join(functionsDir, 'jest.config.js'));
-  console.log(chalk.green('  Created'), 'functions/src/');
-  console.log(chalk.green('  Created'), 'functions/tsconfig.json');
+  // Copy project structure with error handling
+  try {
+    const srcTemplatePath = path.join(templateDir, 'functions', 'src');
+    const srcTargetPath = path.join(functionsDir, 'src');
+
+    // Verify source exists before copying
+    if (!(await fs.pathExists(srcTemplatePath))) {
+      throw new Error(`Template source directory not found at: ${srcTemplatePath}`);
+    }
+
+    // Ensure target directory exists before copying (helps with mounted filesystems)
+    await fs.ensureDir(srcTargetPath);
+
+    // Copy with filesystem-safe options to avoid issues on mounted/network filesystems
+    await fs.copy(srcTemplatePath, srcTargetPath, {
+      filter: (src) => !src.includes('node_modules'),
+      preserveTimestamps: false,
+      overwrite: true,
+      errorOnExist: false,
+    });
+
+    // Verify the copy succeeded
+    if (!(await fs.pathExists(srcTargetPath))) {
+      throw new Error(`Failed to create target directory at: ${srcTargetPath}`);
+    }
+
+    console.log(chalk.green('  Created'), 'functions/src/');
+  } catch (error) {
+    console.error(chalk.red('  Failed to copy functions/src/'), error);
+    throw error;
+  }
+
+  try {
+    await fs.copy(path.join(templateDir, 'functions', 'tsconfig.json'), path.join(functionsDir, 'tsconfig.json'), {
+      preserveTimestamps: false,
+      overwrite: true,
+      errorOnExist: false,
+    });
+    console.log(chalk.green('  Created'), 'functions/tsconfig.json');
+  } catch (error) {
+    console.error(chalk.red('  Failed to copy tsconfig.json'), error);
+    throw error;
+  }
+
+  try {
+    await fs.copy(path.join(templateDir, 'functions', 'jest.config.js'), path.join(functionsDir, 'jest.config.js'), {
+      preserveTimestamps: false,
+      overwrite: true,
+      errorOnExist: false,
+    });
+    console.log(chalk.green('  Created'), 'functions/jest.config.js');
+  } catch (error) {
+    console.error(chalk.red('  Failed to copy jest.config.js'), error);
+    throw error;
+  }
 
   // Copy scripts and examples
-  await fs.copy(path.join(templateDir, '__scripts__'), path.join(targetDir, '__scripts__'));
-  await fs.copy(path.join(templateDir, '__examples__'), path.join(targetDir, '__examples__'));
-  console.log(chalk.green('  Created'), '__scripts__/');
-  console.log(chalk.green('  Created'), '__examples__/');
+  try {
+    await fs.copy(path.join(templateDir, '__scripts__'), path.join(targetDir, '__scripts__'), {
+      preserveTimestamps: false,
+      overwrite: true,
+      errorOnExist: false,
+    });
+    console.log(chalk.green('  Created'), '__scripts__/');
+  } catch (error) {
+    console.error(chalk.red('  Failed to copy __scripts__/'), error);
+    throw error;
+  }
+
+  try {
+    await fs.copy(path.join(templateDir, '__examples__'), path.join(targetDir, '__examples__'), {
+      preserveTimestamps: false,
+      overwrite: true,
+      errorOnExist: false,
+    });
+    console.log(chalk.green('  Created'), '__examples__/');
+  } catch (error) {
+    console.error(chalk.red('  Failed to copy __examples__/'), error);
+    throw error;
+  }
+
+  // Copy .claude directory for AI assistance
+  const claudeDir = path.join(templateDir, '.claude');
+  if (await fs.pathExists(claudeDir)) {
+    try {
+      await fs.copy(claudeDir, path.join(targetDir, '.claude'), {
+        preserveTimestamps: false,
+        overwrite: true,
+        errorOnExist: false,
+      });
+      console.log(chalk.green('  Created'), '.claude/');
+    } catch (error) {
+      console.error(chalk.red('  Failed to copy .claude/'), error);
+      throw error;
+    }
+  }
 
   // Generate firebase.json
   const firebaseJson = {
@@ -161,7 +243,11 @@ export async function initProject(options: InitOptions): Promise<void> {
   // Copy firestore.rules if exists
   const rulesTemplate = path.join(templateDir, 'firestore.rules');
   if (await fs.pathExists(rulesTemplate)) {
-    await fs.copy(rulesTemplate, path.join(targetDir, 'firestore.rules'));
+    await fs.copy(rulesTemplate, path.join(targetDir, 'firestore.rules'), {
+      preserveTimestamps: false,
+      overwrite: true,
+      errorOnExist: false,
+    });
     console.log(chalk.green('  Created'), 'firestore.rules');
   }
 
