@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-validation",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Input validation with Joi and express-validator",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

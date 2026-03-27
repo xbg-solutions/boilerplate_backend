@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-events",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Event bus for domain events",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
