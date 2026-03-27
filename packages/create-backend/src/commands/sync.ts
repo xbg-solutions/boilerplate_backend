@@ -14,6 +14,15 @@ interface SyncOptions {
   checkOnly?: boolean;
 }
 
+/**
+ * Safely copy a single file using read+write instead of fs.copy()
+ * This avoids issues on mounted filesystems where fs.copy() silently fails
+ */
+async function safeCopyFile(src: string, dest: string): Promise<void> {
+  const content = await fs.readFile(src);
+  await fs.writeFile(dest, content);
+}
+
 interface SyncResult {
   packagesUpdated: string[];
   packagesAdded: string[];
@@ -99,11 +108,7 @@ export async function syncProject(options: SyncOptions): Promise<void> {
 
       if (!await fs.pathExists(projectScript)) {
         if (!options.checkOnly) {
-          await fs.copy(templateScript, projectScript, {
-            preserveTimestamps: false,
-            overwrite: true,
-            errorOnExist: false,
-          });
+          await safeCopyFile(templateScript, projectScript);
           result.filesUpdated.push(`__scripts__/${script}`);
           console.log(chalk.green(`  Added: __scripts__/${script}`));
         } else {
@@ -115,11 +120,7 @@ export async function syncProject(options: SyncOptions): Promise<void> {
 
         if (templateContent !== projectContent) {
           if (!options.checkOnly) {
-            await fs.copy(templateScript, projectScript, {
-              preserveTimestamps: false,
-              overwrite: true,
-              errorOnExist: false,
-            });
+            await safeCopyFile(templateScript, projectScript);
             result.filesUpdated.push(`__scripts__/${script}`);
             console.log(chalk.yellow(`  Updated: __scripts__/${script}`));
           } else {

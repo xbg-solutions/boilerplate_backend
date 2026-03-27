@@ -16,6 +16,40 @@ interface InitOptions {
   skipInstall?: boolean;
 }
 
+/**
+ * Safely copy directory recursively using read+write instead of fs.copy()
+ * This avoids issues on mounted filesystems where fs.copy() silently fails
+ */
+async function safeCopyDir(src: string, dest: string, filter?: (src: string) => boolean): Promise<void> {
+  await fs.ensureDir(dest);
+  const entries = await fs.readdir(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+
+    // Apply filter if provided
+    if (filter && !filter(srcPath)) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      await safeCopyDir(srcPath, destPath, filter);
+    } else {
+      const content = await fs.readFile(srcPath);
+      await fs.writeFile(destPath, content);
+    }
+  }
+}
+
+/**
+ * Safely copy a single file using read+write instead of fs.copy()
+ */
+async function safeCopyFile(src: string, dest: string): Promise<void> {
+  const content = await fs.readFile(src);
+  await fs.writeFile(dest, content);
+}
+
 export async function initProject(options: InitOptions): Promise<void> {
   printBanner();
 
@@ -128,16 +162,8 @@ export async function initProject(options: InitOptions): Promise<void> {
       throw new Error(`Template source directory not found at: ${srcTemplatePath}`);
     }
 
-    // Ensure target directory exists before copying (helps with mounted filesystems)
-    await fs.ensureDir(srcTargetPath);
-
-    // Copy with filesystem-safe options to avoid issues on mounted/network filesystems
-    await fs.copy(srcTemplatePath, srcTargetPath, {
-      filter: (src) => !src.includes('node_modules'),
-      preserveTimestamps: false,
-      overwrite: true,
-      errorOnExist: false,
-    });
+    // Use safeCopyDir to avoid fs.copy issues on mounted/network filesystems
+    await safeCopyDir(srcTemplatePath, srcTargetPath, (src) => !src.includes('node_modules'));
 
     // Verify the copy succeeded
     if (!(await fs.pathExists(srcTargetPath))) {
@@ -151,11 +177,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   }
 
   try {
-    await fs.copy(path.join(templateDir, 'functions', 'tsconfig.json'), path.join(functionsDir, 'tsconfig.json'), {
-      preserveTimestamps: false,
-      overwrite: true,
-      errorOnExist: false,
-    });
+    await safeCopyFile(path.join(templateDir, 'functions', 'tsconfig.json'), path.join(functionsDir, 'tsconfig.json'));
     console.log(chalk.green('  Created'), 'functions/tsconfig.json');
   } catch (error) {
     console.error(chalk.red('  Failed to copy tsconfig.json'), error);
@@ -163,11 +185,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   }
 
   try {
-    await fs.copy(path.join(templateDir, 'functions', 'jest.config.js'), path.join(functionsDir, 'jest.config.js'), {
-      preserveTimestamps: false,
-      overwrite: true,
-      errorOnExist: false,
-    });
+    await safeCopyFile(path.join(templateDir, 'functions', 'jest.config.js'), path.join(functionsDir, 'jest.config.js'));
     console.log(chalk.green('  Created'), 'functions/jest.config.js');
   } catch (error) {
     console.error(chalk.red('  Failed to copy jest.config.js'), error);
@@ -176,11 +194,7 @@ export async function initProject(options: InitOptions): Promise<void> {
 
   // Copy scripts and examples
   try {
-    await fs.copy(path.join(templateDir, '__scripts__'), path.join(targetDir, '__scripts__'), {
-      preserveTimestamps: false,
-      overwrite: true,
-      errorOnExist: false,
-    });
+    await safeCopyDir(path.join(templateDir, '__scripts__'), path.join(targetDir, '__scripts__'));
     console.log(chalk.green('  Created'), '__scripts__/');
   } catch (error) {
     console.error(chalk.red('  Failed to copy __scripts__/'), error);
@@ -188,11 +202,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   }
 
   try {
-    await fs.copy(path.join(templateDir, '__examples__'), path.join(targetDir, '__examples__'), {
-      preserveTimestamps: false,
-      overwrite: true,
-      errorOnExist: false,
-    });
+    await safeCopyDir(path.join(templateDir, '__examples__'), path.join(targetDir, '__examples__'));
     console.log(chalk.green('  Created'), '__examples__/');
   } catch (error) {
     console.error(chalk.red('  Failed to copy __examples__/'), error);
@@ -203,11 +213,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   const claudeDir = path.join(templateDir, '.claude');
   if (await fs.pathExists(claudeDir)) {
     try {
-      await fs.copy(claudeDir, path.join(targetDir, '.claude'), {
-        preserveTimestamps: false,
-        overwrite: true,
-        errorOnExist: false,
-      });
+      await safeCopyDir(claudeDir, path.join(targetDir, '.claude'));
       console.log(chalk.green('  Created'), '.claude/');
     } catch (error) {
       console.error(chalk.red('  Failed to copy .claude/'), error);
@@ -243,11 +249,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   // Copy firestore.rules if exists
   const rulesTemplate = path.join(templateDir, 'firestore.rules');
   if (await fs.pathExists(rulesTemplate)) {
-    await fs.copy(rulesTemplate, path.join(targetDir, 'firestore.rules'), {
-      preserveTimestamps: false,
-      overwrite: true,
-      errorOnExist: false,
-    });
+    await safeCopyFile(rulesTemplate, path.join(targetDir, 'firestore.rules'));
     console.log(chalk.green('  Created'), 'firestore.rules');
   }
 
