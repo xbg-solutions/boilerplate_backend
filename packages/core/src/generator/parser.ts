@@ -42,6 +42,11 @@ export function parseEntitySpecification(
 }
 
 /**
+ * Base entity field names (should not be duplicated in generated entities)
+ */
+const BASE_ENTITY_FIELDS = new Set(['id', 'createdAt', 'updatedAt', 'deletedAt', 'version']);
+
+/**
  * Parse field definitions
  */
 function parseFields(fields: Record<string, FieldDefinition>): FieldContext[] {
@@ -55,6 +60,7 @@ function parseFields(fields: Record<string, FieldDefinition>): FieldContext[] {
     defaultValue: formatDefaultValue(def.default, def.type),
     validation: generateValidationRules(name, def),
     description: def.description,
+    isBaseEntityField: BASE_ENTITY_FIELDS.has(name),
   }));
 }
 
@@ -181,12 +187,13 @@ function generateValidationRules(fieldName: string, field: FieldDefinition): str
  */
 function generateImports(fields: FieldContext[], relationships: RelationshipContext[]): string[] {
   const imports: string[] = [
-    "import { BaseEntity, ValidationResult, ValidationHelper } from '@xbg.solutions/backend-core';",
+    "import { BaseEntity, BaseEntityData, ValidationResult, ValidationHelper } from '@xbg.solutions/backend-core';",
     "import { Timestamp, FieldValue } from 'firebase-admin/firestore';",
   ];
 
-  // Add relationship imports
-  const relatedEntities = new Set(relationships.map((r) => r.entity));
+  // Add relationship imports (only if relationships are actually used)
+  // Note: Currently these imports are commented out in templates, but kept here for future use
+  const relatedEntities = new Set(relationships.map((r) => r.entity).filter(e => e));
   relatedEntities.forEach((entity) => {
     imports.push(`import { ${entity} } from './${entity}';`);
   });

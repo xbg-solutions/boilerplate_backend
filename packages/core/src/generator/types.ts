@@ -127,6 +127,7 @@ export interface FieldContext {
   defaultValue?: string;
   validation: string[];
   description?: string;
+  isBaseEntityField: boolean;
 }
 
 export interface RelationshipContext {

@@ -8,6 +8,7 @@ import * as path from 'path';
 import Handlebars from 'handlebars';
 import { EntitySpecification, GeneratorConfig, TemplateContext } from './types';
 import { parseEntitySpecification } from './parser';
+import { getTemplate } from './templates';
 
 /**
  * Register Handlebars helpers
@@ -28,11 +29,9 @@ Handlebars.registerHelper('uppercase', (str: string) => {
  * Code Generator Class
  */
 export class CodeGenerator {
-  private templatesDir: string;
   private outputDir: string;
 
-  constructor(templatesDir: string, outputDir: string) {
-    this.templatesDir = templatesDir;
+  constructor(outputDir: string) {
     this.outputDir = outputDir;
   }
 
@@ -74,16 +73,15 @@ export class CodeGenerator {
   }
 
   /**
-   * Generate from a template file
+   * Generate from an embedded template
    */
   private async generateFromTemplate(
     templateName: string,
     context: TemplateContext,
     outputPath: string
   ): Promise<void> {
-    // Read template
-    const templatePath = path.join(this.templatesDir, `${templateName}.hbs`);
-    const templateContent = fs.readFileSync(templatePath, 'utf-8');
+    // Get embedded template content
+    const templateContent = getTemplate(templateName);
 
     // Compile template
     const template = Handlebars.compile(templateContent);
@@ -154,8 +152,6 @@ export class CodeGenerator {
  * Helper function to create generator instance
  */
 export function createGenerator(outputDir?: string): CodeGenerator {
-  const templatesDir = path.join(__dirname, '../templates');
   const output = outputDir || path.join(__dirname, '../generated');
-
-  return new CodeGenerator(templatesDir, output);
+  return new CodeGenerator(output);
 }
