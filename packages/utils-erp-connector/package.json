@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-erp-connector",
-  "version": "1.1.5",
+  "version": "1.1.9",
   "description": "ERP integration with Workday",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

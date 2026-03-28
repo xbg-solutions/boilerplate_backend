@@ -20,6 +20,7 @@ interface InitOptions {
 /**
  * Safely copy directory recursively using ONLY native fs synchronous operations
  * fs-extra's async operations silently fail on mounted filesystems
+ * Uses statSync instead of withFileTypes because Dirent methods are broken on mounted filesystems
  */
 function safeCopyDir(src: string, dest: string, filter?: (src: string) => boolean): void {
   console.log(chalk.dim(`  [DEBUG] safeCopyDir: src=${src}, dest=${dest}`));
@@ -29,13 +30,13 @@ function safeCopyDir(src: string, dest: string, filter?: (src: string) => boolea
     nativeFs.mkdirSync(dest, { recursive: true });
   }
 
-  // Use native fs.readdirSync instead of fs-extra's async readdir
-  const entries = nativeFs.readdirSync(src, { withFileTypes: true });
-  console.log(chalk.dim(`  [DEBUG] readdir result for ${src}: ${entries.length} entries:`, entries.map(e => e.name).join(', ')));
+  // Use plain readdirSync (returns string names) - withFileTypes Dirent is broken on mounted filesystems
+  const names = nativeFs.readdirSync(src);
+  console.log(chalk.dim(`  [DEBUG] readdir result for ${src}: ${names.length} entries:`, names.join(', ')));
 
-  for (const entry of entries) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
+  for (const name of names) {
+    const srcPath = path.join(src, name);
+    const destPath = path.join(dest, name);
 
     // Apply filter if provided
     if (filter && !filter(srcPath)) {
@@ -43,7 +44,11 @@ function safeCopyDir(src: string, dest: string, filter?: (src: string) => boolea
       continue;
     }
 
-    if (entry.isDirectory()) {
+    // Use statSync to determine file vs directory (Dirent.isDirectory/isFile are broken on mounted fs)
+    const stat = nativeFs.statSync(srcPath);
+    console.log(chalk.dim(`  [DEBUG] stat for ${srcPath}: isDirectory=${stat.isDirectory()}, isFile=${stat.isFile()}`));
+
+    if (stat.isDirectory()) {
       console.log(chalk.dim(`  [DEBUG] recursing into directory: ${srcPath}`));
       safeCopyDir(srcPath, destPath, filter);
     } else {
@@ -181,7 +186,8 @@ export async function initProject(options: InitOptions): Promise<void> {
     }
 
     // Use safeCopyDir to avoid fs.copy issues on mounted/network filesystems
-    safeCopyDir(srcTemplatePath, srcTargetPath, (src) => !src.includes('node_modules'));
+    // No filter needed - the template doesn't contain node_modules
+    safeCopyDir(srcTemplatePath, srcTargetPath);
 
     // Verify the copy succeeded
     if (!(await fs.pathExists(srcTargetPath))) {
