@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-email-connector",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Email sending with Mailjet and Ortto providers",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-address-validation",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Google Maps address validation",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
