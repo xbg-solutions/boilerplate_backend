@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@xbg.solutions/utils-logger": "^1.0.0",
-    "firebase-admin": "^10.3.0"
+    "firebase-admin": "^13.7.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

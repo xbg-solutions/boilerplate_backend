@@ -66,7 +66,7 @@ export class FCMProvider implements PushNotificationsProvider {
     try {
       const message = this.buildMulticastMessage(request);
 
-      const response = await this.messaging.sendMulticast(message);
+      const response = await this.messaging.sendEachForMulticast(message);
 
       const errors = response.responses
         .map((resp: any, idx: number) => ({
