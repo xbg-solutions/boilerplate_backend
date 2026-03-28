@@ -10,28 +10,17 @@ import { logger } from '@xbg.solutions/utils-logger';
 import { RepositoryError } from '../types/errors';
 import { getCacheConnector, RepositoryCacheConfig, CacheOptions, CacheProviderType } from '@xbg.solutions/utils-cache-connector';
 import { CACHE_CONFIG } from '../config/cache.config';
+import {
+  QueryOptions,
+  WhereClause,
+  PaginationResult,
+  TransactionContext,
+  WhereFilterOp,
+} from '../types/repository';
+import { FirestoreTransactionContext } from './FirestoreScopedRepository';
 
-export interface QueryOptions {
-  limit?: number;
-  offset?: number;
-  orderBy?: { field: string; direction: 'asc' | 'desc' }[];
-  where?: WhereClause[];
-  includeSoftDeleted?: boolean;
-}
-
-export interface WhereClause {
-  field: string;
-  operator: FirebaseFirestore.WhereFilterOp;
-  value: any;
-}
-
-export interface PaginationResult<T> {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
+// Re-export for backwards compatibility
+export type { QueryOptions, WhereClause, PaginationResult } from '../types/repository';
 
 export abstract class BaseRepository<T extends BaseEntity> {
   protected abstract collectionName: string;
@@ -54,6 +43,19 @@ export abstract class BaseRepository<T extends BaseEntity> {
    */
   protected getCollection(): CollectionReference<DocumentData> {
     return this.db.collection(this.collectionName);
+  }
+
+  /**
+   * Extract the raw Firestore Transaction from an abstract TransactionContext.
+   */
+  protected unwrapTransaction(tx: TransactionContext): FirebaseFirestore.Transaction {
+    if (!(tx instanceof FirestoreTransactionContext)) {
+      throw new RepositoryError(
+        'Expected a FirestoreTransactionContext',
+        this.collectionName
+      );
+    }
+    return tx.transaction;
   }
 
   /**
@@ -165,7 +167,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
   /**
    * Create a new entity
    */
-  async create(entity: T): Promise<T> {
+  async create(entity: T, tx?: TransactionContext): Promise<T> {
     try {
       const validation = entity.validate();
       if (!validation.valid) {
@@ -179,7 +181,11 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
       entity.id = docRef.id;
 
-      await docRef.set(entity.toFirestore());
+      if (tx) {
+        this.unwrapTransaction(tx).set(docRef, entity.toFirestore());
+      } else {
+        await docRef.set(entity.toFirestore());
+      }
 
       logger.info('Entity created', {
         collection: this.collectionName,
@@ -203,9 +209,12 @@ export abstract class BaseRepository<T extends BaseEntity> {
   /**
    * Find entity by ID
    */
-  async findById(id: string, includeSoftDeleted = false): Promise<T | null> {
+  async findById(id: string, includeSoftDeleted = false, tx?: TransactionContext): Promise<T | null> {
     try {
-      const doc = await this.getCollection().doc(id).get();
+      const ref = this.getCollection().doc(id);
+      const doc = tx
+        ? await this.unwrapTransaction(tx).get(ref)
+        : await ref.get();
 
       if (!doc.exists) {
         return null;
@@ -292,7 +301,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
   /**
    * Find all entities with optional filtering
    */
-  async findAll(options: QueryOptions = {}): Promise<T[]> {
+  async findAll(options: QueryOptions = {}, tx?: TransactionContext): Promise<T[]> {
     try {
       let query: Query = this.getCollection();
 
@@ -324,7 +333,9 @@ export abstract class BaseRepository<T extends BaseEntity> {
         query = query.limit(options.limit);
       }
 
-      const snapshot = await query.get();
+      const snapshot = tx
+        ? await this.unwrapTransaction(tx).get(query)
+        : await query.get();
       return snapshot.docs.map((doc) => this.fromFirestore(doc.id, doc.data()));
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
@@ -371,7 +382,7 @@ export abstract class BaseRepository<T extends BaseEntity> {
   /**
    * Update an entity
    */
-  async update(entity: T): Promise<T> {
+  async update(entity: T, tx?: TransactionContext): Promise<T> {
     try {
       const validation = entity.validate();
       if (!validation.valid) {
@@ -384,10 +395,17 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
       entity.incrementVersion();
 
-      await this.getCollection().doc(entity.getId()!).update(entity.toFirestore());
+      const ref = this.getCollection().doc(entity.getId()!);
+      if (tx) {
+        this.unwrapTransaction(tx).update(ref, entity.toFirestore());
+      } else {
+        await ref.update(entity.toFirestore());
+      }
 
-      // Invalidate cache after update
-      await this.invalidateEntityCache(entity.getId()!);
+      // Invalidate cache after update (skip in transaction — caller handles)
+      if (!tx) {
+        await this.invalidateEntityCache(entity.getId()!);
+      }
 
       logger.info('Entity updated', {
         collection: this.collectionName,
@@ -410,29 +428,78 @@ export abstract class BaseRepository<T extends BaseEntity> {
   }
 
   /**
+   * Partial field update without requiring a full entity hydration.
+   */
+  async updateFields(id: string, fields: Record<string, any>, tx?: TransactionContext): Promise<void> {
+    try {
+      const ref = this.getCollection().doc(id);
+      const updateData = {
+        ...fields,
+        updatedAt: Timestamp.now(),
+      };
+
+      if (tx) {
+        this.unwrapTransaction(tx).update(ref, updateData);
+      } else {
+        await ref.update(updateData);
+        await this.invalidateEntityCache(id);
+      }
+
+      logger.info('Entity fields updated', {
+        collection: this.collectionName,
+        id,
+        fields: Object.keys(fields),
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to update entity fields', err, {
+        collection: this.collectionName,
+        id,
+      });
+      throw new RepositoryError(
+        `Failed to update entity fields: ${err.message}`,
+        this.collectionName
+      );
+    }
+  }
+
+  /**
    * Delete an entity (soft delete by default)
    */
-  async delete(id: string, hardDelete = false): Promise<void> {
+  async delete(id: string, hardDelete = false, tx?: TransactionContext): Promise<void> {
     try {
+      const ref = this.getCollection().doc(id);
+
       if (hardDelete) {
-        await this.getCollection().doc(id).delete();
+        if (tx) {
+          this.unwrapTransaction(tx).delete(ref);
+        } else {
+          await ref.delete();
+        }
         logger.info('Entity hard deleted', {
           collection: this.collectionName,
           id,
         });
       } else {
-        await this.getCollection().doc(id).update({
+        const softDelete = {
           deletedAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
-        });
+        };
+        if (tx) {
+          this.unwrapTransaction(tx).update(ref, softDelete);
+        } else {
+          await ref.update(softDelete);
+        }
         logger.info('Entity soft deleted', {
           collection: this.collectionName,
           id,
         });
       }
 
-      // Invalidate cache after delete
-      await this.invalidateEntityCache(id);
+      // Invalidate cache after delete (skip in transaction — caller handles)
+      if (!tx) {
+        await this.invalidateEntityCache(id);
+      }
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error('Failed to delete entity', err, {

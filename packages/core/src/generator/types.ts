@@ -16,6 +16,15 @@ export interface EntitySpecification {
   indexes?: IndexDefinition[];
   businessRules?: string[];
   description?: string;
+  storage?: EntityStorageSpec;
+}
+
+export interface EntityStorageSpec {
+  type: 'collection' | 'subcollection';
+  parent?: {
+    entity: string;
+    collectionName: string;
+  };
 }
 
 export interface FieldDefinition {
@@ -115,6 +124,10 @@ export interface TemplateContext {
   accessRules?: AccessControlRules;
   indexes?: IndexDefinition[];
   businessRules?: string[];
+  isSubcollection: boolean;
+  parentEntity?: string;
+  parentEntityLower?: string;
+  subcollectionName?: string;
 }
 
 export interface FieldContext {

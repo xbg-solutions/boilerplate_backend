@@ -263,7 +263,7 @@ export abstract class BaseController<T extends BaseEntity> {
         const [field, operator, value] = clause.split(':');
         return {
           field,
-          operator: operator as FirebaseFirestore.WhereFilterOp,
+          operator: operator as import('../types/repository').WhereFilterOp,
           value: this.parseValue(value),
         };
       });

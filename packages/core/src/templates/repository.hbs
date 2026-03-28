@@ -5,10 +5,16 @@
 
 import { Firestore, DocumentData } from 'firebase-admin/firestore';
 import { BaseRepository } from '@xbg.solutions/backend-core';
+{{#if isSubcollection}}
+import { IScopedRepository, FirestoreScopedRepository } from '@xbg.solutions/backend-core';
+{{/if}}
 import { {{entityName}} } from '../entities/{{entityName}}';
 
 export class {{entityName}}Repository extends BaseRepository<{{entityName}}> {
   protected collectionName = '{{collectionName}}';
+{{#if isSubcollection}}
+  protected subcollectionName = '{{subcollectionName}}';
+{{/if}}
 
   constructor(db: Firestore) {
     super(db);
@@ -20,6 +26,23 @@ export class {{entityName}}Repository extends BaseRepository<{{entityName}}> {
   protected fromFirestore(id: string, data: DocumentData): {{entityName}} {
     return {{entityName}}.fromFirestore(id, data);
   }
+
+{{#if isSubcollection}}
+  /**
+   * Create a scoped repository for {{entityName}} under a specific {{parentEntity}}.
+   *
+   * Usage:
+   *   const repo = {{entityNameLower}}Repository.scopedTo({{parentEntityLower}}Id);
+   *   const items = await repo.findAll();
+   */
+  scopedTo({{parentEntityLower}}Id: string): IScopedRepository<{{entityName}}> {
+    return new FirestoreScopedRepository<{{entityName}}>(
+      this.db,
+      ['{{collectionName}}', {{parentEntityLower}}Id, '{{subcollectionName}}'],
+      (id: string, data: Record<string, any>) => this.fromFirestore(id, data)
+    );
+  }
+{{/if}}
 
 {{#each fields}}
 {{#if unique}}

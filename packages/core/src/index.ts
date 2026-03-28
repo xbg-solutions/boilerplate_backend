@@ -19,6 +19,7 @@ export * from './config';
 
 // Types
 export * from './types/errors';
+export * from './types/repository';
 
 // App factory
 export { createApp, registerControllers, startServer } from './app';
@@ -30,6 +31,7 @@ export { parseEntitySpecification } from './generator/parser';
 export type {
   DataModelSpecification,
   EntitySpecification,
+  EntityStorageSpec,
   FieldDefinition,
   FieldType,
   RelationshipDefinition,

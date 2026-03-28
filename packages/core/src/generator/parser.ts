@@ -23,6 +23,7 @@ export function parseEntitySpecification(
 ): TemplateContext {
   const fields = parseFields(spec.fields);
   const relationships = parseRelationships(spec.relationships || {});
+  const isSubcollection = spec.storage?.type === 'subcollection';
 
   return {
     entityName,
@@ -38,6 +39,12 @@ export function parseEntitySpecification(
     accessRules: spec.access,
     indexes: spec.indexes,
     businessRules: spec.businessRules,
+    isSubcollection,
+    parentEntity: isSubcollection ? spec.storage!.parent?.entity : undefined,
+    parentEntityLower: isSubcollection && spec.storage!.parent?.entity
+      ? toLowerCamelCase(spec.storage!.parent.entity)
+      : undefined,
+    subcollectionName: isSubcollection ? spec.storage!.parent?.collectionName : undefined,
   };
 }
 
