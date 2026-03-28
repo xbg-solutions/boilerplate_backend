@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-journey-connector",
-  "version": "1.1.2",
+  "version": "1.1.5",
   "description": "Customer journey integration with Ortto",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

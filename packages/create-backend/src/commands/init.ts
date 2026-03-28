@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs-extra';
+import * as nativeFs from 'fs';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { execSync } from 'child_process';
@@ -17,12 +18,20 @@ interface InitOptions {
 }
 
 /**
- * Safely copy directory recursively using read+write instead of fs.copy()
- * This avoids issues on mounted filesystems where fs.copy() silently fails
+ * Safely copy directory recursively using ONLY native fs synchronous operations
+ * fs-extra's async operations silently fail on mounted filesystems
  */
-async function safeCopyDir(src: string, dest: string, filter?: (src: string) => boolean): Promise<void> {
-  await fs.ensureDir(dest);
-  const entries = await fs.readdir(src, { withFileTypes: true });
+function safeCopyDir(src: string, dest: string, filter?: (src: string) => boolean): void {
+  console.log(chalk.dim(`  [DEBUG] safeCopyDir: src=${src}, dest=${dest}`));
+
+  // Use native fs.mkdirSync instead of fs-extra's ensureDir
+  if (!nativeFs.existsSync(dest)) {
+    nativeFs.mkdirSync(dest, { recursive: true });
+  }
+
+  // Use native fs.readdirSync instead of fs-extra's async readdir
+  const entries = nativeFs.readdirSync(src, { withFileTypes: true });
+  console.log(chalk.dim(`  [DEBUG] readdir result for ${src}: ${entries.length} entries:`, entries.map(e => e.name).join(', ')));
 
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
@@ -30,24 +39,27 @@ async function safeCopyDir(src: string, dest: string, filter?: (src: string) => 
 
     // Apply filter if provided
     if (filter && !filter(srcPath)) {
+      console.log(chalk.dim(`  [DEBUG] filtered out: ${srcPath}`));
       continue;
     }
 
     if (entry.isDirectory()) {
-      await safeCopyDir(srcPath, destPath, filter);
+      console.log(chalk.dim(`  [DEBUG] recursing into directory: ${srcPath}`));
+      safeCopyDir(srcPath, destPath, filter);
     } else {
-      const content = await fs.readFile(srcPath);
-      await fs.writeFile(destPath, content);
+      // Use native fs.copyFileSync - reliable on mounted filesystems
+      console.log(chalk.dim(`  [DEBUG] copyFileSync: ${srcPath} -> ${destPath}`));
+      nativeFs.copyFileSync(srcPath, destPath);
     }
   }
 }
 
 /**
- * Safely copy a single file using read+write instead of fs.copy()
+ * Safely copy a single file using native fs.copyFileSync
+ * fs-extra's async operations silently fail on mounted filesystems
  */
-async function safeCopyFile(src: string, dest: string): Promise<void> {
-  const content = await fs.readFile(src);
-  await fs.writeFile(dest, content);
+function safeCopyFile(src: string, dest: string): void {
+  nativeFs.copyFileSync(src, dest);
 }
 
 export async function initProject(options: InitOptions): Promise<void> {
@@ -55,6 +67,8 @@ export async function initProject(options: InitOptions): Promise<void> {
 
   const targetDir = path.resolve(options.directory);
   const templateDir = path.resolve(__dirname, '../../src/project-template');
+  console.log(chalk.yellow(`[DEBUG] __dirname: ${__dirname}`));
+  console.log(chalk.yellow(`[DEBUG] templateDir: ${templateDir}`));
 
   // ── Gather configuration ──────────────────────────────
   const answers = await inquirer.prompt([
@@ -157,13 +171,17 @@ export async function initProject(options: InitOptions): Promise<void> {
     const srcTemplatePath = path.join(templateDir, 'functions', 'src');
     const srcTargetPath = path.join(functionsDir, 'src');
 
+    console.log(chalk.yellow(`[DEBUG] About to copy functions/src:`));
+    console.log(chalk.yellow(`[DEBUG]   srcTemplatePath: ${srcTemplatePath}`));
+    console.log(chalk.yellow(`[DEBUG]   srcTargetPath: ${srcTargetPath}`));
+
     // Verify source exists before copying
     if (!(await fs.pathExists(srcTemplatePath))) {
       throw new Error(`Template source directory not found at: ${srcTemplatePath}`);
     }
 
     // Use safeCopyDir to avoid fs.copy issues on mounted/network filesystems
-    await safeCopyDir(srcTemplatePath, srcTargetPath, (src) => !src.includes('node_modules'));
+    safeCopyDir(srcTemplatePath, srcTargetPath, (src) => !src.includes('node_modules'));
 
     // Verify the copy succeeded
     if (!(await fs.pathExists(srcTargetPath))) {
@@ -177,7 +195,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   }
 
   try {
-    await safeCopyFile(path.join(templateDir, 'functions', 'tsconfig.json'), path.join(functionsDir, 'tsconfig.json'));
+    safeCopyFile(path.join(templateDir, 'functions', 'tsconfig.json'), path.join(functionsDir, 'tsconfig.json'));
     console.log(chalk.green('  Created'), 'functions/tsconfig.json');
   } catch (error) {
     console.error(chalk.red('  Failed to copy tsconfig.json'), error);
@@ -185,7 +203,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   }
 
   try {
-    await safeCopyFile(path.join(templateDir, 'functions', 'jest.config.js'), path.join(functionsDir, 'jest.config.js'));
+    safeCopyFile(path.join(templateDir, 'functions', 'jest.config.js'), path.join(functionsDir, 'jest.config.js'));
     console.log(chalk.green('  Created'), 'functions/jest.config.js');
   } catch (error) {
     console.error(chalk.red('  Failed to copy jest.config.js'), error);
@@ -194,7 +212,7 @@ export async function initProject(options: InitOptions): Promise<void> {
 
   // Copy scripts and examples
   try {
-    await safeCopyDir(path.join(templateDir, '__scripts__'), path.join(targetDir, '__scripts__'));
+    safeCopyDir(path.join(templateDir, '__scripts__'), path.join(targetDir, '__scripts__'));
     console.log(chalk.green('  Created'), '__scripts__/');
   } catch (error) {
     console.error(chalk.red('  Failed to copy __scripts__/'), error);
@@ -202,7 +220,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   }
 
   try {
-    await safeCopyDir(path.join(templateDir, '__examples__'), path.join(targetDir, '__examples__'));
+    safeCopyDir(path.join(templateDir, '__examples__'), path.join(targetDir, '__examples__'));
     console.log(chalk.green('  Created'), '__examples__/');
   } catch (error) {
     console.error(chalk.red('  Failed to copy __examples__/'), error);
@@ -213,7 +231,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   const claudeDir = path.join(templateDir, '.claude');
   if (await fs.pathExists(claudeDir)) {
     try {
-      await safeCopyDir(claudeDir, path.join(targetDir, '.claude'));
+      safeCopyDir(claudeDir, path.join(targetDir, '.claude'));
       console.log(chalk.green('  Created'), '.claude/');
     } catch (error) {
       console.error(chalk.red('  Failed to copy .claude/'), error);
@@ -249,7 +267,7 @@ export async function initProject(options: InitOptions): Promise<void> {
   // Copy firestore.rules if exists
   const rulesTemplate = path.join(templateDir, 'firestore.rules');
   if (await fs.pathExists(rulesTemplate)) {
-    await safeCopyFile(rulesTemplate, path.join(targetDir, 'firestore.rules'));
+    safeCopyFile(rulesTemplate, path.join(targetDir, 'firestore.rules'));
     console.log(chalk.green('  Created'), 'firestore.rules');
   }
 

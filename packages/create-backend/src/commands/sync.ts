@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs-extra';
+import * as nativeFs from 'fs';
 import chalk from 'chalk';
 import { execSync } from 'child_process';
 import { UTILITY_REGISTRY } from '../utils-registry';
@@ -15,12 +16,11 @@ interface SyncOptions {
 }
 
 /**
- * Safely copy a single file using read+write instead of fs.copy()
- * This avoids issues on mounted filesystems where fs.copy() silently fails
+ * Safely copy a single file using native fs.copyFileSync
+ * fs-extra's async operations silently fail on mounted filesystems
  */
-async function safeCopyFile(src: string, dest: string): Promise<void> {
-  const content = await fs.readFile(src);
-  await fs.writeFile(dest, content);
+function safeCopyFile(src: string, dest: string): void {
+  nativeFs.copyFileSync(src, dest);
 }
 
 interface SyncResult {
@@ -108,7 +108,7 @@ export async function syncProject(options: SyncOptions): Promise<void> {
 
       if (!await fs.pathExists(projectScript)) {
         if (!options.checkOnly) {
-          await safeCopyFile(templateScript, projectScript);
+          safeCopyFile(templateScript, projectScript);
           result.filesUpdated.push(`__scripts__/${script}`);
           console.log(chalk.green(`  Added: __scripts__/${script}`));
         } else {
@@ -120,7 +120,7 @@ export async function syncProject(options: SyncOptions): Promise<void> {
 
         if (templateContent !== projectContent) {
           if (!options.checkOnly) {
-            await safeCopyFile(templateScript, projectScript);
+            safeCopyFile(templateScript, projectScript);
             result.filesUpdated.push(`__scripts__/${script}`);
             console.log(chalk.yellow(`  Updated: __scripts__/${script}`));
           } else {
