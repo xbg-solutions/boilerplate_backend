@@ -91,14 +91,14 @@ export function unhashValue(value: string): string {
 
 /**
  * Unhash specific fields in an object (lazy pattern)
- * 
+ *
  * Services explicitly request which fields to unhash.
  * No automatic unhashing on every GET request.
- * 
+ *
  * @param data - Object containing hashed fields
  * @param fieldsToUnhash - Array of field paths to unhash (e.g., ['contact.email'])
  * @returns New object with unhashed fields
- * 
+ *
  * @example
  * unhashFields(contactData, ['contact.email', 'contact.phoneNumber'])
  */
@@ -125,6 +125,36 @@ export function unhashFields<T extends Record<string, unknown>>(
     const value = result[fieldName];
 
     // Only attempt to decrypt string values that appear to be encrypted
+    if (value && typeof value === 'string' && isEncrypted(value)) {
+      (result as Record<string, unknown>)[fieldName] = unhashValue(value);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Unhash specific fields in an object by field name.
+ *
+ * Unlike unhashFields(), this does not check the registry — you pass the
+ * field names directly. Preferred for project-specific entities.
+ *
+ * @param data - Object containing hashed fields
+ * @param fields - Array of field names to decrypt (e.g. ['email', 'phone'])
+ * @returns New object with specified fields unhashed
+ *
+ * @example
+ * unhashFieldsByName(userData, ['email', 'phone'])
+ */
+export function unhashFieldsByName<T extends Record<string, unknown>>(
+  data: T,
+  fields: string[]
+): T {
+  const result = { ...data };
+
+  for (const fieldName of fields) {
+    const value = result[fieldName];
+
     if (value && typeof value === 'string' && isEncrypted(value)) {
       (result as Record<string, unknown>)[fieldName] = unhashValue(value);
     }

@@ -72,7 +72,7 @@ export class {{entityName}} extends BaseEntity {
   /**
    * Create entity from Firestore document
    */
-  static fromFirestore(id: string, data: Record<string, any>): {{entityName}} {
+  static override fromFirestore(id: string, data: Record<string, any>): {{entityName}} {
     return new {{entityName}}({
       id,
       ...data,
@@ -109,6 +109,50 @@ export const REPOSITORY_TEMPLATE = `/**
  * Generated from data model specification
  */
 
+{{#if isSubcollection}}
+import { RepositoryFactory, IScopedRepository, QueryOptions } from '@xbg.solutions/backend-core';
+import { {{entityName}} } from '../entities/{{entityName}}';
+
+/**
+ * Scoped repository for {{entityName}} subcollection.
+ * Path pattern: {{subcollectionName}}/{parentId}/{{collectionName}}
+ */
+export class {{entityName}}Repository {
+  private repo: IScopedRepository<{{entityName}}>;
+
+  constructor(factory: RepositoryFactory, parentPath: string[]) {
+    this.repo = factory.createScopedRepository(
+      'default',
+      parentPath,
+      (id, data) => {{entityName}}.fromFirestore(id, data)
+    );
+  }
+
+  async findById(id: string): Promise<{{entityName}} | null> {
+    return this.repo.findById(id);
+  }
+
+  async findAll(options?: QueryOptions): Promise<{{entityName}}[]> {
+    return this.repo.findAll(options);
+  }
+
+  async findOneWhere(conditions: Record<string, any>): Promise<{{entityName}} | null> {
+    return this.repo.findOneWhere(conditions);
+  }
+
+  async create(data: Partial<{{entityName}}>): Promise<{{entityName}}> {
+    return this.repo.create(data);
+  }
+
+  async updateFields(id: string, fields: Record<string, any>): Promise<void> {
+    return this.repo.updateFields(id, fields);
+  }
+
+  async remove(id: string): Promise<void> {
+    return this.repo.remove(id);
+  }
+}
+{{else}}
 import { Firestore, DocumentData } from 'firebase-admin/firestore';
 import { BaseRepository } from '@xbg.solutions/backend-core';
 import { {{entityName}} } from '../entities/{{entityName}}';
@@ -160,6 +204,7 @@ export class {{entityName}}Repository extends BaseRepository<{{entityName}}> {
   }
 {{/each}}
 }
+{{/if}}
 `;
 
 /**
@@ -171,6 +216,125 @@ export const SERVICE_TEMPLATE = `/**
  * Generated from data model specification
  */
 
+{{#if isSubcollection}}
+import { RequestContext, ServiceResult, QueryOptions } from '@xbg.solutions/backend-core';
+import { eventBus } from '@xbg.solutions/utils-events';
+import { logger } from '@xbg.solutions/utils-logger';
+import { {{entityName}}, {{entityName}}Data } from '../entities/{{entityName}}';
+import { {{entityName}}Repository } from '../repositories/{{entityName}}Repository';
+
+/**
+ * Service for {{entityName}} subcollection entities.
+ * Operates within the scope of a parent {{parentEntity}}.
+ */
+export class {{entityName}}Service {
+  protected entityName = '{{entityName}}';
+
+  constructor(protected repository: {{entityName}}Repository) {}
+
+  async create(data: Partial<{{entityName}}Data>, context: RequestContext): Promise<ServiceResult<{{entityName}}>> {
+    try {
+      logger.info(\`Creating {{entityName}}\`, { requestId: context.requestId });
+      const entity = new {{entityName}}(data as {{entityName}}Data);
+      const validation = entity.validate();
+      if (!validation.valid) {
+        return { success: false, error: { code: 'VALIDATION_ERROR', message: validation.errors.join(', ') } };
+      }
+      const result = await this.repository.create(data);
+      this.publishEvent('CREATED', result, context);
+      return { success: true, data: result };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(\`Failed to create {{entityName}}\`, err, { requestId: context.requestId });
+      return { success: false, error: { code: 'CREATE_ERROR', message: err.message } };
+    }
+  }
+
+  async findById(id: string, context: RequestContext): Promise<ServiceResult<{{entityName}}>> {
+    try {
+      const entity = await this.repository.findById(id);
+      if (!entity) {
+        return { success: false, error: { code: 'NOT_FOUND', message: \`{{entityName}} not found: \${id}\` } };
+      }
+      return { success: true, data: entity };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(\`Failed to find {{entityName}}\`, err, { requestId: context.requestId });
+      return { success: false, error: { code: 'READ_ERROR', message: err.message } };
+    }
+  }
+
+  async findAll(options: QueryOptions, context: RequestContext): Promise<ServiceResult<{{entityName}}[]>> {
+    try {
+      const entities = await this.repository.findAll(options);
+      return { success: true, data: entities };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(\`Failed to find {{entityName}} list\`, err, { requestId: context.requestId });
+      return { success: false, error: { code: 'READ_ERROR', message: err.message } };
+    }
+  }
+
+  async update(id: string, data: Partial<{{entityName}}Data>, context: RequestContext): Promise<ServiceResult<{{entityName}}>> {
+    try {
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return { success: false, error: { code: 'NOT_FOUND', message: \`{{entityName}} not found: \${id}\` } };
+      }
+      await this.repository.updateFields(id, data as Record<string, any>);
+      const updated = await this.repository.findById(id);
+      if (updated) {
+        this.publishEvent('UPDATED', updated, context);
+      }
+      return { success: true, data: updated! };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(\`Failed to update {{entityName}}\`, err, { requestId: context.requestId });
+      return { success: false, error: { code: 'UPDATE_ERROR', message: err.message } };
+    }
+  }
+
+  async delete(id: string, context: RequestContext): Promise<ServiceResult<void>> {
+    try {
+      const existing = await this.repository.findById(id);
+      if (!existing) {
+        return { success: false, error: { code: 'NOT_FOUND', message: \`{{entityName}} not found: \${id}\` } };
+      }
+      await this.repository.remove(id);
+      this.publishEvent('DELETED', existing, context);
+      return { success: true };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(\`Failed to delete {{entityName}}\`, err, { requestId: context.requestId });
+      return { success: false, error: { code: 'DELETE_ERROR', message: err.message } };
+    }
+  }
+
+  protected publishEvent(action: string, entity: {{entityName}}, context: RequestContext): void {
+    try {
+      eventBus.publish(\`{{entityName}}.\${action}\` as any, {
+        entityId: entity.id,
+        entityType: '{{entityName}}',
+        action,
+        data: entity.toJSON(),
+        context: { userId: context.userId, requestId: context.requestId },
+        timestamp: new Date(),
+      });
+    } catch (err) {
+      logger.warn('Failed to publish event', { action, entityName: '{{entityName}}' });
+    }
+  }
+
+{{#if businessRules}}
+  /**
+   * Business Rules:
+{{#each businessRules}}
+   * - {{this}}
+{{/each}}
+   */
+{{/if}}
+}
+{{else}}
 import { BaseService, RequestContext } from '@xbg.solutions/backend-core';
 import { {{entityName}}, {{entityName}}Data } from '../entities/{{entityName}}';
 import { {{entityName}}Repository } from '../repositories/{{entityName}}Repository';
@@ -193,6 +357,9 @@ export class {{entityName}}Service extends BaseService<{{entityName}}> {
    * Merge existing entity with updates
    */
   protected async mergeEntity(existing: {{entityName}}, updates: Partial<{{entityName}}Data>): Promise<{{entityName}}> {
+    if (!existing.id) {
+      throw new Error('Cannot merge {{entityName}} without an ID');
+    }
     return new {{entityName}}({
       ...existing.toJSON(),
       ...updates,
@@ -274,6 +441,7 @@ export class {{entityName}}Service extends BaseService<{{entityName}}> {
    */
 {{/if}}
 }
+{{/if}}
 `;
 
 /**
@@ -285,6 +453,139 @@ export const CONTROLLER_TEMPLATE = `/**
  * Generated from data model specification
  */
 
+{{#if isSubcollection}}
+import { Router, Request, Response, NextFunction } from 'express';
+import { RepositoryFactory } from '@xbg.solutions/backend-core';
+import { {{entityName}} } from '../entities/{{entityName}}';
+import { {{entityName}}Repository } from '../repositories/{{entityName}}Repository';
+import { {{entityName}}Service } from '../services/{{entityName}}Service';
+
+/**
+ * Controller for {{entityName}} subcollection.
+ * Route pattern: /{{parentEntityLower}}s/:{{parentEntityLower}}Id/{{collectionName}}
+ */
+export class {{entityName}}Controller {
+  public router: Router;
+  private factory: RepositoryFactory;
+
+  constructor(factory: RepositoryFactory) {
+    this.factory = factory;
+    this.router = Router({ mergeParams: true });
+    this.registerRoutes();
+  }
+
+  protected registerRoutes(): void {
+    this.router.post('/', this.handleCreate.bind(this));
+    this.router.get('/', this.handleFindAll.bind(this));
+    this.router.get('/:id', this.handleFindById.bind(this));
+    this.router.put('/:id', this.handleUpdate.bind(this));
+    this.router.patch('/:id', this.handleUpdate.bind(this));
+    this.router.delete('/:id', this.handleDelete.bind(this));
+  }
+
+  private createService(req: Request): {{entityName}}Service {
+    const {{parentEntityLower}}Id = req.params.{{parentEntityLower}}Id;
+    const parentPath = ['{{subcollectionName}}', {{parentEntityLower}}Id, '{{collectionName}}'];
+    const repository = new {{entityName}}Repository(this.factory, parentPath);
+    return new {{entityName}}Service(repository);
+  }
+
+  private createContext(req: Request) {
+    return {
+      requestId: (req.headers['x-request-id'] as string) || 'unknown',
+      userId: (req as any).user?.uid,
+      userRole: (req as any).user?.role,
+      timestamp: new Date(),
+    };
+  }
+
+  protected async handleCreate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const service = this.createService(req);
+      const context = this.createContext(req);
+      const result = await service.create(req.body, context);
+      if (result.success) {
+        res.status(201).json({ success: true, data: result.data });
+      } else {
+        res.status(400).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  protected async handleFindAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const service = this.createService(req);
+      const context = this.createContext(req);
+      const result = await service.findAll({}, context);
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  protected async handleFindById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const service = this.createService(req);
+      const context = this.createContext(req);
+      const result = await service.findById(req.params.id, context);
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        const status = result.error?.code === 'NOT_FOUND' ? 404 : 500;
+        res.status(status).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  protected async handleUpdate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const service = this.createService(req);
+      const context = this.createContext(req);
+      const result = await service.update(req.params.id, req.body, context);
+      if (result.success) {
+        res.json({ success: true, data: result.data });
+      } else {
+        const status = result.error?.code === 'NOT_FOUND' ? 404 : 400;
+        res.status(status).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  protected async handleDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const service = this.createService(req);
+      const context = this.createContext(req);
+      const result = await service.delete(req.params.id, context);
+      if (result.success) {
+        res.status(204).send();
+      } else {
+        const status = result.error?.code === 'NOT_FOUND' ? 404 : 500;
+        res.status(status).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get the router for mounting.
+   * Mount at: /{{parentEntityLower}}s/:{{parentEntityLower}}Id/{{collectionName}}
+   */
+  getRouter(): Router {
+    return this.router;
+  }
+}
+{{else}}
 import { BaseController } from '@xbg.solutions/backend-core';
 import { {{entityName}} } from '../entities/{{entityName}}';
 import { {{entityName}}Service } from '../services/{{entityName}}Service';
@@ -327,6 +628,7 @@ export class {{entityName}}Controller extends BaseController<{{entityName}}> {
 {{/if}}
 {{/each}}
 }
+{{/if}}
 `;
 
 /**
