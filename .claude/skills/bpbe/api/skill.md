@@ -253,7 +253,7 @@ The `api` export becomes your Cloud Function. All routes are mounted under `API_
 6.  express.json({ limit: '10mb' })       ← parse JSON bodies
 7.  express.urlencoded({ extended: true }) ← parse form bodies
 8.  sanitizeBody()                         ← strip dangerous chars
-9.  createRateLimiter()                    ← rate limiting (non-dev only)
+9.  createRateLimiter()                    ← rate limiting (non-development only, skipped in dev)
 10. /health, /health/ready routes
 11. apiRouter (your controllers)
 12. notFoundHandler()                      ← 404 for unmatched routes
@@ -309,12 +309,22 @@ const createProductValidation = [
   body('status').optional().isIn(['active', 'archived']),
 ];
 
+// Write a validation handler (not built into BaseController)
+function handleValidationErrors(req: Request, res: Response, next: NextFunction): void {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid input', details: errors.array() } });
+    return;
+  }
+  next();
+}
+
 // In registerRoutes():
 this.router.post(
   '/',
   requiredAuth(tokenHandler),
   ...createProductValidation,
-  this.validateRequest.bind(this),  // included in BaseController
+  handleValidationErrors,
   this.handleCreate.bind(this)
 );
 ```

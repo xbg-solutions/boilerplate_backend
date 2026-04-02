@@ -1,10 +1,10 @@
 ---
-description: "Data layer for the XBG boilerplate backend: defining entities with BaseEntity, writing repositories with BaseRepository, declaring DataModelSpecification, and using the code generator."
+description: "Data layer for the XBG boilerplate backend: defining entities with BaseEntity, writing repositories with BaseRepository, scoped subcollection access with IScopedRepository and RepositoryFactory, transactions with ITransactionManager, declaring DataModelSpecification, and using the code generator."
 ---
 
 # XBG Boilerplate Backend — Data Layer
 
-Covers: `BaseEntity`, `BaseRepository`, `DataModelSpecification`, the generator, and Firestore patterns.
+Covers: `BaseEntity`, `BaseRepository`, `IScopedRepository`, `RepositoryFactory`, `ITransactionManager`, `DataModelSpecification`, the generator, and Firestore patterns.
 
 All base classes are imported from `@xbg.solutions/backend-core`.
 
@@ -252,6 +252,93 @@ export class ProductRepository extends BaseRepository<Product> {
 
 ---
 
+## IScopedRepository — Subcollection & Scoped Data Access
+
+**Package:** `@xbg.solutions/backend-core`
+
+While `BaseRepository` is for top-level collections, `IScopedRepository<T>` is a database-agnostic interface for subcollection access, dynamically-scoped paths, and transaction-aware operations. Services depend on the interface; the Firestore implementation is `FirestoreScopedRepository<T>`.
+
+### The Interface
+
+```typescript
+import { IScopedRepository, TransactionContext, QueryOptions } from '@xbg.solutions/backend-core';
+
+// Services depend on this interface — never on FirestoreScopedRepository directly
+interface IScopedRepository<T> {
+  findById(id: string, tx?: TransactionContext): Promise<T | null>;
+  findAll(options?: QueryOptions, tx?: TransactionContext): Promise<T[]>;
+  findOneWhere(conditions: Record<string, any>, tx?: TransactionContext): Promise<T | null>;
+  create(data: Partial<T>, tx?: TransactionContext): Promise<T>;
+  updateFields(id: string, fields: Record<string, any>, tx?: TransactionContext): Promise<void>;
+  remove(id: string, tx?: TransactionContext): Promise<void>;  // soft delete
+}
+```
+
+### RepositoryFactory — Creating Scoped Repos
+
+Use `RepositoryFactory` to create scoped repository instances without importing Firestore in service code:
+
+```typescript
+import { RepositoryFactory, IScopedRepository, ITransactionManager } from '@xbg.solutions/backend-core';
+import { getFirestoreDb } from '@xbg.solutions/backend-core';
+
+// Wire up once (e.g. in index.ts)
+const factory = new RepositoryFactory({ default: getFirestoreDb('main') });
+
+// Create a scoped repo for a subcollection
+// Path segments are odd-length: [collection, docId, ..., collection]
+const memberRepo: IScopedRepository<ProjectMember> = factory.createScopedRepository(
+  'default',                                          // database name
+  ['projects', projectId, 'projectMembers'],           // path segments
+  (id, data) => ProjectMember.fromFirestore(id, data)  // entity factory
+);
+
+// Create a transaction manager
+const txManager: ITransactionManager = factory.createTransactionManager('default');
+```
+
+### Transactions
+
+`TransactionContext` is an opaque token passed through service and repository layers. Service code never inspects it — only Firestore implementations downcast to `FirestoreTransactionContext`.
+
+```typescript
+import { ITransactionManager, TransactionContext } from '@xbg.solutions/backend-core';
+
+// In a service method:
+async transferOwnership(
+  projectId: string,
+  fromUserId: string,
+  toUserId: string,
+  txManager: ITransactionManager,
+  memberRepo: IScopedRepository<ProjectMember>,
+): Promise<void> {
+  await txManager.run('transfer-ownership', async (tx: TransactionContext) => {
+    // All operations share the same transaction
+    const fromMember = await memberRepo.findOneWhere({ userId: fromUserId }, tx);
+    const toMember = await memberRepo.findOneWhere({ userId: toUserId }, tx);
+
+    if (!fromMember || !toMember) throw new Error('Members not found');
+
+    await memberRepo.updateFields(fromMember.id!, { role: 'member' }, tx);
+    await memberRepo.updateFields(toMember.id!, { role: 'owner' }, tx);
+  });
+}
+```
+
+### When to Use Which Repository
+
+| | `BaseRepository<T>` | `IScopedRepository<T>` |
+|---|---|---|
+| **Use for** | Top-level collections | Subcollections, dynamic paths |
+| **Created via** | Subclass with `collectionName` | `RepositoryFactory.createScopedRepository()` |
+| **Caching** | Built-in opt-in | Not included |
+| **Pagination** | `findPaginated()` built-in | Use `QueryOptions.limit/offset` |
+| **Transactions** | Not built-in | Pass `TransactionContext` to any method |
+| **Soft delete** | `delete()` with optional hard delete | `remove()` always soft deletes |
+| **Validation** | `BaseEntity.validate()` called automatically | Caller validates before `create()` |
+
+---
+
 ## DataModelSpecification — Generator Input Format
 
 **Package:** `@xbg.solutions/backend-core` (exported type)
@@ -295,6 +382,12 @@ export const EcommerceModel: DataModelSpecification = {
         price: 'Must be greater than 0',
         name:  'Must be unique within category',
       },
+
+      // Optional: subcollection storage (default is top-level collection)
+      // storage: {
+      //   type: 'subcollection',
+      //   parent: { entity: 'Category', collectionName: 'categories' },
+      // },
 
       indexes: [
         { fields: ['categoryId', 'status'] },
@@ -360,6 +453,45 @@ npm run generate __examples__/ecommerce.model.ts
 ```
 
 Generated files are a **starting point**. Copy to your own directory (e.g., `src/products/`) and modify. Don't edit in `src/generated/` — that's overwritten on re-generation.
+
+### Subcollection Code Generation
+
+When an entity has `storage: { type: 'subcollection' }`, the generator produces fundamentally different code:
+
+```typescript
+// In your DataModelSpecification:
+ProjectMember: {
+  storage: {
+    type: 'subcollection',
+    parent: { entity: 'Project', collectionName: 'projects' },
+  },
+  fields: { ... },
+}
+```
+
+**What changes in generated code:**
+
+| Layer | Top-level collection | Subcollection |
+|---|---|---|
+| **Repository** | Extends `BaseRepository<T>` | Wraps `IScopedRepository<T>` via `RepositoryFactory` (composition) |
+| **Service** | Extends `BaseService<T>` | Standalone class with full CRUD, validation, events, `ServiceResult<T>` |
+| **Controller** | Extends `BaseController<T>` | Standalone `Router` with `mergeParams: true`, nested route pattern |
+| **Routes** | `GET /products/:id` | `GET /projects/:projectId/members/:id` |
+
+The subcollection controller creates a scoped repository per request from the parent ID in the route params:
+
+```typescript
+// Generated pattern (simplified):
+router.get('/:id', async (req, res) => {
+  const parentId = req.params.projectId;
+  const repo = new ProjectMemberRepository(factory, ['projects', parentId, 'members']);
+  const service = new ProjectMemberService(repo);
+  const result = await service.findById(req.params.id, context);
+  // ...
+});
+```
+
+See `__examples__/project-with-subcollections.model.ts` for a complete example with `Project`, `ProjectMember`, and `ProjectTask`.
 
 ---
 

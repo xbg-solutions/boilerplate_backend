@@ -151,6 +151,15 @@ CACHE_REDIS_HOST=localhost
 CACHE_REDIS_PORT=6379
 ```
 
+### Google Maps / Address Validation
+
+```bash
+GOOGLE_MAPS_API_KEY=your-api-key     # Required for utils-address-validation
+GOOGLE_MAPS_TIMEOUT=5000             # Request timeout (ms)
+GOOGLE_MAPS_RATE_LIMIT_PER_SECOND=50
+GOOGLE_MAPS_RATE_LIMIT_PER_DAY=100000
+```
+
 ### Rate Limiting
 
 ```bash
@@ -165,6 +174,21 @@ RATE_LIMIT_MAX=100               # requests per window
 
 All config is centralized via `@xbg.solutions/backend-core`. In a generated project, configuration is driven entirely by environment variables.
 
+### Config Modules
+
+| Module | Exports | Barrel-exported |
+|---|---|---|
+| `app.config` | `APP_CONFIG`, `isFeatureEnabled`, `validateAppConfig` | Yes |
+| `database.config` | `getFirestoreDb` | Yes |
+| `auth.config` | Auth config, `validateAuthConfig` | Yes |
+| `middleware.config` | Middleware settings | Yes |
+| `communications.config` | Email/SMS/push config, `validateCommunicationsConfig` | Yes |
+| `cache.config` | Cache settings, `validateCacheConfig` | Yes |
+| `firestore.config` | `FIRESTORE_CONFIG`, `DatabaseName`, `getFirestoreDatabaseName` | Yes |
+| `maps.config` | `MAPS_CONFIG`, `getGoogleMapsApiKey`, `isGoogleMapsConfigured` | Yes |
+| `firebase-event-mapping.config` | `mapFirebaseEventToDomain`, `validateEventMappings` | Yes |
+| `tokens.config` | `tokenHandler`, `tokenBlacklist`, `CustomClaims`, `BlacklistReason` | **No** — eagerly instantiates singletons; import directly |
+
 Reading config in your code:
 
 ```typescript
@@ -172,6 +196,12 @@ Reading config in your code:
 import { APP_CONFIG, isFeatureEnabled } from '@xbg.solutions/backend-core';
 const basePath = APP_CONFIG.api.basePath;
 const env = APP_CONFIG.app.environment;
+
+// ✅ Firestore config
+import { FIRESTORE_CONFIG, getFirestoreDatabaseName } from '@xbg.solutions/backend-core';
+
+// ✅ Token handler — import from the utility package, not from core barrel
+import { tokenHandler } from '@xbg.solutions/utils-token-handler';
 
 // ❌ Wrong — don't access process.env scattered through your code
 const basePath = process.env.API_BASE_PATH; // don't do this

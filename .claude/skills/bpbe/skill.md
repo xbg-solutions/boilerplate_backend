@@ -33,10 +33,12 @@ boilerplate_backend/
 ├── packages/
 │   ├── core/                    → @xbg.solutions/backend-core
 │   │   ├── src/
-│   │   │   ├── base/            #   BaseEntity, BaseRepository, BaseService, BaseController
+│   │   │   ├── base/            #   BaseEntity, BaseRepository, BaseService, BaseController,
+│   │   │   │                    #   FirestoreScopedRepository, RepositoryFactory
 │   │   │   ├── middleware/      #   Auth, CORS, rate limiting, error handling, logging
-│   │   │   ├── config/          #   App, database, auth, cache, middleware config
-│   │   │   ├── types/           #   Custom error classes
+│   │   │   ├── config/          #   App, database, auth, cache, middleware, firestore,
+│   │   │   │                    #   maps, communications, firebase-event-mapping, tokens config
+│   │   │   ├── types/           #   Custom error classes, database-agnostic repository interfaces
 │   │   │   ├── generator/       #   Code generator engine
 │   │   │   ├── templates/       #   Handlebars templates for code generation
 │   │   │   └── app.ts           #   Express app factory
@@ -82,12 +84,17 @@ BaseController        ← Route handling, request/response shaping
     ↓
 BaseService           ← Business logic, auth checks, event publishing
     ↓
-BaseRepository        ← Firestore CRUD, soft-delete, caching
+BaseRepository        ← Top-level collection CRUD, soft-delete, caching
+  or IScopedRepository  ← Subcollection / scoped CRUD via RepositoryFactory
     ↓
 Firestore
 ```
 
 All generated code follows this exact pattern. Never put business logic in controllers, never put Firestore calls in services.
+
+**Two repository approaches:**
+- `BaseRepository<T>` — for top-level Firestore collections. Class-based, with caching, pagination, and full CRUD.
+- `IScopedRepository<T>` — for subcollections or dynamically-scoped paths. Created via `RepositoryFactory`. Database-agnostic interface with transaction support.
 
 ---
 
@@ -96,7 +103,7 @@ All generated code follows this exact pattern. Never put business logic in contr
 | Skill | Use when you need to... |
 |---|---|
 | `bpbe/setup/skill.md` | Create a new project, configure .env, understand npm scripts, validate config |
-| `bpbe/data/skill.md` | Define entities, understand BaseEntity, use the generator, work with Firestore schemas |
+| `bpbe/data/skill.md` | Define entities, use BaseRepository or IScopedRepository, transactions, use the generator, work with Firestore schemas |
 | `bpbe/services/skill.md` | Write service methods, handle events, implement auth/access control, lifecycle hooks |
 | `bpbe/utils/skill.md` | Use logger, PII hashing, cache, token handler, or any communication connector |
 | `bpbe/api/skill.md` | Add routes, register controllers, use middleware, understand API response shapes |
@@ -114,8 +121,19 @@ import { BaseRepository, QueryOptions } from '@xbg.solutions/backend-core';
 import { BaseService, RequestContext, ServiceResult } from '@xbg.solutions/backend-core';
 import { BaseController, ApiResponse } from '@xbg.solutions/backend-core';
 
+// Scoped repositories & transactions (from @xbg.solutions/backend-core)
+import {
+  IScopedRepository, TransactionContext, ITransactionManager,
+  WhereFilterOp, WhereClause, PaginationResult, EntityStorageConfig,
+} from '@xbg.solutions/backend-core';
+import { FirestoreScopedRepository, FirestoreTransactionContext, FirestoreTransactionManager } from '@xbg.solutions/backend-core';
+import { RepositoryFactory } from '@xbg.solutions/backend-core';
+
 // App factory and config
 import { createApp, APP_CONFIG, isFeatureEnabled } from '@xbg.solutions/backend-core';
+
+// Firestore config (from @xbg.solutions/backend-core)
+import { FIRESTORE_CONFIG, getFirestoreDatabaseName, DatabaseName } from '@xbg.solutions/backend-core';
 
 // Middleware
 import { createAuthMiddleware, requireRoles, requireAdmin } from '@xbg.solutions/backend-core';
@@ -123,7 +141,7 @@ import { createAuthMiddleware, requireRoles, requireAdmin } from '@xbg.solutions
 // Utilities (each is a separate package)
 import { logger } from '@xbg.solutions/utils-logger';
 import { eventBus, EventType } from '@xbg.solutions/utils-events';
-import { hashValue, hashFields, unhashValue } from '@xbg.solutions/utils-hashing';
+import { hashValue, hashFields, hashFieldsByName, unhashValue, unhashFieldsByName, registerHashedFields } from '@xbg.solutions/utils-hashing';
 import { getCacheConnector } from '@xbg.solutions/utils-cache-connector';
 import { tokenHandler } from '@xbg.solutions/utils-token-handler';
 import { emailConnector } from '@xbg.solutions/utils-email-connector';

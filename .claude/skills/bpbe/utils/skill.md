@@ -86,7 +86,7 @@ PII_ENCRYPTION_KEY=your-64-char-hex-key
 ### Encrypting Fields
 
 ```typescript
-import { hashValue, hashFields } from '@xbg.solutions/utils-hashing';
+import { hashValue, hashFields, hashFieldsByName } from '@xbg.solutions/utils-hashing';
 
 // Encrypt a single value
 const encrypted = hashValue('user@example.com');
@@ -99,7 +99,7 @@ const encryptedUserData = hashFields(userData, 'user');
 ### Decrypting Fields
 
 ```typescript
-import { unhashValue, unhashFields } from '@xbg.solutions/utils-hashing';
+import { unhashValue, unhashFields, unhashFieldsByName } from '@xbg.solutions/utils-hashing';
 
 // Decrypt a single value
 const plaintext = unhashValue(encrypted);
@@ -120,6 +120,39 @@ isHashedField('user.email')        // → true
 isHashedField('user.phoneNumber')  // → true
 isHashedField('user.name')         // → false
 isHashedField('product.name')      // → false
+```
+
+### Registering Custom Entity Fields
+
+The built-in registry only covers `user.email` and `user.phoneNumber`. Register your own entity types at app startup:
+
+```typescript
+import { registerHashedFields } from '@xbg.solutions/utils-hashing';
+
+// Call once at startup, before any hashing operations
+registerHashedFields('employee', ['email', 'ssn', 'phone']);
+registerHashedFields('account', ['abn', 'taxFileNumber']);
+
+// Now hashFields(data, 'employee') will encrypt the registered fields
+```
+
+### Direct Field-Name Encryption (Bypass Registry)
+
+For project-specific entities where you don't want to use the registry, use `hashFieldsByName` / `unhashFieldsByName`:
+
+```typescript
+import { hashFieldsByName, unhashFieldsByName } from '@xbg.solutions/utils-hashing';
+
+// Encrypt specific fields by name — no registry lookup
+const encrypted = hashFieldsByName(
+  { email: 'user@example.com', name: 'Alice', role: 'admin' },
+  ['email']
+);
+// → { email: '<encrypted>', name: 'Alice', role: 'admin' }
+
+// Decrypt specific fields by name
+const decrypted = unhashFieldsByName(encrypted, ['email']);
+// → { email: 'user@example.com', name: 'Alice', role: 'admin' }
 ```
 
 ### Anti-Examples
@@ -159,11 +192,12 @@ import { logger } from '@xbg.solutions/utils-logger';
 
 const result = await tokenHandler.verifyAndUnpack(bearerToken, logger);
 if (!result.isValid) {
-  // result.error contains reason, result.isBlacklisted indicates revocation
+  // result.error: TokenVerificationError | null — contains reason
+  // result.isBlacklisted: boolean — indicates revocation
   return res.status(401).json({ error: result.error });
 }
 
-// Normalized token
+// result.token: NormalizedToken | null (non-null when isValid is true)
 const { authUID, userUID, email, customClaims } = result.token!;
 ```
 

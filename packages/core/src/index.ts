@@ -10,6 +10,8 @@ export * from './base/BaseEntity';
 export * from './base/BaseRepository';
 export * from './base/BaseService';
 export * from './base/BaseController';
+export * from './base/FirestoreScopedRepository';
+export * from './base/RepositoryFactory';
 
 // Middleware
 export * from './middleware';
