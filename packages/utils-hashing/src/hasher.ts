@@ -68,33 +68,66 @@ export function hashValue(value: string): string {
 
 
 /**
- * Hash all PII fields in an object based on entity type
- * 
+ * Hash all PII fields in an object based on entity type.
+ *
+ * Uses the hashed fields registry to determine which fields to encrypt.
+ * Register custom entity types with registerHashedFields() before calling.
+ *
  * @param data - Object containing fields to hash
- * @param entityType - Type of entity ('user', 'contact', 'address')
+ * @param entityType - Type of entity (e.g. 'user', 'contact', or any registered type)
  * @returns New object with hashed fields
- * 
+ *
  * @example
  * hashFields({ email: 'test@example.com' }, 'user')
- * // Returns { email: '$2b$10$...' }
  */
 export function hashFields<T extends Record<string, unknown>>(
   data: T,
-  entityType: 'user' | 'contact' | 'address'
+  entityType: string
 ): T {
   const result = { ...data };
 
   // Iterate through top-level fields and check if they should be hashed
   for (const fieldName of Object.keys(result)) {
     const fieldPath = `${entityType}.${fieldName}`;
-    
+
     if (isHashedField(fieldPath)) {
       const value = result[fieldName];
-      
+
       // Only hash non-null, non-empty strings
       if (value && typeof value === 'string' && value.length > 0) {
         (result as Record<string, unknown>)[fieldName] = hashValue(value);
       }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Hash specific fields in an object by field name.
+ *
+ * Unlike hashFields(), this does not use the registry — you pass the
+ * field names directly. Preferred for project-specific entities.
+ *
+ * @param data - Object containing fields to hash
+ * @param fields - Array of field names to encrypt (e.g. ['email', 'phone'])
+ * @returns New object with specified fields hashed
+ *
+ * @example
+ * hashFieldsByName({ email: 'test@example.com', name: 'Alice' }, ['email'])
+ * // Returns { email: '<encrypted>', name: 'Alice' }
+ */
+export function hashFieldsByName<T extends Record<string, unknown>>(
+  data: T,
+  fields: string[]
+): T {
+  const result = { ...data };
+
+  for (const fieldName of fields) {
+    const value = result[fieldName];
+
+    if (value && typeof value === 'string' && value.length > 0) {
+      (result as Record<string, unknown>)[fieldName] = hashValue(value);
     }
   }
 

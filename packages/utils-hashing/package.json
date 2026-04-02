@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-hashing",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "PII encryption with AES-256-GCM and field-level hashing",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

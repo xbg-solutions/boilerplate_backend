@@ -32,7 +32,7 @@ export function parseEntitySpecification(
     collectionName: collectionName || toSnakeCase(pluralize(entityName)),
     fields,
     relationships,
-    imports: generateImports(fields, relationships),
+    imports: generateImports(fields, relationships, isSubcollection),
     hasTimestamps: hasTimestampFields(fields),
     hasSoftDelete: hasSoftDeleteField(fields),
     hasValidation: fields.some((f) => f.validation.length > 0),
@@ -192,18 +192,15 @@ function generateValidationRules(fieldName: string, field: FieldDefinition): str
 /**
  * Generate imports based on fields and relationships
  */
-function generateImports(fields: FieldContext[], relationships: RelationshipContext[]): string[] {
+function generateImports(fields: FieldContext[], relationships: RelationshipContext[], isSubcollection?: boolean): string[] {
+  const coreImports = isSubcollection
+    ? 'BaseEntity, BaseEntityData, ValidationResult, ValidationHelper, RepositoryFactory, IScopedRepository, QueryOptions'
+    : 'BaseEntity, BaseEntityData, ValidationResult, ValidationHelper';
+
   const imports: string[] = [
-    "import { BaseEntity, BaseEntityData, ValidationResult, ValidationHelper } from '@xbg.solutions/backend-core';",
+    `import { ${coreImports} } from '@xbg.solutions/backend-core';`,
     "import { Timestamp, FieldValue } from 'firebase-admin/firestore';",
   ];
-
-  // Add relationship imports (only if relationships are actually used)
-  // Note: Currently these imports are commented out in templates, but kept here for future use
-  const relatedEntities = new Set(relationships.map((r) => r.entity).filter(e => e));
-  relatedEntities.forEach((entity) => {
-    imports.push(`import { ${entity} } from './${entity}';`);
-  });
 
   return imports;
 }
