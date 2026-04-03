@@ -4,7 +4,6 @@
  * https://help.ortto.com/developer/latest/
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { EmailProvider } from '../email-connector';
 import {
   TransactionalEmailRequest,
@@ -24,21 +23,17 @@ export interface OrttoEmailConfig {
 }
 
 export class OrttoEmailProvider implements EmailProvider {
-  private client: AxiosInstance;
+  private baseURL: string;
+  private headers: Record<string, string>;
   private config: OrttoEmailConfig;
 
   constructor(config: OrttoEmailConfig) {
     this.config = config;
-
-    const baseURL = this.getBaseURL(config.region || 'us');
-
-    this.client = axios.create({
-      baseURL,
-      headers: {
-        'X-Api-Key': config.apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
+    this.baseURL = this.getBaseURL(config.region || 'us');
+    this.headers = {
+      'X-Api-Key': config.apiKey,
+      'Content-Type': 'application/json',
+    };
   }
 
   private getBaseURL(region: string): string {
@@ -48,6 +43,36 @@ export class OrttoEmailProvider implements EmailProvider {
       eu: 'https://api.eu-west-1.ortto.com',
     };
     return regionMap[region] || regionMap.us;
+  }
+
+  private async request<T = any>(path: string, options: {
+    method?: string;
+    body?: any;
+    params?: Record<string, any>;
+  } = {}): Promise<{ data: T }> {
+    const { method = 'GET', body, params } = options;
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) query.append(key, String(value));
+      }
+      const qs = query.toString();
+      if (qs) url += `?${qs}`;
+    }
+    const res = await fetch(url, {
+      method,
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => undefined);
+      const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
+      error.response = { status: res.status, data: errorData };
+      throw error;
+    }
+    const data = await res.json();
+    return { data };
   }
 
   /**
@@ -80,7 +105,7 @@ export class OrttoEmailProvider implements EmailProvider {
         tags: request.tags,
       };
 
-      const response = await this.client.post('/v1/email/send', payload);
+      const response = await this.request('/v1/email/send', { method: 'POST', body: payload });
 
       return {
         success: true,
@@ -156,7 +181,7 @@ export class OrttoEmailProvider implements EmailProvider {
    */
   async getTemplate(templateId: string): Promise<EmailTemplate> {
     try {
-      const response = await this.client.get(`/v1/email/templates/${templateId}`);
+      const response = await this.request(`/v1/email/templates/${templateId}`);
       const template = response.data;
 
       return {
@@ -182,13 +207,16 @@ export class OrttoEmailProvider implements EmailProvider {
    */
   async createTemplate(template: CreateTemplateRequest): Promise<EmailTemplate> {
     try {
-      const response = await this.client.post('/v1/email/templates', {
-        name: template.name,
-        subject: template.subject,
-        html: template.htmlContent,
-        text: template.textContent,
-        variables: template.variables,
-        tags: template.tags,
+      const response = await this.request('/v1/email/templates', {
+        method: 'POST',
+        body: {
+          name: template.name,
+          subject: template.subject,
+          html: template.htmlContent,
+          text: template.textContent,
+          variables: template.variables,
+          tags: template.tags,
+        },
       });
 
       const created = response.data;
@@ -217,7 +245,7 @@ export class OrttoEmailProvider implements EmailProvider {
    */
   async listTemplates(): Promise<EmailTemplate[]> {
     try {
-      const response = await this.client.get('/v1/email/templates');
+      const response = await this.request('/v1/email/templates');
       const templates = response.data?.templates || [];
 
       return templates.map((t: any) => ({
@@ -243,7 +271,7 @@ export class OrttoEmailProvider implements EmailProvider {
    */
   async deleteTemplate(templateId: string): Promise<void> {
     try {
-      await this.client.delete(`/v1/email/templates/${templateId}`);
+      await this.request(`/v1/email/templates/${templateId}`, { method: 'DELETE' });
     } catch (error: any) {
       throw new Error(`Failed to delete template: ${error.message}`);
     }

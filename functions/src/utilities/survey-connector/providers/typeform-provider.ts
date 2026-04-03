@@ -3,7 +3,6 @@
  * https://developer.typeform.com/
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { SurveyProvider } from '../survey-connector';
 import {
   Survey,
@@ -20,25 +19,54 @@ export interface TypeformProviderConfig {
 }
 
 export class TypeformProvider implements SurveyProvider {
-  private client: AxiosInstance;
+  private baseURL: string;
+  private headers: Record<string, string>;
 
   constructor(config: TypeformProviderConfig) {
-    this.client = axios.create({
-      baseURL: 'https://api.typeform.com',
-      headers: {
-        'Authorization': `Bearer ${config.accessToken}`,
-        'Content-Type': 'application/json',
-      },
+    this.baseURL = 'https://api.typeform.com';
+    this.headers = {
+      'Authorization': `Bearer ${config.accessToken}`,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  private async request<T = any>(path: string, options: {
+    method?: string;
+    body?: any;
+    params?: Record<string, any>;
+  } = {}): Promise<{ data: T }> {
+    const { method = 'GET', body, params } = options;
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) query.append(key, String(value));
+      }
+      const qs = query.toString();
+      if (qs) url += `?${qs}`;
+    }
+    const res = await fetch(url, {
+      method,
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => undefined);
+      const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
+      error.response = { status: res.status, data: errorData };
+      throw error;
+    }
+    const data = await res.json();
+    return { data };
   }
 
   async getSurvey(surveyId: string): Promise<Survey> {
-    const response = await this.client.get(`/forms/${surveyId}`);
+    const response = await this.request(`/forms/${surveyId}`);
     return this.mapTypeformToSurvey(response.data);
   }
 
   async getSurveys(options?: SurveyQueryOptions): Promise<Survey[]> {
-    const response = await this.client.get('/forms', {
+    const response = await this.request('/forms', {
       params: {
         page: options?.page || 1,
         page_size: options?.limit || 200,
@@ -63,7 +91,7 @@ export class TypeformProvider implements SurveyProvider {
       })),
     };
 
-    const response = await this.client.post('/forms', payload);
+    const response = await this.request('/forms', { method: 'POST', body: payload });
     return this.mapTypeformToSurvey(response.data);
   }
 
@@ -71,16 +99,16 @@ export class TypeformProvider implements SurveyProvider {
     const payload: any = {};
     if (updates.title) payload.title = updates.title;
 
-    await this.client.patch(`/forms/${surveyId}`, payload);
+    await this.request(`/forms/${surveyId}`, { method: 'PATCH', body: payload });
     return this.getSurvey(surveyId);
   }
 
   async deleteSurvey(surveyId: string): Promise<void> {
-    await this.client.delete(`/forms/${surveyId}`);
+    await this.request(`/forms/${surveyId}`, { method: 'DELETE' });
   }
 
   async getResponses(surveyId: string, options?: SurveyQueryOptions): Promise<SurveyResponse[]> {
-    const response = await this.client.get(`/forms/${surveyId}/responses`, {
+    const response = await this.request(`/forms/${surveyId}/responses`, {
       params: {
         page_size: options?.limit || 1000,
       },

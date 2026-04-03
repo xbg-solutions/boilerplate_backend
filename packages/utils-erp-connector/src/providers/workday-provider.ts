@@ -3,7 +3,6 @@
  * https://community.workday.com/sites/default/files/file-hosting/restapi/index.html
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { ERPProvider } from '../erp-connector';
 import {
   Employee,
@@ -25,21 +24,45 @@ export interface WorkdayProviderConfig {
 }
 
 export class WorkdayProvider implements ERPProvider {
-  private client: AxiosInstance;
+  private baseURL: string;
+  private headers: Record<string, string>;
 
   constructor(config: WorkdayProviderConfig) {
-    const baseURL = config.baseUrl || `https://wd2-impl-services1.workday.com/ccx/service/${config.tenantName}`;
+    this.baseURL = config.baseUrl || `https://wd2-impl-services1.workday.com/ccx/service/${config.tenantName}`;
+    this.headers = {
+      'Authorization': `Basic ${Buffer.from(`${config.username}:${config.password}`).toString('base64')}`,
+      'Content-Type': 'application/json',
+    };
+  }
 
-    this.client = axios.create({
-      baseURL,
-      auth: {
-        username: config.username,
-        password: config.password,
-      },
-      headers: {
-        'Content-Type': 'application/json',
-      },
+  private async request<T = any>(path: string, options: {
+    method?: string;
+    body?: any;
+    params?: Record<string, any>;
+  } = {}): Promise<{ data: T }> {
+    const { method = 'GET', body, params } = options;
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) query.append(key, String(value));
+      }
+      const qs = query.toString();
+      if (qs) url += `?${qs}`;
+    }
+    const res = await fetch(url, {
+      method,
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => undefined);
+      const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
+      error.response = { status: res.status, data: errorData };
+      throw error;
+    }
+    const data = await res.json();
+    return { data };
   }
 
   /**
@@ -47,7 +70,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getEmployee(employeeId: string): Promise<Employee> {
     try {
-      const response = await this.client.get(`/Human_Resources/v1/workers/${employeeId}`);
+      const response = await this.request(`/Human_Resources/v1/workers/${employeeId}`);
       return this.mapWorkdayWorkerToEmployee(response.data);
     } catch (error: any) {
       throw new Error(`Failed to get employee: ${error.message}`);
@@ -64,7 +87,7 @@ export class WorkdayProvider implements ERPProvider {
         offset: options?.page ? (options.page - 1) * (options.limit || 50) : 0,
       };
 
-      const response = await this.client.get('/Human_Resources/v1/workers', { params });
+      const response = await this.request('/Human_Resources/v1/workers', { params });
 
       const employees = response.data?.data?.map((worker: any) =>
         this.mapWorkdayWorkerToEmployee(worker)
@@ -103,7 +126,7 @@ export class WorkdayProvider implements ERPProvider {
         hireDate: employee.hireDate,
       };
 
-      const response = await this.client.post('/Human_Resources/v1/workers', payload);
+      const response = await this.request('/Human_Resources/v1/workers', { method: 'POST', body: payload });
       return this.mapWorkdayWorkerToEmployee(response.data);
     } catch (error: any) {
       throw new Error(`Failed to create employee: ${error.message}`);
@@ -122,7 +145,7 @@ export class WorkdayProvider implements ERPProvider {
       if (updates.department) payload.organization = updates.department;
       if (updates.workLocation) payload.location = updates.workLocation;
 
-      const response = await this.client.patch(`/Human_Resources/v1/workers/${employeeId}`, payload);
+      const response = await this.request(`/Human_Resources/v1/workers/${employeeId}`, { method: 'PATCH', body: payload });
       return this.mapWorkdayWorkerToEmployee(response.data);
     } catch (error: any) {
       throw new Error(`Failed to update employee: ${error.message}`);
@@ -142,7 +165,7 @@ export class WorkdayProvider implements ERPProvider {
         comment: request.reason,
       };
 
-      await this.client.post('/Absence_Management/v1/timeOffEntries', payload);
+      await this.request('/Absence_Management/v1/timeOffEntries', { method: 'POST', body: payload });
 
       return {
         success: true,
@@ -165,7 +188,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getTimeOffBalance(employeeId: string): Promise<TimeOffBalance[]> {
     try {
-      const response = await this.client.get(`/Absence_Management/v1/workers/${employeeId}/timeOffBalances`);
+      const response = await this.request(`/Absence_Management/v1/workers/${employeeId}/timeOffBalances`);
 
       return response.data?.data?.map((balance: any) => ({
         employeeId,
@@ -184,7 +207,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getTimeOffRequests(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<TimeOffRequest>> {
     try {
-      const response = await this.client.get(`/Absence_Management/v1/workers/${employeeId}/timeOffEntries`);
+      const response = await this.request(`/Absence_Management/v1/workers/${employeeId}/timeOffEntries`);
 
       const requests = response.data?.data?.map((entry: any) => ({
         employeeId,
@@ -217,7 +240,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getPayStubs(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<PayStub>> {
     try {
-      const response = await this.client.get(`/Payroll/v1/workers/${employeeId}/payStatements`);
+      const response = await this.request(`/Payroll/v1/workers/${employeeId}/payStatements`);
 
       const payStubs = response.data?.data?.map((statement: any) => ({
         id: statement.id,
@@ -265,7 +288,7 @@ export class WorkdayProvider implements ERPProvider {
         category: expense.category,
       };
 
-      const response = await this.client.post('/Expense/v1/expenseReports', payload);
+      const response = await this.request('/Expense/v1/expenseReports', { method: 'POST', body: payload });
 
       return {
         id: response.data.id,
@@ -282,7 +305,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getExpenseReports(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<ExpenseReport>> {
     try {
-      const response = await this.client.get(`/Expense/v1/workers/${employeeId}/expenseReports`);
+      const response = await this.request(`/Expense/v1/workers/${employeeId}/expenseReports`);
 
       const reports = response.data?.data?.map((report: any) => ({
         id: report.id,
@@ -316,7 +339,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getDepartment(departmentId: string): Promise<Department> {
     try {
-      const response = await this.client.get(`/Human_Resources/v1/organizations/${departmentId}`);
+      const response = await this.request(`/Human_Resources/v1/organizations/${departmentId}`);
       const org = response.data;
 
       return {
@@ -339,7 +362,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getDepartments(options?: ERPQueryOptions): Promise<ERPResponse<Department>> {
     try {
-      const response = await this.client.get('/Human_Resources/v1/organizations');
+      const response = await this.request('/Human_Resources/v1/organizations');
 
       const departments = response.data?.data?.map((org: any) => ({
         id: org.id,
@@ -373,7 +396,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getJobRequisitions(options?: ERPQueryOptions): Promise<ERPResponse<JobRequisition>> {
     try {
-      const response = await this.client.get('/Recruiting/v1/jobRequisitions');
+      const response = await this.request('/Recruiting/v1/jobRequisitions');
 
       const requisitions = response.data?.data?.map((req: any) => ({
         id: req.id,

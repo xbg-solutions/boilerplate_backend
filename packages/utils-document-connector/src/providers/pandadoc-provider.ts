@@ -3,7 +3,6 @@
  * https://developers.pandadoc.com/reference/about
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { DocumentProvider } from '../document-connector';
 import {
   Document,
@@ -20,21 +19,55 @@ export interface PandaDocProviderConfig {
 }
 
 export class PandaDocProvider implements DocumentProvider {
-  private client: AxiosInstance;
+  private baseURL: string;
+  private headers: Record<string, string>;
 
   constructor(config: PandaDocProviderConfig) {
-    this.client = axios.create({
-      baseURL: 'https://api.pandadoc.com/public/v1',
-      headers: {
-        'Authorization': `API-Key ${config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
+    this.baseURL = 'https://api.pandadoc.com/public/v1';
+    this.headers = {
+      'Authorization': `API-Key ${config.apiKey}`,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  private async request<T = any>(path: string, options: {
+    method?: string;
+    body?: any;
+    params?: Record<string, any>;
+    responseType?: 'arraybuffer';
+  } = {}): Promise<{ data: T }> {
+    const { method = 'GET', body, params, responseType } = options;
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) query.append(key, String(value));
+      }
+      const qs = query.toString();
+      if (qs) url += `?${qs}`;
+    }
+    const res = await fetch(url, {
+      method,
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => undefined);
+      const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
+      error.response = { status: res.status, data: errorData };
+      throw error;
+    }
+    if (responseType === 'arraybuffer') {
+      const buffer = await res.arrayBuffer();
+      return { data: buffer as any };
+    }
+    const data = await res.json();
+    return { data };
   }
 
   async getDocument(documentId: string): Promise<Document> {
     try {
-      const response = await this.client.get(`/documents/${documentId}/details`);
+      const response = await this.request(`/documents/${documentId}/details`);
       return this.mapPandaDocToDocument(response.data);
     } catch (error: any) {
       throw new Error(`Failed to get document: ${error.message}`);
@@ -52,7 +85,7 @@ export class PandaDocProvider implements DocumentProvider {
         params.status = this.mapStatusToPandaDoc(options.status);
       }
 
-      const response = await this.client.get('/documents', { params });
+      const response = await this.request('/documents', { params });
 
       return response.data.results.map((doc: any) => this.mapPandaDocToDocument(doc));
     } catch (error: any) {
@@ -85,7 +118,7 @@ export class PandaDocProvider implements DocumentProvider {
         payload.message = request.message;
       }
 
-      const response = await this.client.post('/documents', payload);
+      const response = await this.request('/documents', { method: 'POST', body: payload });
 
       // Wait for document to be ready
       await this.waitForDocumentReady(response.data.id);
@@ -107,7 +140,7 @@ export class PandaDocProvider implements DocumentProvider {
         payload.message = request.message;
       }
 
-      await this.client.post(`/documents/${request.documentId}/send`, payload);
+      await this.request(`/documents/${request.documentId}/send`, { method: 'POST', body: payload });
 
       return this.getDocument(request.documentId);
     } catch (error: any) {
@@ -117,7 +150,7 @@ export class PandaDocProvider implements DocumentProvider {
 
   async downloadDocument(documentId: string, options?: DownloadOptions): Promise<Buffer> {
     try {
-      const response = await this.client.get(`/documents/${documentId}/download`, {
+      const response = await this.request(`/documents/${documentId}/download`, {
         responseType: 'arraybuffer',
       });
 
@@ -129,8 +162,11 @@ export class PandaDocProvider implements DocumentProvider {
 
   async voidDocument(documentId: string, reason?: string): Promise<void> {
     try {
-      await this.client.post(`/documents/${documentId}/void`, {
-        reason: reason || 'Voided by user',
+      await this.request(`/documents/${documentId}/void`, {
+        method: 'POST',
+        body: {
+          reason: reason || 'Voided by user',
+        },
       });
     } catch (error: any) {
       throw new Error(`Failed to void document: ${error.message}`);
@@ -139,7 +175,7 @@ export class PandaDocProvider implements DocumentProvider {
 
   async getTemplates(): Promise<DocumentTemplate[]> {
     try {
-      const response = await this.client.get('/templates');
+      const response = await this.request('/templates');
 
       return response.data.results.map((template: any) => ({
         id: template.id,
@@ -154,7 +190,7 @@ export class PandaDocProvider implements DocumentProvider {
 
   async getTemplate(templateId: string): Promise<DocumentTemplate> {
     try {
-      const response = await this.client.get(`/templates/${templateId}/details`);
+      const response = await this.request(`/templates/${templateId}/details`);
 
       return {
         id: response.data.id,

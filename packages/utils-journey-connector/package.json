@@ -14,8 +14,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@xbg.solutions/utils-logger": "^1.2.0",
-    "axios": "^1.6.2"
+    "@xbg.solutions/utils-logger": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

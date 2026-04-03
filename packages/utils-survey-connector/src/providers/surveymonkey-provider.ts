@@ -3,7 +3,6 @@
  * https://developer.surveymonkey.com/api/v3/
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { SurveyProvider } from '../survey-connector';
 import {
   Survey,
@@ -20,29 +19,58 @@ export interface SurveyMonkeyProviderConfig {
 }
 
 export class SurveyMonkeyProvider implements SurveyProvider {
-  private client: AxiosInstance;
+  private baseURL: string;
+  private headers: Record<string, string>;
 
   constructor(config: SurveyMonkeyProviderConfig) {
-    this.client = axios.create({
-      baseURL: 'https://api.surveymonkey.com/v3',
-      headers: {
-        'Authorization': `Bearer ${config.accessToken}`,
-        'Content-Type': 'application/json',
-      },
+    this.baseURL = 'https://api.surveymonkey.com/v3';
+    this.headers = {
+      'Authorization': `Bearer ${config.accessToken}`,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  private async request<T = any>(path: string, options: {
+    method?: string;
+    body?: any;
+    params?: Record<string, any>;
+  } = {}): Promise<{ data: T }> {
+    const { method = 'GET', body, params } = options;
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) query.append(key, String(value));
+      }
+      const qs = query.toString();
+      if (qs) url += `?${qs}`;
+    }
+    const res = await fetch(url, {
+      method,
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => undefined);
+      const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
+      error.response = { status: res.status, data: errorData };
+      throw error;
+    }
+    const data = await res.json();
+    return { data };
   }
 
   async getSurvey(surveyId: string): Promise<Survey> {
     const [surveyResp, detailsResp] = await Promise.all([
-      this.client.get(`/surveys/${surveyId}`),
-      this.client.get(`/surveys/${surveyId}/details`),
+      this.request(`/surveys/${surveyId}`),
+      this.request(`/surveys/${surveyId}/details`),
     ]);
 
     return this.mapSurveyMonkeySurveyToSurvey(surveyResp.data, detailsResp.data);
   }
 
   async getSurveys(options?: SurveyQueryOptions): Promise<Survey[]> {
-    const response = await this.client.get('/surveys', {
+    const response = await this.request('/surveys', {
       params: {
         page: options?.page || 1,
         per_page: options?.limit || 50,
@@ -51,7 +79,7 @@ export class SurveyMonkeyProvider implements SurveyProvider {
 
     return Promise.all(
       response.data.data.map(async (survey: any) => {
-        const details = await this.client.get(`/surveys/${survey.id}/details`);
+        const details = await this.request(`/surveys/${survey.id}/details`);
         return this.mapSurveyMonkeySurveyToSurvey(survey, details.data);
       })
     );
@@ -59,26 +87,31 @@ export class SurveyMonkeyProvider implements SurveyProvider {
 
   async createSurvey(request: CreateSurveyRequest): Promise<Survey> {
     // Create survey
-    const surveyResp = await this.client.post('/surveys', {
-      title: request.title,
+    const surveyResp = await this.request('/surveys', {
+      method: 'POST',
+      body: { title: request.title },
     });
 
     const surveyId = surveyResp.data.id;
 
     // Add pages and questions
-    const pageResp = await this.client.post(`/surveys/${surveyId}/pages`, {
-      title: 'Page 1',
+    const pageResp = await this.request(`/surveys/${surveyId}/pages`, {
+      method: 'POST',
+      body: { title: 'Page 1' },
     });
 
     const pageId = pageResp.data.id;
 
     for (const question of request.questions) {
-      await this.client.post(`/surveys/${surveyId}/pages/${pageId}/questions`, {
-        heading: question.text,
-        family: this.mapQuestionTypeToSurveyMonkey(question.type),
-        subtype: 'single',
-        answers: {
-          choices: question.choices?.map(choice => ({ text: choice })),
+      await this.request(`/surveys/${surveyId}/pages/${pageId}/questions`, {
+        method: 'POST',
+        body: {
+          heading: question.text,
+          family: this.mapQuestionTypeToSurveyMonkey(question.type),
+          subtype: 'single',
+          answers: {
+            choices: question.choices?.map(choice => ({ text: choice })),
+          },
         },
       });
     }
@@ -90,16 +123,16 @@ export class SurveyMonkeyProvider implements SurveyProvider {
     const payload: any = {};
     if (updates.title) payload.title = updates.title;
 
-    await this.client.patch(`/surveys/${surveyId}`, payload);
+    await this.request(`/surveys/${surveyId}`, { method: 'PATCH', body: payload });
     return this.getSurvey(surveyId);
   }
 
   async deleteSurvey(surveyId: string): Promise<void> {
-    await this.client.delete(`/surveys/${surveyId}`);
+    await this.request(`/surveys/${surveyId}`, { method: 'DELETE' });
   }
 
   async getResponses(surveyId: string, options?: SurveyQueryOptions): Promise<SurveyResponse[]> {
-    const response = await this.client.get(`/surveys/${surveyId}/responses/bulk`, {
+    const response = await this.request(`/surveys/${surveyId}/responses/bulk`, {
       params: {
         page: options?.page || 1,
         per_page: options?.limit || 100,
@@ -110,7 +143,7 @@ export class SurveyMonkeyProvider implements SurveyProvider {
   }
 
   async getResponse(responseId: string): Promise<SurveyResponse> {
-    const response = await this.client.get(`/responses/${responseId}/details`);
+    const response = await this.request(`/responses/${responseId}/details`);
     return this.mapSurveyMonkeyResponseToSurveyResponse(response.data, response.data.survey_id);
   }
 

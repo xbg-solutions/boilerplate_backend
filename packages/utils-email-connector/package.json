@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@xbg.solutions/utils-logger": "^1.2.0",
-    "axios": "^1.6.2",
     "node-mailjet": "^6.0.5"
   },
   "devDependencies": {

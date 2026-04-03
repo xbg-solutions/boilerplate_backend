@@ -3,7 +3,6 @@
  * https://developer.monday.com/api-reference/docs
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { WorkManagementProvider } from '../work-mgmt-connector';
 import {
   WorkTask,
@@ -24,20 +23,49 @@ export interface MondayProviderConfig {
 }
 
 export class MondayProvider implements WorkManagementProvider {
-  private client: AxiosInstance;
+  private baseURL: string;
+  private headers: Record<string, string>;
 
   constructor(config: MondayProviderConfig) {
-    this.client = axios.create({
-      baseURL: 'https://api.monday.com/v2',
-      headers: {
-        'Authorization': config.apiKey,
-        'Content-Type': 'application/json',
-      },
+    this.baseURL = 'https://api.monday.com/v2';
+    this.headers = {
+      'Authorization': config.apiKey,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  private async request<T = any>(path: string, options: {
+    method?: string;
+    body?: any;
+    params?: Record<string, any>;
+  } = {}): Promise<{ data: T }> {
+    const { method = 'GET', body, params } = options;
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) query.append(key, String(value));
+      }
+      const qs = query.toString();
+      if (qs) url += `?${qs}`;
+    }
+    const res = await fetch(url, {
+      method,
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => undefined);
+      const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
+      error.response = { status: res.status, data: errorData };
+      throw error;
+    }
+    const data = await res.json();
+    return { data };
   }
 
   private async query(query: string, variables?: any): Promise<any> {
-    const response = await this.client.post('', { query, variables });
+    const response = await this.request('', { method: 'POST', body: { query, variables } });
     if (response.data.errors) {
       throw new Error(response.data.errors[0].message);
     }

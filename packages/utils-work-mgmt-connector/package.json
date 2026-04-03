@@ -15,8 +15,7 @@
   },
   "dependencies": {
     "@notionhq/client": "^2.2.14",
-    "@xbg.solutions/utils-logger": "^1.2.0",
-    "axios": "^1.6.2"
+    "@xbg.solutions/utils-logger": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

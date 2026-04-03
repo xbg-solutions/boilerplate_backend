@@ -3,7 +3,6 @@
  * https://help.ortto.com/developer/latest/
  */
 
-import axios, { AxiosInstance } from 'axios';
 import { JourneyProvider } from '../journey-connector';
 import {
   JourneyContact,
@@ -21,18 +20,15 @@ export interface OrttoProviderConfig {
 }
 
 export class OrttoProvider implements JourneyProvider {
-  private client: AxiosInstance;
+  private baseURL: string;
+  private headers: Record<string, string>;
 
   constructor(config: OrttoProviderConfig) {
-    const baseURL = this.getBaseURL(config.region || 'us');
-
-    this.client = axios.create({
-      baseURL,
-      headers: {
-        'X-Api-Key': config.apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
+    this.baseURL = this.getBaseURL(config.region || 'us');
+    this.headers = {
+      'X-Api-Key': config.apiKey,
+      'Content-Type': 'application/json',
+    };
   }
 
   private getBaseURL(region: string): string {
@@ -42,6 +38,36 @@ export class OrttoProvider implements JourneyProvider {
       eu: 'https://api.eu-west-1.ortto.com',
     };
     return regionMap[region] || regionMap.us;
+  }
+
+  private async request<T = any>(path: string, options: {
+    method?: string;
+    body?: any;
+    params?: Record<string, any>;
+  } = {}): Promise<{ data: T }> {
+    const { method = 'GET', body, params } = options;
+    let url = `${this.baseURL}${path}`;
+    if (params) {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) query.append(key, String(value));
+      }
+      const qs = query.toString();
+      if (qs) url += `?${qs}`;
+    }
+    const res = await fetch(url, {
+      method,
+      headers: this.headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => undefined);
+      const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
+      error.response = { status: res.status, data: errorData };
+      throw error;
+    }
+    const data = await res.json();
+    return { data };
   }
 
   /**
@@ -65,7 +91,7 @@ export class OrttoProvider implements JourneyProvider {
         merge_by: ['str::email'],
       };
 
-      const response = await this.client.post('/v1/person/merge', payload);
+      const response = await this.request('/v1/person/merge', { method: 'POST', body: payload });
 
       return {
         success: true,
@@ -97,9 +123,12 @@ export class OrttoProvider implements JourneyProvider {
         },
       }));
 
-      await this.client.post('/v1/person/merge', {
-        contacts,
-        merge_by: ['str::email'],
+      await this.request('/v1/person/merge', {
+        method: 'POST',
+        body: {
+          contacts,
+          merge_by: ['str::email'],
+        },
       });
 
       // Then add them to the campaign
@@ -110,7 +139,7 @@ export class OrttoProvider implements JourneyProvider {
         })),
       };
 
-      await this.client.post('/v1/campaigns/enroll', campaignPayload);
+      await this.request('/v1/campaigns/enroll', { method: 'POST', body: campaignPayload });
 
       return {
         success: true,
@@ -132,9 +161,12 @@ export class OrttoProvider implements JourneyProvider {
    */
   async unenrollFromJourney(journeyId: string, email: string): Promise<JourneyResponse> {
     try {
-      await this.client.post('/v1/campaigns/unenroll', {
-        campaign_id: journeyId,
-        contacts: [{ email }],
+      await this.request('/v1/campaigns/unenroll', {
+        method: 'POST',
+        body: {
+          campaign_id: journeyId,
+          contacts: [{ email }],
+        },
       });
 
       return {
@@ -170,7 +202,7 @@ export class OrttoProvider implements JourneyProvider {
         ],
       };
 
-      await this.client.post('/v1/activities', payload);
+      await this.request('/v1/activities', { method: 'POST', body: payload });
 
       return {
         success: true,
@@ -206,7 +238,7 @@ export class OrttoProvider implements JourneyProvider {
         merge_by: ['str::email'],
       };
 
-      await this.client.post('/v1/person/merge', payload);
+      await this.request('/v1/person/merge', { method: 'POST', body: payload });
 
       return {
         success: true,
@@ -229,9 +261,12 @@ export class OrttoProvider implements JourneyProvider {
   async unsubscribeFromList(listId: string, email: string): Promise<JourneyResponse> {
     try {
       // Remove the list tag
-      await this.client.post('/v1/person/tags/remove', {
-        email,
-        tags: [`list:${listId}`],
+      await this.request('/v1/person/tags/remove', {
+        method: 'POST',
+        body: {
+          email,
+          tags: [`list:${listId}`],
+        },
       });
 
       return {
@@ -254,7 +289,7 @@ export class OrttoProvider implements JourneyProvider {
    */
   async getJourneys(): Promise<Journey[]> {
     try {
-      const response = await this.client.get('/v1/campaigns');
+      const response = await this.request('/v1/campaigns');
 
       return response.data?.campaigns?.map((campaign: any) => ({
         id: campaign.id,
@@ -274,7 +309,7 @@ export class OrttoProvider implements JourneyProvider {
    */
   async getSegments(): Promise<JourneySegment[]> {
     try {
-      const response = await this.client.get('/v1/segments');
+      const response = await this.request('/v1/segments');
 
       return response.data?.segments?.map((segment: any) => ({
         id: segment.id,
@@ -292,9 +327,12 @@ export class OrttoProvider implements JourneyProvider {
    */
   async addTags(email: string, tags: string[]): Promise<JourneyResponse> {
     try {
-      await this.client.post('/v1/person/tags/add', {
-        email,
-        tags,
+      await this.request('/v1/person/tags/add', {
+        method: 'POST',
+        body: {
+          email,
+          tags,
+        },
       });
 
       return {
@@ -317,9 +355,12 @@ export class OrttoProvider implements JourneyProvider {
    */
   async removeTags(email: string, tags: string[]): Promise<JourneyResponse> {
     try {
-      await this.client.post('/v1/person/tags/remove', {
-        email,
-        tags,
+      await this.request('/v1/person/tags/remove', {
+        method: 'POST',
+        body: {
+          email,
+          tags,
+        },
       });
 
       return {

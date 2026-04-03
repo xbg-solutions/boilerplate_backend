@@ -29,7 +29,6 @@
     "@googlemaps/google-maps-services-js": "^3.3.42",
     "@hubspot/api-client": "^9.0.0",
     "@notionhq/client": "^2.2.14",
-    "axios": "^1.6.2",
     "cors": "^2.8.5",
     "countries-and-timezones": "^3.6.0",
     "dotenv": "^16.3.1",
