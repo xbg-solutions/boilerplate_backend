@@ -53,8 +53,8 @@ export function createFirebaseTokenHandler<TCustomClaims = Record<string, any>>(
   database: any; // Firestore instance
 }) {
   const { createTokenHandler } = require('./generic-token-handler');
-  const { createFirebaseAuthAdapter } = require('./adapters/firebase-auth-adapter');
-  const { createFirestoreTokenDatabase } = require('./adapters/firestore-database-adapter');
+  const { createFirebaseAuthAdapter } = require('./firebase-adapter');
+  const { createFirestoreTokenDatabase } = require('./firestore-database-adapter');
 
   // Create database adapter
   const tokenDatabase = createFirestoreTokenDatabase(
