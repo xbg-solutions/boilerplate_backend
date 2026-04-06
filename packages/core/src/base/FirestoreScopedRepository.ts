@@ -13,6 +13,7 @@ import {
   Query,
   Transaction,
   DocumentReference,
+  Timestamp,
 } from 'firebase-admin/firestore';
 import { logger } from '@xbg.solutions/utils-logger';
 import { RepositoryError } from '../types/errors';
@@ -217,11 +218,10 @@ export class FirestoreScopedRepository<T> implements IScopedRepository<T> {
   async create(data: Partial<T>, tx?: TransactionContext): Promise<T> {
     try {
       const ref = this.collectionRef.doc();
-      const now = new Date().toISOString();
       const docData = {
         ...data,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
         deletedAt: null,
         version: 1,
       } as Record<string, any>;
@@ -245,7 +245,7 @@ export class FirestoreScopedRepository<T> implements IScopedRepository<T> {
       const ref = this.docRef(id);
       const updateData = {
         ...fields,
-        updatedAt: new Date().toISOString(),
+        updatedAt: Timestamp.now(),
       };
 
       if (tx) {
@@ -264,8 +264,8 @@ export class FirestoreScopedRepository<T> implements IScopedRepository<T> {
     try {
       const ref = this.docRef(id);
       const softDelete = {
-        deletedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        deletedAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
       };
 
       if (tx) {

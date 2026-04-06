@@ -72,12 +72,21 @@ function getEncryptionKey(): Buffer {
 }
 
 /**
- * Check if a value appears to be AES-256-GCM encrypted
+ * Check if a value appears to be AES-256-GCM encrypted.
  * Format: iv:encrypted:authTag (base64 strings separated by colons)
+ *
+ * Validates structural properties to avoid false positives on
+ * colon-delimited strings (e.g., "10:30:00", URLs with ports):
+ * - 12-byte IV → 16 base64 chars
+ * - 16-byte GCM auth tag → 24 base64 chars
  */
 function isEncrypted(value: string): boolean {
   const parts = value.split(':');
-  return parts.length === 3 && parts.every(part => part.length > 0);
+  if (parts.length !== 3 || parts.some(part => part.length === 0)) {
+    return false;
+  }
+  const [iv, , authTag] = parts;
+  return iv.length === 16 && authTag.length === 24;
 }
 
 /**

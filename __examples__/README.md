@@ -279,6 +279,8 @@ EntityName: {
 - `guarded` -- encrypted at rest, requires explicit action to decrypt. For secrets (e.g. API keys, SSNs).
 - Omit `encryption` for fields that don't need encryption.
 
+**Note:** If a field is both `unique: true` and has `encryption` set, the generator will not produce a `findBy*()` query helper — Firestore cannot query encrypted values by plaintext. For equality lookups on encrypted fields, implement a blind index (deterministic HMAC).
+
 ### Relationship Types
 
 **One-to-Many:**

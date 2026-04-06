@@ -148,6 +148,7 @@ export interface FieldContext {
   description?: string;
   isBaseEntityField: boolean;
   encryption?: 'transparent' | 'guarded';
+  encryptedUnique?: boolean;
 }
 
 export interface RelationshipContext {

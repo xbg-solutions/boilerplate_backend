@@ -73,13 +73,14 @@ function parseFields(fields: Record<string, FieldDefinition>): FieldContext[] {
     type: def.type,
     tsType: mapFieldTypeToTypeScript(def),
     required: def.required || false,
-    unique: def.unique || false,
+    unique: (def.unique || false) && !def.encryption, // encrypted fields can't be queried by value
     hasDefault: def.default !== undefined,
     defaultValue: formatDefaultValue(def.default, def.type),
     validation: generateValidationRules(name, def),
     description: def.description,
     isBaseEntityField: BASE_ENTITY_FIELDS.has(name),
     encryption: def.encryption,
+    encryptedUnique: (def.unique || false) && !!def.encryption,
   }));
 }
 

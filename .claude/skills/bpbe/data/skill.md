@@ -456,6 +456,231 @@ When `encryption` is used, the generator:
 1. Adds `hashTransparentFields()` / `unhashTransparentFields()` calls to the entity's `getEntityData()` and `fromFirestore()`
 2. Produces `encryption-registry.ts` with `registerEncryptedFields()` -- call this at app startup before any database operations
 3. Guarded fields remain encrypted on the entity instance -- services must explicitly call `unhashFields()` or `unhashFieldsByName()` to reveal them
+4. Subcollection service `create()` and `update()` route data through `entity.serializeFields()`, which calls `getEntityData()` internally, ensuring encryption is applied even on the scoped-repository path
+
+**Encrypted + Unique fields:** If a field is both `unique: true` and has `encryption` set, the generator will **not** produce a `findBy*()` query helper. Firestore cannot query encrypted values by plaintext. If you need equality lookups on encrypted fields, implement a blind index (deterministic HMAC stored alongside the ciphertext).
+
+---
+
+## PII Encryption — Hasher Utility Deep Dive
+
+**Package:** `@xbg.solutions/utils-hashing`
+
+The hasher provides field-level PII encryption using AES-256-GCM (authenticated encryption). Two modes — **transparent** and **guarded** — control how fields are stored and when they're decrypted.
+
+**Prerequisite:** Set `PII_ENCRYPTION_KEY` in `.env` (64 hex chars = 32 bytes). Generate with `openssl rand -hex 32`.
+
+### How Each Mode Works
+
+#### Transparent Mode — Bundled Blob
+
+All transparent fields for an entity are serialized into a single JSON blob, encrypted once, and stored under a `_pii` key. The original field keys are **removed** from the document.
+
+```
+// Before encryption (in memory):
+{ firstName: 'Alice', email: 'alice@co.com', phone: '+61...', department: 'Eng' }
+
+// After hashTransparentFields() (in Firestore):
+{ _pii: 'iv:encrypted:authTag', department: 'Eng' }
+//  └── single blob contains firstName + email + phone
+
+// After unhashTransparentFields() (back in memory):
+{ firstName: 'Alice', email: 'alice@co.com', phone: '+61...', department: 'Eng' }
+```
+
+- **O(1) crypto cost** — one encrypt/decrypt regardless of field count
+- Auto-decrypted in the generated `fromFirestore()` — transparent to service code
+- Best for display PII that's always needed together (names, emails, phones)
+
+#### Guarded Mode — Per-Field Encryption
+
+Each guarded field is encrypted individually and remains in its original key. The value stays encrypted on the entity instance until explicitly revealed.
+
+```
+// Before encryption (in memory):
+{ ssn: '123-45-6789', taxFileNumber: '12345678' }
+
+// After hashTransparentFields() (in Firestore):
+{ ssn: 'iv:encrypted:authTag', taxFileNumber: 'iv:encrypted:authTag' }
+//  └── each field encrypted separately
+
+// After unhashTransparentFields() — guarded fields are NOT touched:
+{ ssn: 'iv:encrypted:authTag', taxFileNumber: 'iv:encrypted:authTag' }
+
+// Must explicitly call unhashFields() or unhashFieldsByName() to reveal:
+unhashFieldsByName(data, ['ssn'])
+// → { ssn: '123-45-6789', taxFileNumber: 'iv:encrypted:authTag' }
+```
+
+- Selective decryption — only reveal what's needed
+- Requires explicit intent (`unhashFields()` / `unhashFieldsByName()`)
+- Best for high-security fields (SSNs, API keys, tax numbers)
+
+### Choosing a Mode
+
+| Question | Transparent | Guarded |
+|---|---|---|
+| Displayed on most reads? | Yes | No — secrets rarely shown |
+| Selectively decryptable? | No — all-or-nothing blob | Yes — per-field |
+| Crypto cost | O(1) per entity | O(n) per field |
+| Stored as | Single `_pii` key | Original field keys, encrypted values |
+| Auto-decrypted in `fromFirestore()`? | Yes | No — must call `unhashFields()` |
+
+### Encryption Format
+
+Every encrypted value follows this format (base64-encoded components):
+
+```
+${iv}:${encryptedPayload}:${authTag}
+```
+
+- **iv** — 12-byte random initialization vector (unique per encryption)
+- **encryptedPayload** — AES-256-GCM ciphertext
+- **authTag** — GCM authentication tag (tamper detection)
+
+### Registry — Startup Configuration
+
+The registry maps `entityType.fieldName` to a mode. Register fields **before** any read/write operations.
+
+```typescript
+import { registerHashedFields } from '@xbg.solutions/utils-hashing';
+
+// At app startup (or in generated encryption-registry.ts):
+registerHashedFields('contact', ['firstName', 'email', 'phone'], 'transparent');
+registerHashedFields('contact', ['ssn', 'taxFileNumber'], 'guarded');
+
+// Built-in defaults (always registered):
+// 'user.email'       → guarded
+// 'user.phoneNumber' → guarded
+```
+
+Registry query functions:
+
+```typescript
+import {
+  isHashedField,
+  getFieldMode,
+  getTransparentFields,
+  getGuardedFields,
+} from '@xbg.solutions/utils-hashing';
+
+isHashedField('contact.email');        // true
+getFieldMode('contact.email');         // 'transparent'
+getTransparentFields('contact');       // ['firstName', 'email', 'phone']
+getGuardedFields('contact');           // ['ssn', 'taxFileNumber']
+```
+
+### Function Reference
+
+All functions return a **new object** — the original is never mutated. Only non-null, non-empty strings are encrypted.
+
+#### Encryption (write path)
+
+| Function | Registry | Description |
+|---|---|---|
+| `hashValue(value)` | — | Encrypt a single string |
+| `hashFields(data, entityType)` | Yes | Encrypt all registered fields (flat, ignores mode) |
+| `hashFieldsByName(data, fields)` | No | Encrypt specific fields by name |
+| `hashTransparentFields(data, entityType)` | Yes | Bundle transparent → `_pii`, encrypt guarded individually |
+| `hashTransparentFieldsByName(data, transparentFields, guardedFields?)` | No | Same but with explicit field lists |
+
+#### Decryption (read path)
+
+| Function | Registry | Description |
+|---|---|---|
+| `unhashValue(value)` | — | Decrypt a single string |
+| `unhashFields(data, fieldPaths)` | Yes | Decrypt specific fields by `entityType.field` path |
+| `unhashFieldsByName(data, fields)` | No | Decrypt specific fields by name |
+| `unhashTransparentFields(data, entityType)` | Yes | Restore `_pii` blob → original fields (legacy fallback included) |
+| `unhashTransparentFieldsByName(data, transparentFields)` | No | Same but with explicit field list |
+
+### Dot-Path Support for Nested Objects
+
+Both modes support dot-notation paths for fields inside nested objects:
+
+```typescript
+// Registration:
+registerHashedFields('contact', ['person.email', 'person.phone'], 'transparent');
+registerHashedFields('contact', ['person.ssn'], 'guarded');
+
+// Data in:
+const data = {
+  person: { email: 'a@b.com', phone: '+61...', ssn: '123', name: 'Jo' },
+  notes: 'xyz',
+};
+
+// After hashTransparentFields(data, 'contact'):
+{
+  person: { ssn: 'iv:...:tag', name: 'Jo' },   // ssn encrypted in place
+  _pii: 'iv:...:tag',                           // person.email + person.phone bundled
+  notes: 'xyz',
+}
+```
+
+### Generated Entity Integration
+
+When a `DataModelSpecification` includes encrypted fields, the generated entity wires up hashing automatically:
+
+```typescript
+// Generated getEntityData() — encrypt on write:
+protected getEntityData(): Record<string, any> {
+  return hashTransparentFields({
+    firstName: this.firstName,
+    email: this.email,
+    ssn: this.ssn,
+  }, 'contact');
+}
+
+// Generated fromFirestore() — decrypt transparent on read:
+static override fromFirestore(id: string, data: Record<string, any>): Contact {
+  const decrypted = unhashTransparentFields(data, 'contact');
+  return new Contact({ id, ...decrypted });
+  // firstName and email are plaintext; ssn is still encrypted (guarded)
+}
+```
+
+To reveal guarded fields in a service method:
+
+```typescript
+import { unhashFieldsByName } from '@xbg.solutions/utils-hashing';
+
+async revealSSN(contactId: string): Promise<string> {
+  const contact = await this.repo.findById(contactId);
+  if (!contact) throw new Error('Not found');
+
+  // Explicitly decrypt only the guarded field needed
+  const revealed = unhashFieldsByName(
+    { ssn: contact.ssn },
+    ['ssn']
+  );
+  return revealed.ssn;
+}
+```
+
+### Manual Usage (Without Code Generator)
+
+If you're writing entities by hand (not using the generator), use the `*ByName` variants to avoid the registry:
+
+```typescript
+import {
+  hashTransparentFieldsByName,
+  unhashTransparentFieldsByName,
+  unhashFieldsByName,
+} from '@xbg.solutions/utils-hashing';
+
+// Encrypt on write
+const encrypted = hashTransparentFieldsByName(
+  entityData,
+  ['email', 'phone'],      // transparent
+  ['ssn']                   // guarded
+);
+
+// Decrypt transparent on read
+const decrypted = unhashTransparentFieldsByName(encrypted, ['email', 'phone']);
+
+// Decrypt guarded on demand
+const revealed = unhashFieldsByName(decrypted, ['ssn']);
+```
 
 ### Relationship Types
 
@@ -515,6 +740,8 @@ ProjectMember: {
 | **Controller** | Extends `BaseController<T>` | Standalone `Router` with `mergeParams: true`, nested route pattern |
 | **Routes** | `GET /products/:id` | `GET /projects/:projectId/members/:id` |
 
+Subcollection services route all writes through `entity.serializeFields()`, which delegates to `getEntityData()`. This ensures encryption is applied consistently — the same code path used for top-level entities via `toFirestore()`.
+
 The subcollection controller creates a scoped repository per request from the parent ID in the route params:
 
 ```typescript
@@ -533,6 +760,19 @@ See `__examples__/project-with-subcollections.model.ts` for a complete example w
 ---
 
 ## Firestore-Specific Patterns
+
+### Provider Extensibility
+
+`BaseRepository<T>` is Firestore-specific — it directly uses `Firestore`, `CollectionReference`, etc. This is the pragmatic default for top-level collections.
+
+The provider-agnostic interface is `IScopedRepository<T>` + `ITransactionManager` (in `types/repository.ts`). The subcollection path already uses this pattern via `RepositoryFactory`. To add a new storage provider (Postgres, DynamoDB, etc.):
+
+1. Implement `IScopedRepository<T>` for your provider
+2. Implement `ITransactionManager` for your provider
+3. Register the provider in `RepositoryFactory`
+4. No changes needed to service or controller layers
+
+If you need multi-provider support for top-level entities, the migration path is to wrap them behind `IScopedRepository` using `RepositoryFactory`, the same pattern subcollections already use.
 
 ### Soft Delete Query Requirement
 
@@ -556,18 +796,22 @@ const mainDb = getFirestoreDb('main');
 const productRepo = new ProductRepository(mainDb);
 ```
 
-### Timestamps — Always Use ServerTimestamp
+### Timestamps — Consistency Across Adapters
+
+`BaseEntity.toFirestore()` uses `FieldValue.serverTimestamp()` for `updatedAt` — this is the most accurate option for top-level entities written through `BaseRepository`.
+
+Both `BaseRepository` and `FirestoreScopedRepository` use `Timestamp.now()` for internally-managed timestamps (`updatedAt` on partial updates, `deletedAt` on soft delete, `createdAt`/`updatedAt` on scoped create). This ensures consistent Firestore `Timestamp` types across both storage paths.
 
 ```typescript
-// ✅ Correct — server-authoritative timestamp
+// ✅ Correct — server-authoritative timestamp (entity writes)
 createdAt: FieldValue.serverTimestamp()
 
-// ❌ Wrong — client clock can drift
-createdAt: new Date()
-createdAt: Timestamp.now()
-```
+// ✅ Also correct — Firestore Timestamp (repository-managed fields)
+updatedAt: Timestamp.now()
 
-`BaseEntity` handles this automatically in `toFirestore()` — `updatedAt` is always server timestamp on write.
+// ❌ Wrong — produces string, not Firestore Timestamp
+createdAt: new Date().toISOString()
+```
 
 ---
 

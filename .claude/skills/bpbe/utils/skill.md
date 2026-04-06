@@ -158,6 +158,12 @@ const encrypted = hashFields(userData, 'user');
 const decrypted = unhashFields(encrypted, ['user.email', 'user.phoneNumber']);
 ```
 
+### Known Limitations
+
+- **No querying encrypted fields by value.** Firestore stores ciphertext — a `where('email', '==', 'alice@co.com')` query will never match. If you need equality lookups on encrypted fields, implement a blind index: store a deterministic HMAC alongside the ciphertext and query on that instead.
+- **`isEncrypted()` format validation.** The internal `isEncrypted()` check validates the IV length (16 base64 chars = 12 bytes) and auth tag length (24 base64 chars = 16 bytes) to avoid false positives on colon-delimited strings like time values or URLs.
+- **Non-string values are skipped.** All hash/unhash functions only process non-null, non-empty strings. Numbers, booleans, and objects pass through unchanged.
+
 ### Anti-Examples
 
 ```typescript

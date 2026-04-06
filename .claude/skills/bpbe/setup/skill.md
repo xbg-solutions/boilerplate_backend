@@ -138,7 +138,17 @@ DB_ENABLE_CACHE=true
 PII_ENCRYPTION_KEY=your-64-hex-char-key
 ```
 
-Required for the hashing utility (`@xbg.solutions/utils-hashing`). Without it, `hashValue()` will throw at runtime.
+Required for the hashing utility (`@xbg.solutions/utils-hashing`). Without it, any `hashValue()` or `unhashValue()` call will throw at runtime.
+
+**Key requirements:**
+- Exactly 64 hex characters (= 32 bytes for AES-256)
+- Must be identical across all environments that share encrypted data
+- Rotating the key requires re-encrypting all existing PII — there is no built-in key rotation
+
+**Startup checklist for encrypted entities:**
+1. Set `PII_ENCRYPTION_KEY` in `.env`
+2. Call `registerEncryptedFields()` (from generated `encryption-registry.ts`) before any database read/write
+3. See the **Data Layer** skill for full hasher utility documentation (transparent vs guarded modes, function reference, dot-path support)
 
 ### Caching
 

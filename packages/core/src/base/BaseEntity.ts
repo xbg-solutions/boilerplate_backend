@@ -68,6 +68,17 @@ export abstract class BaseEntity {
   protected abstract getEntityData(): Record<string, any>;
 
   /**
+   * Public accessor for serialized domain fields.
+   * Returns the output of getEntityData() — domain fields only,
+   * without base fields (createdAt, updatedAt, version, etc.).
+   * Useful when callers need encrypted/serialized field data
+   * without the full toFirestore() envelope.
+   */
+  serializeFields(): Record<string, any> {
+    return this.getEntityData();
+  }
+
+  /**
    * Create entity from Firestore document
    */
   static fromFirestore<T extends BaseEntity>(

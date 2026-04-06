@@ -211,6 +211,17 @@ export class {{entityName}}Repository extends BaseRepository<{{entityName}}> {
 {{/if}}
 {{/each}}
 
+{{#each fields}}
+{{#if encryptedUnique}}
+  /**
+   * Note: {{name}} is marked unique but is encrypted ({{encryption}} mode).
+   * Firestore cannot query encrypted values by plaintext.
+   * To support lookups, implement a blind index (deterministic HMAC)
+   * stored alongside the ciphertext.
+   */
+{{/if}}
+{{/each}}
+
 {{#each relationships}}
   /**
    * Get {{name}} for {{../entityName}}
@@ -258,7 +269,8 @@ export class {{entityName}}Service {
       if (!validation.valid) {
         return { success: false, error: { code: 'VALIDATION_ERROR', message: validation.errors.join(', ') } };
       }
-      const result = await this.repository.create(data);
+      // Pass serialized fields so encryption (if configured) is applied
+      const result = await this.repository.create(entity.serializeFields());
       this.publishEvent('CREATED', result, context);
       return { success: true, data: result };
     } catch (error) {
@@ -299,7 +311,14 @@ export class {{entityName}}Service {
       if (!existing) {
         return { success: false, error: { code: 'NOT_FOUND', message: \`{{entityName}} not found: \${id}\` } };
       }
-      await this.repository.updateFields(id, data as Record<string, any>);
+      // Merge with existing, rebuild entity to apply encryption via serializeFields()
+      const merged = { ...existing.toJSON(), ...data, id: existing.id };
+      const updatedEntity = new {{entityName}}(merged as {{entityName}}Data);
+      const validation = updatedEntity.validate();
+      if (!validation.valid) {
+        return { success: false, error: { code: 'VALIDATION_ERROR', message: validation.errors.join(', ') } };
+      }
+      await this.repository.updateFields(id, updatedEntity.serializeFields());
       const updated = await this.repository.findById(id);
       if (updated) {
         this.publishEvent('UPDATED', updated, context);
