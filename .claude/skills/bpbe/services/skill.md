@@ -1,4 +1,5 @@
 ---
+name: bpbe-services
 description: "Services layer for the XBG boilerplate backend: implementing BaseService, lifecycle hooks, access control, event bus publishing and subscribing, and auth patterns."
 ---
 

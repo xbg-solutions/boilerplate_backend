@@ -1,4 +1,5 @@
 ---
+name: xbg
 description: "Root skill index for XBG agentic builder libraries. Routes to the appropriate sub-skill based on the library and topic."
 ---
 

@@ -1,4 +1,5 @@
 ---
+name: bpbe-api
 description: "API layer for the XBG boilerplate backend: implementing controllers with BaseController, registering routes, adding middleware, response shapes, and wiring up functions/src/index.ts."
 ---
 

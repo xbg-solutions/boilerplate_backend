@@ -1,4 +1,5 @@
 ---
+name: bpbe
 description: "Overview of the XBG boilerplate backend: architecture, philosophy, layered structure, and navigation guide to sub-skills for setup, data, services, utilities, and API."
 ---
 

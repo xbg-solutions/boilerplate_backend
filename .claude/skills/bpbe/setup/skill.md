@@ -1,4 +1,5 @@
 ---
+name: bpbe-setup
 description: "Setup, configuration, and development workflow for the XBG boilerplate backend: creating projects with the CLI, .env variables, npm scripts, Firebase config, validation, and local dev server."
 ---
 

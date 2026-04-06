@@ -1,4 +1,5 @@
 ---
+name: bpbe-utils
 description: "Utilities in the XBG boilerplate backend: logger with PII sanitization, AES-256-GCM hashing, token handler with blacklisting, multi-level cache, and all communication connectors (email, SMS, push, CRM, LLM, etc.)."
 ---
 

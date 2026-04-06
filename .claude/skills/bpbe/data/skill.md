@@ -1,4 +1,5 @@
 ---
+name: bpbe-data
 description: "Data layer for the XBG boilerplate backend: defining entities with BaseEntity, writing repositories with BaseRepository, scoped subcollection access with IScopedRepository and RepositoryFactory, transactions with ITransactionManager, declaring DataModelSpecification, and using the code generator."
 ---
 
