@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-work-mgmt-connector",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "description": "Work management with Notion and Asana",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@notionhq/client": "^2.2.14",
-    "@xbg.solutions/utils-logger": "^1.2.0"
+    "@xbg.solutions/utils-logger": "^1.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

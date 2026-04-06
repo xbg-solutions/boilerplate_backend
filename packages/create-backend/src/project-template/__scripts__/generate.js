@@ -87,10 +87,15 @@ try {
   // Generate code for each entity
   console.log(`${colors.bright}${colors.blue}Generating code...${colors.reset}\n`);
 
+  const contexts = [];
   for (const [entityName, spec] of Object.entries(modelData.entities)) {
     console.log(`${colors.blue}Generating ${entityName}...${colors.reset}`);
-    generator.generateEntity(entityName, spec);
+    const ctx = generator.generateEntity(entityName, spec);
+    contexts.push(ctx);
   }
+
+  // Generate encryption registry (if any entity has encrypted fields)
+  generator.generateEncryptionRegistry(contexts);
 
   // Generate barrel exports
   console.log('');

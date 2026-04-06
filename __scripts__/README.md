@@ -70,6 +70,9 @@ npm run generate __examples__/user.model.ts
 - `repositories/[EntityName]Repository.ts` - Database operations
 - `services/[EntityName]Service.ts` - Business logic
 - `controllers/[EntityName]Controller.ts` - HTTP endpoints
+- `encryption-registry.ts` - Encryption field registration (if any entity uses encryption)
+
+If your model uses encrypted fields, call `registerEncryptedFields()` from `encryption-registry.ts` at app startup before any database operations.
 
 Generated code imports from `@xbg.solutions/*` packages:
 

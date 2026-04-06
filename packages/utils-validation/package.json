@@ -1,18 +1,26 @@
 {
   "name": "@xbg.solutions/utils-validation",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "description": "Input validation with Joi and express-validator",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "files": ["lib"],
+  "files": [
+    "lib"
+  ],
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "rm -rf lib",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {"joi": "^17.11.0", "express-validator": "^7.0.1"},
-  "devDependencies": {"@types/node": "^20.11.0", "typescript": "^5.3.3"},
+  "dependencies": {
+    "joi": "^17.11.0",
+    "express-validator": "^7.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
   "engines": {
     "node": "22"
   },

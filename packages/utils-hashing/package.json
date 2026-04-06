@@ -1,18 +1,26 @@
 {
   "name": "@xbg.solutions/utils-hashing",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "description": "PII encryption with AES-256-GCM and field-level hashing",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "files": ["lib"],
+  "files": [
+    "lib"
+  ],
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "rm -rf lib",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {"lodash": "^4.17.21"},
-  "devDependencies": {"@types/lodash": "^4.14.202", "@types/node": "^20.11.0", "typescript": "^5.3.3"},
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.202",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  },
   "engines": {
     "node": "22"
   },

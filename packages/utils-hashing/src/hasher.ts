@@ -8,12 +8,60 @@
  */
 
 import * as crypto from 'crypto';
-import { isHashedField } from './hashed-fields-lookup';
+import {
+  isHashedField,
+  getTransparentFields,
+  getGuardedFields,
+  PII_BLOB_KEY,
+} from './hashed-fields-lookup';
 
 // AES-256-GCM configuration
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // 96 bits for GCM
 const KEY_LENGTH = 32; // 256 bits
+
+/**
+ * Get a value at a dot-separated path (e.g., 'contactPerson.email')
+ */
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+  const parts = path.split('.');
+  let current: unknown = obj;
+  for (const part of parts) {
+    if (current == null || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
+/**
+ * Set a value at a dot-separated path, creating intermediate objects as needed
+ */
+function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let current: Record<string, unknown> = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (current[parts[i]] == null || typeof current[parts[i]] !== 'object') {
+      current[parts[i]] = {};
+    }
+    current = current[parts[i]] as Record<string, unknown>;
+  }
+  current[parts[parts.length - 1]] = value;
+}
+
+/**
+ * Delete a value at a dot-separated path
+ */
+function deleteNestedValue(obj: Record<string, unknown>, path: string): void {
+  const parts = path.split('.');
+  let current: unknown = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (current == null || typeof current !== 'object') return;
+    current = (current as Record<string, unknown>)[parts[i]];
+  }
+  if (current != null && typeof current === 'object') {
+    delete (current as Record<string, unknown>)[parts[parts.length - 1]];
+  }
+}
 
 /**
  * Get encryption key from environment
@@ -128,6 +176,171 @@ export function hashFieldsByName<T extends Record<string, unknown>>(
 
     if (value && typeof value === 'string' && value.length > 0) {
       (result as Record<string, unknown>)[fieldName] = hashValue(value);
+    }
+  }
+
+  return result;
+}
+
+
+/**
+ * Encrypt fields using transparent/guarded modes from the registry.
+ *
+ * - **Transparent** fields are bundled into a single encrypted JSON blob
+ *   stored under `_pii`, and their original keys are removed. This gives
+ *   O(1) crypto cost regardless of how many transparent fields exist.
+ *
+ * - **Guarded** fields are encrypted individually (same as hashFields).
+ *
+ * @param data - Object containing fields to encrypt
+ * @param entityType - Registered entity type (e.g. 'contact')
+ * @returns New object with transparent fields bundled into `_pii` and guarded fields encrypted individually
+ *
+ * @example
+ * // Given: registerHashedFields('contact', ['email', 'phone'], 'transparent');
+ * //        registerHashedFields('contact', ['ssn'], 'guarded');
+ * hashTransparentFields({ email: 'a@b.com', phone: '+61...', ssn: '123', name: 'Jo' }, 'contact')
+ * // → { _pii: '<blob>', ssn: '<encrypted>', name: 'Jo' }
+ */
+export function hashTransparentFields<T extends Record<string, unknown>>(
+  data: T,
+  entityType: string
+): T {
+  const result = { ...data };
+  const transparentFieldNames = getTransparentFields(entityType);
+  const guardedFieldNames = getGuardedFields(entityType);
+
+  // Deep-clone nested objects that will be mutated by dot-path operations
+  for (const fieldName of [...transparentFieldNames, ...guardedFieldNames]) {
+    if (fieldName.includes('.')) {
+      const topKey = fieldName.split('.')[0];
+      if (result[topKey] && typeof result[topKey] === 'object') {
+        (result as Record<string, unknown>)[topKey] = { ...(result[topKey] as Record<string, unknown>) };
+      }
+    }
+  }
+
+  // Bundle transparent fields into a single encrypted blob
+  if (transparentFieldNames.length > 0) {
+    const bundle: Record<string, string> = {};
+
+    for (const fieldName of transparentFieldNames) {
+      const isDotPath = fieldName.includes('.');
+      const value = isDotPath
+        ? getNestedValue(result as Record<string, unknown>, fieldName)
+        : result[fieldName];
+
+      if (value && typeof value === 'string' && value.length > 0) {
+        bundle[fieldName] = value;
+        if (isDotPath) {
+          deleteNestedValue(result as Record<string, unknown>, fieldName);
+        } else {
+          delete (result as Record<string, unknown>)[fieldName];
+        }
+      }
+    }
+
+    if (Object.keys(bundle).length > 0) {
+      (result as Record<string, unknown>)[PII_BLOB_KEY] = hashValue(JSON.stringify(bundle));
+    }
+  }
+
+  // Encrypt guarded fields individually
+  for (const fieldName of guardedFieldNames) {
+    const isDotPath = fieldName.includes('.');
+    const value = isDotPath
+      ? getNestedValue(result as Record<string, unknown>, fieldName)
+      : result[fieldName];
+
+    if (value && typeof value === 'string' && value.length > 0) {
+      const encrypted = hashValue(value);
+      if (isDotPath) {
+        setNestedValue(result as Record<string, unknown>, fieldName, encrypted);
+      } else {
+        (result as Record<string, unknown>)[fieldName] = encrypted;
+      }
+    }
+  }
+
+  return result;
+}
+
+
+/**
+ * Encrypt fields using transparent/guarded classification by explicit field names.
+ *
+ * Same as hashTransparentFields but without registry lookup — you pass
+ * the field names directly. Supports dot-path field names for nested objects
+ * (e.g., 'contactPerson.email').
+ *
+ * @param data - Object containing fields to encrypt
+ * @param transparentFields - Fields to bundle into `_pii` blob (supports dot-paths)
+ * @param guardedFields - Fields to encrypt individually (supports dot-paths, optional)
+ * @returns New object with transparent fields in `_pii` and guarded fields encrypted
+ *
+ * @example
+ * hashTransparentFieldsByName(
+ *   { email: 'a@b.com', contact: { phone: '+61...' }, ssn: '123', name: 'Jo' },
+ *   ['email', 'contact.phone'],  // transparent
+ *   ['ssn']                      // guarded
+ * )
+ */
+export function hashTransparentFieldsByName<T extends Record<string, unknown>>(
+  data: T,
+  transparentFields: string[],
+  guardedFields: string[] = []
+): T {
+  const result = { ...data };
+
+  // Deep-clone nested objects that will be mutated by dot-path operations
+  for (const fieldName of [...transparentFields, ...guardedFields]) {
+    if (fieldName.includes('.')) {
+      const topKey = fieldName.split('.')[0];
+      if (result[topKey] && typeof result[topKey] === 'object') {
+        (result as Record<string, unknown>)[topKey] = { ...(result[topKey] as Record<string, unknown>) };
+      }
+    }
+  }
+
+  // Bundle transparent fields into a single encrypted blob
+  if (transparentFields.length > 0) {
+    const bundle: Record<string, string> = {};
+
+    for (const fieldName of transparentFields) {
+      const isDotPath = fieldName.includes('.');
+      const value = isDotPath
+        ? getNestedValue(result as Record<string, unknown>, fieldName)
+        : result[fieldName];
+
+      if (value && typeof value === 'string' && value.length > 0) {
+        bundle[fieldName] = value;
+        if (isDotPath) {
+          deleteNestedValue(result as Record<string, unknown>, fieldName);
+        } else {
+          delete (result as Record<string, unknown>)[fieldName];
+        }
+      }
+    }
+
+    if (Object.keys(bundle).length > 0) {
+      (result as Record<string, unknown>)[PII_BLOB_KEY] = hashValue(JSON.stringify(bundle));
+    }
+  }
+
+  // Encrypt guarded fields individually
+  for (const fieldName of guardedFields) {
+    const isDotPath = fieldName.includes('.');
+    const value = isDotPath
+      ? getNestedValue(result as Record<string, unknown>, fieldName)
+      : result[fieldName];
+
+    if (value && typeof value === 'string' && value.length > 0) {
+      const encrypted = hashValue(value);
+      if (isDotPath) {
+        setNestedValue(result as Record<string, unknown>, fieldName, encrypted);
+      } else {
+        (result as Record<string, unknown>)[fieldName] = encrypted;
+      }
     }
   }
 

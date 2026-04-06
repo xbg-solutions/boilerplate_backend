@@ -36,13 +36,15 @@ export class CodeGenerator {
   }
 
   /**
-   * Generate all code for an entity
+   * Generate all code for an entity.
+   * Returns the TemplateContext so callers can collect contexts
+   * for encryption registry generation.
    */
   async generateEntity(
     entityName: string,
     spec: EntitySpecification,
     config: Partial<GeneratorConfig> = {}
-  ): Promise<void> {
+  ): Promise<TemplateContext> {
     const context = parseEntitySpecification(
       entityName,
       spec,
@@ -70,6 +72,7 @@ export class CodeGenerator {
     }
 
     console.log(`✅ Generated code for ${entityName}`);
+    return context;
   }
 
   /**
@@ -145,6 +148,47 @@ export class CodeGenerator {
     }
 
     console.log('✅ Generated barrel exports');
+  }
+
+  /**
+   * Generate encryption registry file from collected template contexts.
+   * Produces a startup registration file that calls registerHashedFields()
+   * for each entity with encrypted fields.
+   *
+   * Call this after all generateEntity() calls, passing the collected contexts.
+   */
+  async generateEncryptionRegistry(contexts: TemplateContext[]): Promise<void> {
+    const encrypted = contexts.filter((c) => c.hasEncryption);
+    if (encrypted.length === 0) return;
+
+    const lines: string[] = [
+      "/**",
+      " * Encryption Registry — Auto-generated",
+      " * Call registerEncryptedFields() at app startup before any read/write operations.",
+      " */",
+      "",
+      "import { registerHashedFields } from '@xbg.solutions/utils-hashing';",
+      "",
+      "export function registerEncryptedFields(): void {",
+    ];
+
+    for (const ctx of encrypted) {
+      if (ctx.transparentFields.length > 0) {
+        const fields = ctx.transparentFields.map((f) => `'${f}'`).join(', ');
+        lines.push(`  registerHashedFields('${ctx.entityNameLower}', [${fields}], 'transparent');`);
+      }
+      if (ctx.guardedFields.length > 0) {
+        const fields = ctx.guardedFields.map((f) => `'${f}'`).join(', ');
+        lines.push(`  registerHashedFields('${ctx.entityNameLower}', [${fields}], 'guarded');`);
+      }
+    }
+
+    lines.push("}");
+    lines.push("");
+
+    const outputPath = path.join(this.outputDir, 'encryption-registry.ts');
+    fs.writeFileSync(outputPath, lines.join('\n'), 'utf-8');
+    console.log('✅ Generated encryption registry');
   }
 }
 

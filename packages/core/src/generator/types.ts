@@ -37,13 +37,14 @@ export interface FieldDefinition {
   nullable?: boolean;
   primaryKey?: boolean;
   values?: string[]; // For enum types
-  schema?: string; // For nested types
+  schema?: string | Record<string, FieldDefinition>; // Type reference OR inline definition
   minLength?: number;
   maxLength?: number;
   min?: number;
   max?: number;
   pattern?: string;
   description?: string;
+  encryption?: 'transparent' | 'guarded'; // PII encryption mode
 }
 
 export type FieldType =
@@ -128,6 +129,11 @@ export interface TemplateContext {
   parentEntity?: string;
   parentEntityLower?: string;
   subcollectionName?: string;
+  hasEncryption: boolean;
+  hasTransparentFields: boolean;
+  hasGuardedFields: boolean;
+  transparentFields: string[];
+  guardedFields: string[];
 }
 
 export interface FieldContext {
@@ -141,6 +147,7 @@ export interface FieldContext {
   validation: string[];
   description?: string;
   isBaseEntityField: boolean;
+  encryption?: 'transparent' | 'guarded';
 }
 
 export interface RelationshipContext {

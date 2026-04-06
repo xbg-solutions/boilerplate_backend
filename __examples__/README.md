@@ -227,6 +227,7 @@ EntityName: {
       required: true | false,
       unique: true | false,
       default: value,
+      encryption: 'transparent' | 'guarded',  // PII encryption mode (optional)
     },
   },
   relationships: {
@@ -271,6 +272,12 @@ EntityName: {
 - `reference` - Foreign key to another entity
 - `array` - Array of values
 - `json` - Arbitrary JSON data
+
+### Encryption Modes
+
+- `transparent` -- encrypted at rest, auto-decrypted on every read. For display PII (e.g. names, emails).
+- `guarded` -- encrypted at rest, requires explicit action to decrypt. For secrets (e.g. API keys, SSNs).
+- Omit `encryption` for fields that don't need encryption.
 
 ### Relationship Types
 

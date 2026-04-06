@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-crm-connector",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "description": "CRM integration with HubSpot and Salesforce",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@hubspot/api-client": "^9.0.0",
-    "@xbg.solutions/utils-logger": "^1.2.0",
+    "@xbg.solutions/utils-logger": "^1.3.0",
     "jsforce": "^3.10.13"
   },
   "devDependencies": {

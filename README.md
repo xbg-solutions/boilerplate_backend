@@ -182,7 +182,7 @@ Each utility is a standalone package. Install only what you need:
 | `@xbg.solutions/utils-work-mgmt-connector` | Work management with Notion and Asana |
 | `@xbg.solutions/utils-document-connector` | Document processing |
 | `@xbg.solutions/utils-token-handler` | JWT generation, verification, and blacklist management |
-| `@xbg.solutions/utils-hashing` | PII encryption with AES-256-GCM |
+| `@xbg.solutions/utils-hashing` | PII encryption with AES-256-GCM (transparent and guarded modes) |
 | `@xbg.solutions/utils-validation` | Input validation with Joi and express-validator |
 | `@xbg.solutions/utils-timezone` | Timezone conversion helper |
 | `@xbg.solutions/utils-address-validation` | Google Maps address validation |
@@ -210,7 +210,7 @@ export const BlogModel: DataModelSpecification = {
   entities: {
     Post: {
       fields: {
-        title: { type: 'string', required: true },
+        title: { type: 'string', required: true, encryption: 'transparent' },
         content: { type: 'string', required: true },
         published: { type: 'boolean', default: false },
         authorId: { type: 'reference', required: true }

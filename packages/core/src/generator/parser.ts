@@ -25,6 +25,12 @@ export function parseEntitySpecification(
   const relationships = parseRelationships(spec.relationships || {});
   const isSubcollection = spec.storage?.type === 'subcollection';
 
+  // Compute encryption aggregates
+  const { transparentFields, guardedFields } = collectEncryptedFields(spec.fields);
+  const hasTransparentFields = transparentFields.length > 0;
+  const hasGuardedFields = guardedFields.length > 0;
+  const hasEncryption = hasTransparentFields || hasGuardedFields;
+
   return {
     entityName,
     entityNameLower: toLowerCamelCase(entityName),
@@ -32,7 +38,7 @@ export function parseEntitySpecification(
     collectionName: collectionName || toSnakeCase(pluralize(entityName)),
     fields,
     relationships,
-    imports: generateImports(fields, relationships, isSubcollection),
+    imports: generateImports(fields, relationships, isSubcollection, hasEncryption),
     hasTimestamps: hasTimestampFields(fields),
     hasSoftDelete: hasSoftDeleteField(fields),
     hasValidation: fields.some((f) => f.validation.length > 0),
@@ -45,6 +51,11 @@ export function parseEntitySpecification(
       ? toLowerCamelCase(spec.storage!.parent.entity)
       : undefined,
     subcollectionName: isSubcollection ? spec.storage!.parent?.collectionName : undefined,
+    hasEncryption,
+    hasTransparentFields,
+    hasGuardedFields,
+    transparentFields,
+    guardedFields,
   };
 }
 
@@ -68,6 +79,7 @@ function parseFields(fields: Record<string, FieldDefinition>): FieldContext[] {
     validation: generateValidationRules(name, def),
     description: def.description,
     isBaseEntityField: BASE_ENTITY_FIELDS.has(name),
+    encryption: def.encryption,
   }));
 }
 
@@ -107,7 +119,7 @@ function mapFieldTypeToTypeScript(field: FieldDefinition): string {
       case 'array':
         return 'any[]';
       case 'nested':
-        return field.schema || 'Record<string, any>';
+        return typeof field.schema === 'string' ? field.schema : 'Record<string, any>';
       case 'reference':
         return 'string';
       case 'json':
@@ -190,9 +202,39 @@ function generateValidationRules(fieldName: string, field: FieldDefinition): str
 }
 
 /**
+ * Collect encrypted field names/dot-paths from the specification.
+ * Handles flat fields, whole-nested-object encryption, and inline nested sub-field encryption.
+ */
+function collectEncryptedFields(fields: Record<string, FieldDefinition>): {
+  transparentFields: string[];
+  guardedFields: string[];
+} {
+  const transparentFields: string[] = [];
+  const guardedFields: string[] = [];
+
+  for (const [name, def] of Object.entries(fields)) {
+    if (def.encryption) {
+      // Flat field or whole nested object marked with encryption
+      const target = def.encryption === 'transparent' ? transparentFields : guardedFields;
+      target.push(name);
+    } else if (def.type === 'nested' && typeof def.schema === 'object') {
+      // Inline nested schema — check sub-fields for encryption
+      for (const [subName, subDef] of Object.entries(def.schema)) {
+        if (subDef.encryption) {
+          const target = subDef.encryption === 'transparent' ? transparentFields : guardedFields;
+          target.push(`${name}.${subName}`);
+        }
+      }
+    }
+  }
+
+  return { transparentFields, guardedFields };
+}
+
+/**
  * Generate imports based on fields and relationships
  */
-function generateImports(fields: FieldContext[], relationships: RelationshipContext[], isSubcollection?: boolean): string[] {
+function generateImports(fields: FieldContext[], relationships: RelationshipContext[], isSubcollection?: boolean, hasEncryption?: boolean): string[] {
   const coreImports = isSubcollection
     ? 'BaseEntity, BaseEntityData, ValidationResult, ValidationHelper, RepositoryFactory, IScopedRepository, QueryOptions'
     : 'BaseEntity, BaseEntityData, ValidationResult, ValidationHelper';
@@ -201,6 +243,10 @@ function generateImports(fields: FieldContext[], relationships: RelationshipCont
     `import { ${coreImports} } from '@xbg.solutions/backend-core';`,
     "import { Timestamp, FieldValue } from 'firebase-admin/firestore';",
   ];
+
+  if (hasEncryption) {
+    imports.push("import { hashTransparentFields, unhashTransparentFields } from '@xbg.solutions/utils-hashing';");
+  }
 
   return imports;
 }

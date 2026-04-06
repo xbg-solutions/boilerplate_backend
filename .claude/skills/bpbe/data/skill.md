@@ -356,9 +356,9 @@ export const EcommerceModel: DataModelSpecification = {
       description: 'A product available for purchase',
 
       fields: {
-        name:        { type: 'string',  required: true,  minLength: 3, maxLength: 100 },
+        name:        { type: 'string',  required: true,  minLength: 3, maxLength: 100, encryption: 'transparent' },
         description: { type: 'string',  required: false },
-        price:       { type: 'number',  required: true,  min: 0.01 },
+        price:       { type: 'number',  required: true,  min: 0.01 },  // non-string fields are not encrypted
         status:      { type: 'enum',    values: ['active', 'archived'], default: 'active' },
         categoryId:  { type: 'reference', entity: 'Category', required: true },
         imageUrl:    { type: 'url',     required: false },
@@ -419,6 +419,42 @@ export const EcommerceModel: DataModelSpecification = {
 | `array` | `any[]` | |
 | `reference` | `string` | Requires `entity: 'EntityName'` |
 | `json` | `Record<string, any>` | Arbitrary object |
+
+### Field Encryption
+
+Fields can optionally declare `encryption` to enable automatic PII encryption:
+
+```typescript
+fields: {
+  email:      { type: 'email', required: true, encryption: 'transparent' },
+  phone:      { type: 'string', encryption: 'transparent' },
+  ssn:        { type: 'string', encryption: 'guarded' },
+  department: { type: 'string' },  // not encrypted
+}
+```
+
+| Mode | Storage | Read behavior | Use for |
+|---|---|---|---|
+| `'transparent'` | Bundled into single `_pii` blob | Auto-decrypted on read (O(1) per object) | Display PII (names, emails, phones) |
+| `'guarded'` | Encrypted individually per-field | Requires explicit `unhashFields()` call | Secrets (API keys, SSNs, tax numbers) |
+
+Nested objects support per-sub-field encryption via inline schemas:
+
+```typescript
+contactPerson: {
+  type: 'nested',
+  schema: {
+    name:  { type: 'string', encryption: 'transparent' },
+    email: { type: 'email', encryption: 'transparent' },
+    role:  { type: 'string' },  // stays plaintext
+  },
+}
+```
+
+When `encryption` is used, the generator:
+1. Adds `hashTransparentFields()` / `unhashTransparentFields()` calls to the entity's `getEntityData()` and `fromFirestore()`
+2. Produces `encryption-registry.ts` with `registerEncryptedFields()` -- call this at app startup before any database operations
+3. Guarded fields remain encrypted on the entity instance -- services must explicitly call `unhashFields()` or `unhashFieldsByName()` to reveal them
 
 ### Relationship Types
 

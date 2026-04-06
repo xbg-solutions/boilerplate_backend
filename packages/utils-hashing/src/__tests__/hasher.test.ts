@@ -8,7 +8,9 @@
  * - Validates encryption key requirements
  */
 
-import { hashValue, hashFields } from '../hasher';
+import { hashValue, hashFields, hashTransparentFields, hashTransparentFieldsByName } from '../hasher';
+import { registerHashedFields, PII_BLOB_KEY } from '../hashed-fields-lookup';
+import { unhashValue } from '../unhashing';
 
 // Mock environment variable
 const VALID_KEY = 'a'.repeat(64); // 64 hex characters = 32 bytes
@@ -300,6 +302,237 @@ describe('Hasher Utilities', () => {
 
       // Should have different encrypted values (different IVs)
       expect(hashedUser1.email).not.toBe(hashedUser2.email);
+    });
+  });
+
+  describe('hashTransparentFields', () => {
+    beforeEach(() => {
+      // Register a test entity with mixed modes
+      registerHashedFields('client', ['firstName', 'lastName', 'email', 'phone'], 'transparent');
+      registerHashedFields('client', ['ssn', 'taxFileNumber'], 'guarded');
+    });
+
+    it('bundles transparent fields into a _pii blob', () => {
+      const data = {
+        clientUID: 'c123',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        email: 'jane@example.com',
+        phone: '+61412345678',
+        ssn: '123-45-6789',
+        taxFileNumber: '12345678',
+        notes: 'Some notes',
+      };
+
+      const result = hashTransparentFields(data, 'client');
+
+      // Transparent fields should be removed from the result
+      expect(result.firstName).toBeUndefined();
+      expect(result.lastName).toBeUndefined();
+      expect(result.email).toBeUndefined();
+      expect(result.phone).toBeUndefined();
+
+      // _pii blob should exist and be encrypted
+      expect((result as any)[PII_BLOB_KEY]).toBeDefined();
+      expect((result as any)[PII_BLOB_KEY]).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+
+      // Guarded fields should be encrypted individually
+      expect(result.ssn).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+      expect(result.taxFileNumber).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+
+      // Non-hashed fields should be unchanged
+      expect(result.clientUID).toBe('c123');
+      expect(result.notes).toBe('Some notes');
+    });
+
+    it('decrypting the _pii blob restores transparent fields', () => {
+      const data = {
+        firstName: 'Jane',
+        email: 'jane@example.com',
+        phone: '+61412345678',
+      };
+
+      const result = hashTransparentFields(data, 'client');
+      const blob = (result as any)[PII_BLOB_KEY] as string;
+      const decryptedJson = unhashValue(blob);
+      const fields = JSON.parse(decryptedJson);
+
+      expect(fields.firstName).toBe('Jane');
+      expect(fields.email).toBe('jane@example.com');
+      expect(fields.phone).toBe('+61412345678');
+    });
+
+    it('does not modify original object', () => {
+      const original = {
+        firstName: 'Jane',
+        email: 'jane@example.com',
+        ssn: '123-45-6789',
+      };
+
+      const originalFirstName = original.firstName;
+      const originalEmail = original.email;
+
+      hashTransparentFields(original, 'client');
+
+      expect(original.firstName).toBe(originalFirstName);
+      expect(original.email).toBe(originalEmail);
+    });
+
+    it('skips null/undefined/empty transparent fields in the blob', () => {
+      const data = {
+        firstName: null as any,
+        lastName: undefined as any,
+        email: '',
+        phone: '+61412345678',
+      };
+
+      const result = hashTransparentFields(data, 'client');
+
+      // Only phone should be in the blob
+      const blob = (result as any)[PII_BLOB_KEY] as string;
+      const decryptedJson = unhashValue(blob);
+      const fields = JSON.parse(decryptedJson);
+
+      expect(fields).toEqual({ phone: '+61412345678' });
+    });
+
+    it('does not create _pii blob when no transparent fields have values', () => {
+      const data = {
+        clientUID: 'c123',
+        ssn: '123-45-6789',
+      };
+
+      const result = hashTransparentFields(data, 'client');
+
+      expect((result as any)[PII_BLOB_KEY]).toBeUndefined();
+      expect(result.ssn).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+      expect(result.clientUID).toBe('c123');
+    });
+
+    it('handles entity with no transparent fields (only guarded)', () => {
+      // 'user' entity has only guarded fields
+      const data = {
+        email: 'test@example.com',
+        phoneNumber: '+61412345678',
+        fullName: 'John Doe',
+      };
+
+      const result = hashTransparentFields(data, 'user');
+
+      // No _pii blob
+      expect((result as any)[PII_BLOB_KEY]).toBeUndefined();
+
+      // Guarded fields encrypted individually
+      expect(result.email).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+      expect(result.phoneNumber).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+
+      // Non-hashed fields unchanged
+      expect(result.fullName).toBe('John Doe');
+    });
+
+    it('handles empty object', () => {
+      const result = hashTransparentFields({}, 'client');
+      expect(result).toEqual({});
+    });
+  });
+
+  describe('hashTransparentFieldsByName', () => {
+    it('bundles transparent fields and encrypts guarded fields', () => {
+      const data = {
+        email: 'jane@example.com',
+        phone: '+61412345678',
+        ssn: '123-45-6789',
+        name: 'Jane',
+      };
+
+      const result = hashTransparentFieldsByName(
+        data,
+        ['email', 'phone'],
+        ['ssn']
+      );
+
+      // Transparent fields removed, _pii blob created
+      expect(result.email).toBeUndefined();
+      expect(result.phone).toBeUndefined();
+      expect((result as any)[PII_BLOB_KEY]).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+
+      // Guarded encrypted individually
+      expect(result.ssn).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+
+      // Non-hashed unchanged
+      expect(result.name).toBe('Jane');
+    });
+
+    it('works without guarded fields parameter', () => {
+      const data = { email: 'jane@example.com', name: 'Jane' };
+      const result = hashTransparentFieldsByName(data, ['email']);
+
+      expect(result.email).toBeUndefined();
+      expect((result as any)[PII_BLOB_KEY]).toBeDefined();
+      expect(result.name).toBe('Jane');
+    });
+
+    it('handles dot-path transparent fields in nested objects', () => {
+      const data = {
+        projectName: 'Alpha',
+        contactPerson: { name: 'Jane', email: 'jane@example.com', role: 'Manager' },
+      };
+
+      const result = hashTransparentFieldsByName(
+        data,
+        ['contactPerson.name', 'contactPerson.email']
+      );
+
+      // Dot-path fields removed from nested object, blob created
+      expect((result as any)[PII_BLOB_KEY]).toBeDefined();
+      expect((result as any).contactPerson.role).toBe('Manager');
+      expect((result as any).contactPerson.name).toBeUndefined();
+      expect((result as any).contactPerson.email).toBeUndefined();
+
+      // Blob contains the dot-path keys
+      const blob = (result as any)[PII_BLOB_KEY] as string;
+      const decryptedJson = unhashValue(blob);
+      const fields = JSON.parse(decryptedJson);
+      expect(fields['contactPerson.name']).toBe('Jane');
+      expect(fields['contactPerson.email']).toBe('jane@example.com');
+
+      // Non-encrypted fields unchanged
+      expect(result.projectName).toBe('Alpha');
+    });
+
+    it('handles mixed flat and dot-path fields', () => {
+      const data = {
+        email: 'top@example.com',
+        billing: { phone: '+61400111222', taxId: '123' },
+        notes: 'Test',
+      };
+
+      const result = hashTransparentFieldsByName(
+        data,
+        ['email', 'billing.phone'],
+        ['billing.taxId']
+      );
+
+      // Transparent fields in blob
+      expect(result.email).toBeUndefined();
+      expect((result as any).billing.phone).toBeUndefined();
+      expect((result as any)[PII_BLOB_KEY]).toBeDefined();
+
+      // Guarded field encrypted individually
+      expect((result as any).billing.taxId).toMatch(/^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/);
+
+      expect(result.notes).toBe('Test');
+    });
+
+    it('does not modify original nested objects', () => {
+      const original = {
+        contact: { email: 'jane@example.com', role: 'Manager' },
+      };
+
+      const originalEmail = original.contact.email;
+      hashTransparentFieldsByName(original, ['contact.email']);
+
+      expect(original.contact.email).toBe(originalEmail);
     });
   });
 });

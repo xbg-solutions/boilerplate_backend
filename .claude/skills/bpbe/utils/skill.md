@@ -72,7 +72,10 @@ reqLogger.info('Custom log', { data });
 
 **Package:** `@xbg.solutions/utils-hashing`
 
-Provides **reversible** AES-256-GCM encryption for PII fields. This is encryption, not one-way hashing — the name `hashFields` is the API surface, but the data can be decrypted.
+Provides **reversible** AES-256-GCM encryption for PII fields. Two encryption modes:
+
+- **Transparent** — bundled into a single `_pii` blob, auto-decrypted on every read. O(1) crypto per object. For display PII (names, emails, phones).
+- **Guarded** — encrypted individually per-field, requires explicit action to decrypt. For secrets (API keys, SSNs, tax file numbers).
 
 ### Setup
 
@@ -83,97 +86,92 @@ openssl rand -hex 32
 PII_ENCRYPTION_KEY=your-64-char-hex-key
 ```
 
-### Encrypting Fields
+### Registering Fields with Modes
 
-```typescript
-import { hashValue, hashFields, hashFieldsByName } from '@xbg.solutions/utils-hashing';
-
-// Encrypt a single value
-const encrypted = hashValue('user@example.com');
-// Format: "base64iv:base64ciphertext:base64authtag"
-
-// Encrypt specific PII fields on a data object (uses hashed-fields-lookup config)
-const encryptedUserData = hashFields(userData, 'user');
-```
-
-### Decrypting Fields
-
-```typescript
-import { unhashValue, unhashFields, unhashFieldsByName } from '@xbg.solutions/utils-hashing';
-
-// Decrypt a single value
-const plaintext = unhashValue(encrypted);
-
-// Decrypt specific fields on a retrieved entity
-const decryptedUser = unhashFields(user, ['user.email', 'user.phone']);
-```
-
-### Which Fields Are Hashed
-
-Configured in the hashing package's hashed-fields-lookup. To check:
-
-```typescript
-import { isHashedField } from '@xbg.solutions/utils-hashing';
-
-// Check if a field path should be hashed:
-isHashedField('user.email')        // → true
-isHashedField('user.phoneNumber')  // → true
-isHashedField('user.name')         // → false
-isHashedField('product.name')      // → false
-```
-
-### Registering Custom Entity Fields
-
-The built-in registry only covers `user.email` and `user.phoneNumber`. Register your own entity types at app startup:
+Register entity fields at app startup with their encryption mode:
 
 ```typescript
 import { registerHashedFields } from '@xbg.solutions/utils-hashing';
 
-// Call once at startup, before any hashing operations
-registerHashedFields('employee', ['email', 'ssn', 'phone']);
-registerHashedFields('account', ['abn', 'taxFileNumber']);
+// Transparent: auto-decrypted on read (display PII)
+registerHashedFields('contact', ['firstName', 'lastName', 'email', 'phone'], 'transparent');
 
-// Now hashFields(data, 'employee') will encrypt the registered fields
+// Guarded: explicit decrypt only (secrets) — this is the default if mode is omitted
+registerHashedFields('contact', ['ssn', 'taxFileNumber'], 'guarded');
 ```
 
-### Direct Field-Name Encryption (Bypass Registry)
+If using the code generator with `encryption` on fields, the generator auto-produces `encryption-registry.ts` with these calls.
 
-For project-specific entities where you don't want to use the registry, use `hashFieldsByName` / `unhashFieldsByName`:
+### Transparent Encryption (Recommended for Display PII)
+
+Bundles all transparent fields into a single encrypted `_pii` blob. One decrypt operation per object regardless of field count.
 
 ```typescript
-import { hashFieldsByName, unhashFieldsByName } from '@xbg.solutions/utils-hashing';
+import { hashTransparentFields, unhashTransparentFields } from '@xbg.solutions/utils-hashing';
 
-// Encrypt specific fields by name — no registry lookup
-const encrypted = hashFieldsByName(
-  { email: 'user@example.com', name: 'Alice', role: 'admin' },
-  ['email']
-);
-// → { email: '<encrypted>', name: 'Alice', role: 'admin' }
+// Write path: bundle transparent fields into _pii, encrypt guarded individually
+const toStore = hashTransparentFields(contactData, 'contact');
+// → { _pii: '<blob>', ssn: '<encrypted>', department: 'Engineering' }
 
-// Decrypt specific fields by name
-const decrypted = unhashFieldsByName(encrypted, ['email']);
-// → { email: 'user@example.com', name: 'Alice', role: 'admin' }
+// Read path: decrypt _pii blob, restore transparent fields (1 crypto op)
+const readable = unhashTransparentFields(storedData, 'contact');
+// → { firstName: 'Jane', email: 'j@x.com', ssn: '<still encrypted>', department: 'Engineering' }
+```
+
+### Dot-Path Support for Nested Objects
+
+Nested sub-fields can be encrypted individually using dot-paths:
+
+```typescript
+registerHashedFields('project', ['contactPerson.email', 'contactPerson.name'], 'transparent');
+registerHashedFields('project', ['billing.taxId'], 'guarded');
+
+const stored = hashTransparentFields(projectData, 'project');
+// contactPerson.email and contactPerson.name go into _pii blob
+// billing.taxId encrypted individually
+// contactPerson.role stays plaintext in Firestore
+```
+
+### Guarded Field Decryption (Explicit)
+
+Guarded fields remain encrypted after `unhashTransparentFields()`. Decrypt explicitly when needed:
+
+```typescript
+import { unhashFields, unhashFieldsByName } from '@xbg.solutions/utils-hashing';
+
+// Explicit decrypt of guarded fields
+const withSsn = unhashFields(readable, ['contact.ssn']);
+// Or by name (no registry):
+const withSsn = unhashFieldsByName(readable, ['ssn']);
+```
+
+### Legacy Functions (Still Supported)
+
+The original per-field functions still work for guarded-only workflows:
+
+```typescript
+import { hashFields, unhashFields, hashFieldsByName, unhashFieldsByName } from '@xbg.solutions/utils-hashing';
+
+// Per-field encryption (all fields treated as guarded)
+const encrypted = hashFields(userData, 'user');
+const decrypted = unhashFields(encrypted, ['user.email', 'user.phoneNumber']);
 ```
 
 ### Anti-Examples
 
 ```typescript
-// ❌ Don't decrypt eagerly — only decrypt when you need plaintext
-const users = await userRepo.findAll({});
-const decrypted = users.map(u => unhashFields(u, ['user.email'])); // ← only if you're sending PII to client
+// ❌ Don't use hashFields for entities with many display PII fields — too many decrypt ops
+const users = await repo.findAll({});
+const decrypted = users.map(u => unhashFields(u, ['user.email', 'user.phone', 'user.name'])); // 3 decrypts per user
 
-// ✅ Keep encrypted in storage, decrypt only at response boundary
-const user = await userRepo.findById(id);
-if (sendingToClient) {
-  return unhashFields(user, ['user.email', 'user.phone']);
-}
+// ✅ Use transparent mode — 1 decrypt per user regardless of field count
+const decrypted = users.map(u => unhashTransparentFields(u, 'user'));
 
 // ❌ Don't compare encrypted values directly
 if (user.email === 'test@example.com') { ... }  // always false — it's encrypted
 
-// ✅ Encrypt the search value first, or use a separate search index
-const encryptedEmail = hashValue('test@example.com');
-const users = await userRepo.findAll({ where: [{ field: 'email', operator: '==', value: encryptedEmail }] });
+// ❌ Don't explicitly decrypt guarded fields unless you need to display them
+const allDecrypted = unhashFields(user, ['user.ssn']); // Only when user clicks "reveal SSN"
 ```
 
 ---

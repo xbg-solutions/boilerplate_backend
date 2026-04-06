@@ -29,11 +29,19 @@ export class {{entityName}} extends BaseEntity {
    * Get entity-specific data for Firestore
    */
   protected getEntityData(): Record<string, any> {
+{{#if hasEncryption}}
+    return hashTransparentFields({
+{{#each fields}}
+      {{name}}: this.{{name}},
+{{/each}}
+    }, '{{entityNameLower}}');
+{{else}}
     return {
 {{#each fields}}
       {{name}}: this.{{name}},
 {{/each}}
     };
+{{/if}}
   }
 
   /**
@@ -55,10 +63,18 @@ export class {{entityName}} extends BaseEntity {
    * Create entity from Firestore document
    */
   static fromFirestore(id: string, data: Record<string, any>): {{entityName}} {
+{{#if hasEncryption}}
+    const decrypted = unhashTransparentFields(data, '{{entityNameLower}}');
+    return new {{entityName}}({
+      id,
+      ...decrypted,
+    });
+{{else}}
     return new {{entityName}}({
       id,
       ...data,
     });
+{{/if}}
   }
 
   /**
