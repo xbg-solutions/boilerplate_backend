@@ -46,4 +46,5 @@ export type {
   TemplateContext,
   FieldContext,
   RelationshipContext,
+  AncestorSegment,
 } from './generator/types';

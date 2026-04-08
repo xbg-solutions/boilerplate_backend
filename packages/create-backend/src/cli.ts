@@ -30,6 +30,7 @@ program
   .description('Initialize a new XBG backend project')
   .option('-d, --directory <path>', 'Target directory', '.')
   .option('-n, --name <name>', 'Project name')
+  .option('-c, --config <path>', 'Path to setup-config.json for non-interactive setup')
   .option('--skip-install', 'Skip npm install')
   .action(async (options) => {
     await initProject(options);
@@ -52,9 +53,16 @@ program
     await addUtility(options);
   });
 
-// Default to init if no command specified
+// Default to init if no command specified, but check for --config flag
 if (process.argv.length <= 2) {
   initProject({ directory: '.' }).catch(console.error);
+} else if (process.argv.length <= 4 && (process.argv.includes('--config') || process.argv.includes('-c'))) {
+  // Handle: npx create-backend --config setup-config.json (no "init" subcommand)
+  const configIdx = process.argv.indexOf('--config') !== -1
+    ? process.argv.indexOf('--config')
+    : process.argv.indexOf('-c');
+  const configPath = process.argv[configIdx + 1];
+  initProject({ directory: '.', config: configPath }).catch(console.error);
 } else {
   program.parse();
 }

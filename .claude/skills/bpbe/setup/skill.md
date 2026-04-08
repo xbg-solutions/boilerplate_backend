@@ -9,6 +9,8 @@ description: "Setup, configuration, and development workflow for the XBG boilerp
 
 ## Quick Start — New Project
 
+### Interactive (human users)
+
 ```bash
 # Scaffold a new project with the CLI
 npx @xbg.solutions/create-backend init
@@ -18,8 +20,75 @@ npx @xbg.solutions/create-backend init
 #   - Let you select which utilities to include
 #   - Generate project structure with selected @xbg.solutions/* packages
 #   - Install dependencies
+```
 
-# Once scaffolded:
+### Non-interactive (agents / CI)
+
+Pass a `setup-config.json` to skip all interactive prompts:
+
+```bash
+npx @xbg.solutions/create-backend init --config setup-config.json
+
+# Or shorthand (no "init" subcommand needed):
+npx @xbg.solutions/create-backend --config setup-config.json
+
+# Combine with other flags:
+npx @xbg.solutions/create-backend init -d ./my-project --config setup-config.json --skip-install
+```
+
+#### setup-config.json shape
+
+Only `firebaseProject` is required. All other fields fall back to sensible defaults if omitted.
+
+```jsonc
+{
+  // Required
+  "firebaseProject": "my-firebase-project-id",
+
+  // Optional — defaults shown
+  "projectName": "my-app",                    // defaults to target directory basename
+  "deploymentMode": "standalone",             // "standalone" | "monorepo"
+  "environment": "development",               // "development" | "staging" | "production"
+  "multiDB": true,
+  "apiBasePath": "/api/v1",
+  "corsOrigins": "http://localhost:5173,http://localhost:3000",
+
+  "features": {
+    "auth": true,
+    "multiTenant": false,
+    "fileUploads": true,
+    "notifications": true,
+    "analytics": false,
+    "realtime": true
+  },
+
+  // Optional utility packages (core utils are always included).
+  // Defaults to cache-connector, token-handler, and validation.
+  "selectedUtils": [
+    "@xbg.solutions/utils-cache-connector",
+    "@xbg.solutions/utils-token-handler",
+    "@xbg.solutions/utils-validation"
+  ]
+}
+```
+
+**Available `selectedUtils` packages** (all prefixed `@xbg.solutions/`):
+
+| Category | Packages |
+|---|---|
+| Data | `utils-cache-connector`, `utils-firebase-event-bridge` |
+| Communication | `utils-email`, `utils-sms`, `utils-push-notifications`, `utils-realtime` |
+| Integration | `utils-crm`, `utils-llm`, `utils-erp`, `utils-journey`, `utils-survey`, `utils-work-mgmt`, `utils-document` |
+| Security | `utils-token-handler`, `utils-hashing`, `utils-validation` |
+| Infrastructure | `utils-timezone`, `utils-address-validation` |
+
+Core utilities (`utils-logger`, `utils-events`, `utils-errors`, `utils-firestore-connector`) are always included regardless of `selectedUtils`.
+
+An example config file is included at `__examples__/setup-config.json` in every scaffolded project.
+
+### After scaffolding
+
+```bash
 cd my-project/functions
 
 # Interactive setup wizard (generates .env, configures Firebase)
@@ -246,9 +315,10 @@ npm run validate       # Full: build + lint + tests
 npm run validate:quick # Quick: build + lint only
 
 # Code Generation
-npm run generate <model-file>   # Generate from DataModelSpecification
-# Example:
-npm run generate ../__examples__/blog-platform.model.ts
+npm run generate <model-file> [model-file2 ...]   # Generate from DataModelSpecification
+# Examples:
+npm run generate ../__examples__/blog-platform.model.js
+npm run generate ../__examples__/accounts.model.js ../__examples__/projects.model.js
 
 # Deployment
 npm run deploy         # Deploy to Firebase

@@ -355,6 +355,7 @@ export const EcommerceModel: DataModelSpecification = {
   entities: {
     Product: {
       description: 'A product available for purchase',
+      storage: { type: 'collection', collectionName: 'products' },
 
       fields: {
         name:        { type: 'string',  required: true,  minLength: 3, maxLength: 100, encryption: 'transparent' },
@@ -383,12 +384,6 @@ export const EcommerceModel: DataModelSpecification = {
         price: 'Must be greater than 0',
         name:  'Must be unique within category',
       },
-
-      // Optional: subcollection storage (default is top-level collection)
-      // storage: {
-      //   type: 'subcollection',
-      //   parent: { entity: 'Category', collectionName: 'categories' },
-      // },
 
       indexes: [
         { fields: ['categoryId', 'status'] },
@@ -684,12 +679,47 @@ const revealed = unhashFieldsByName(decrypted, ['ssn']);
 
 ### Relationship Types
 
-| Type | Usage |
-|---|---|
-| `one-to-one` | `foreignKey` on either side |
-| `one-to-many` | `foreignKey` on the child entity |
-| `many-to-one` | `foreignKey` on this entity (common join) |
-| `many-to-many` | Requires a junction entity (e.g., `PostTag`) |
+| Type | Usage | Generated Method |
+|---|---|---|
+| `one-to-one` | `foreignKey` on either side | `get*(): Promise<Entity \| null>` |
+| `one-to-many` | `foreignKey` on the child entity | `get*(): Promise<Entity[]>` |
+| `many-to-one` | `foreignKey` on this entity (common join) | `get*(fkValue): Promise<Entity \| null>` |
+| `many-to-many` | Requires a junction entity (e.g., `PostTag`) | Stub (junction query not auto-generated) |
+
+When `foreignKey` and the target entity's `storage` block are both available, the generator produces working Firestore queries. Without them, a TODO stub is emitted.
+
+### Storage Block — Collection Topology
+
+Every entity can declare a `storage` block to control its Firestore collection name and parent path. If omitted, the entity defaults to a top-level collection with a camelCase-pluralized name.
+
+**Top-level collection:**
+```typescript
+storage: { type: 'collection', collectionName: 'accounts' },
+```
+
+**Subcollection (one level):**
+```typescript
+storage: {
+  type: 'subcollection',
+  collectionName: 'members',
+  parent: { entity: 'Account', collectionName: 'accounts', foreignKey: 'accountId' },
+},
+// Path: accounts/{accountId}/members/{memberId}
+```
+
+**Deeply nested subcollection (multi-level):**
+```typescript
+// Phase is under Project, which is under Account
+storage: {
+  type: 'subcollection',
+  collectionName: 'phases',
+  parent: { entity: 'Project', collectionName: 'projects', foreignKey: 'projectId' },
+},
+// The generator walks the parent chain via the full entities map:
+// Path: accounts/{accountId}/projects/{projectId}/phases/{phaseId}
+```
+
+The generator resolves the full ancestor chain recursively. For multi-level nesting, each parent entity must also declare its own `storage` block so the chain can be walked.
 
 ### Access Control Values
 
@@ -704,15 +734,20 @@ const revealed = unhashFieldsByName(decrypted, ['ssn']);
 ### Running the Generator
 
 ```bash
-# From functions/ directory:
-npm run generate __examples__/ecommerce.model.ts
+# From functions/ directory — single model:
+npm run generate __examples__/ecommerce.model.js
+
+# Multiple models (enables cross-model relationship resolution):
+npm run generate __examples__/accounts.model.js __examples__/projects.model.js
 
 # Generates into functions/src/generated/:
 # ├── entities/Product.ts
-# ├── repositories/ProductRepository.ts
+# ├── repositories/ProductRepository.ts      (with working relationship queries)
 # ├── services/ProductService.ts
 # └── controllers/ProductController.ts
 ```
+
+When multiple model files are provided, the generator merges all entities into a single map before generation. This allows cross-model relationship resolution (e.g., `Account` in accounts-db referencing `Project` in projects-db).
 
 Generated files are a **starting point**. Copy to your own directory (e.g., `src/products/`) and modify. Don't edit in `src/generated/` — that's overwritten on re-generation.
 
@@ -725,7 +760,8 @@ When an entity has `storage: { type: 'subcollection' }`, the generator produces 
 ProjectMember: {
   storage: {
     type: 'subcollection',
-    parent: { entity: 'Project', collectionName: 'projects' },
+    collectionName: 'members',
+    parent: { entity: 'Project', collectionName: 'projects', foreignKey: 'projectId' },
   },
   fields: { ... },
 }
@@ -742,18 +778,33 @@ ProjectMember: {
 
 Subcollection services route all writes through `entity.serializeFields()`, which delegates to `getEntityData()`. This ensures encryption is applied consistently — the same code path used for top-level entities via `toFirestore()`.
 
-The subcollection controller creates a scoped repository per request from the parent ID in the route params:
+The subcollection controller creates a scoped repository per request, extracting all ancestor IDs from route params:
 
 ```typescript
-// Generated pattern (simplified):
-router.get('/:id', async (req, res) => {
-  const parentId = req.params.projectId;
-  const repo = new ProjectMemberRepository(factory, ['projects', parentId, 'members']);
-  const service = new ProjectMemberService(repo);
-  const result = await service.findById(req.params.id, context);
-  // ...
-});
+// Generated pattern (simplified) — single-level:
+private createService(req: Request): ProjectMemberService {
+  const projectId = req.params.projectId;
+  const parentPath = ['projects', projectId, 'members'];
+  const repo = new ProjectMemberRepository(this.factory, parentPath);
+  return new ProjectMemberService(repo);
+}
 ```
+
+**Deep nesting** — for entities nested 3+ levels deep (e.g., `accounts/{id}/projects/{id}/phases/{id}/tasks`), the generator resolves the full ancestor chain:
+
+```typescript
+// Generated pattern — deeply nested subcollection:
+private createService(req: Request): TaskService {
+  const accountId = req.params.accountId;
+  const projectId = req.params.projectId;
+  const phaseId = req.params.phaseId;
+  const parentPath = ['accounts', accountId, 'projects', projectId, 'phases', phaseId, 'tasks'];
+  const repo = new TaskRepository(this.factory, parentPath);
+  return new TaskService(repo);
+}
+```
+
+The ancestor chain is resolved recursively at generation time by walking each entity's `storage.parent.entity` through the full entities map. This requires all parent entities to also declare `storage` blocks and to be loaded in the same generator run (use multi-model invocation if entities span multiple model files).
 
 See `__examples__/project-with-subcollections.model.ts` for a complete example with `Project`, `ProjectMember`, and `ProjectTask`.
 

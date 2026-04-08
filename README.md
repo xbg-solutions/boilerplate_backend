@@ -201,7 +201,7 @@ npx @xbg.solutions/create-backend add-util   # Add a utility package
 
 ## Code Generation
 
-Define your entities in a declarative format:
+Define your entities in a declarative format. The generator reads `storage` blocks and `foreignKey` on relationships to produce working Firestore queries — not stubs.
 
 ```typescript
 import { DataModelSpecification } from '@xbg.solutions/backend-core';
@@ -209,34 +209,46 @@ import { DataModelSpecification } from '@xbg.solutions/backend-core';
 export const BlogModel: DataModelSpecification = {
   entities: {
     Post: {
+      storage: { type: 'collection', collectionName: 'posts' },
       fields: {
         title: { type: 'string', required: true, encryption: 'transparent' },
         content: { type: 'string', required: true },
         published: { type: 'boolean', default: false },
-        authorId: { type: 'reference', required: true }
+        authorId: { type: 'reference', required: true },
+        categoryId: { type: 'reference', required: true },
       },
       relationships: {
-        comments: { type: 'one-to-many', entity: 'Comment', foreignKey: 'postId' }
+        author: { type: 'many-to-one', entity: 'User', foreignKey: 'authorId' },
+        comments: { type: 'one-to-many', entity: 'Comment', foreignKey: 'postId' },
       },
-      access: {
-        create: ['authenticated'],
-        read: ['public'],
-        update: ['self', 'admin'],
-        delete: ['admin']
-      }
-    }
-  }
+    },
+    Comment: {
+      storage: {
+        type: 'subcollection',
+        collectionName: 'comments',
+        parent: { entity: 'Post', collectionName: 'posts', foreignKey: 'postId' },
+      },
+      fields: {
+        content: { type: 'string', required: true },
+        authorId: { type: 'reference', required: true },
+      },
+    },
+  },
 };
 ```
 
-Generate code:
+Generate code from one or more model files:
 
 ```bash
+# Single model
 npm run generate __examples__/blog.model.js
 
-# Generates:
+# Multiple models (enables cross-model relationship resolution)
+npm run generate __examples__/accounts.model.js __examples__/projects.model.js
+
+# Generates per entity:
 # - functions/src/generated/entities/Post.ts
-# - functions/src/generated/repositories/PostRepository.ts
+# - functions/src/generated/repositories/PostRepository.ts      (with working relationship queries)
 # - functions/src/generated/services/PostService.ts
 # - functions/src/generated/controllers/PostController.ts
 ```
@@ -247,14 +259,14 @@ Generated code imports from packages:
 // Generated entity
 import { BaseEntity, ValidationResult, ValidationHelper } from '@xbg.solutions/backend-core';
 
-// Generated repository
+// Generated repository (top-level)
 import { BaseRepository } from '@xbg.solutions/backend-core';
+
+// Generated repository (subcollection) — uses IScopedRepository via RepositoryFactory
+import { RepositoryFactory, IScopedRepository } from '@xbg.solutions/backend-core';
 
 // Generated service
 import { BaseService, RequestContext } from '@xbg.solutions/backend-core';
-
-// Generated controller
-import { BaseController } from '@xbg.solutions/backend-core';
 ```
 
 ---

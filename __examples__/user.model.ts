@@ -9,6 +9,7 @@ export const UserManagementModel: DataModelSpecification = {
   entities: {
     User: {
       description: 'Application user with authentication and profile',
+      storage: { type: 'collection', collectionName: 'users' },
 
       fields: {
         userUID: {
@@ -106,6 +107,7 @@ export const UserManagementModel: DataModelSpecification = {
 
     Organization: {
       description: 'Organization or team entity',
+      storage: { type: 'collection', collectionName: 'organizations' },
 
       fields: {
         organizationUID: {

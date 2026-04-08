@@ -16,6 +16,24 @@ export interface EntitySpecification {
   indexes?: IndexDefinition[];
   businessRules?: string[];
   description?: string;
+  storage?: EntityStorageSpec;
+}
+
+export interface EntityStorageSpec {
+  type: 'collection' | 'subcollection';
+  collectionName?: string;
+  parent?: {
+    entity: string;
+    collectionName: string;
+    foreignKey?: string;
+  };
+}
+
+export interface AncestorSegment {
+  entity: string;
+  entityLower: string;
+  collectionName: string;
+  paramName: string;
 }
 
 export interface FieldDefinition {
@@ -28,13 +46,14 @@ export interface FieldDefinition {
   nullable?: boolean;
   primaryKey?: boolean;
   values?: string[]; // For enum types
-  schema?: string; // For nested types
+  schema?: string | Record<string, FieldDefinition>; // Type reference OR inline definition
   minLength?: number;
   maxLength?: number;
   min?: number;
   max?: number;
   pattern?: string;
   description?: string;
+  encryption?: 'transparent' | 'guarded'; // PII encryption mode
 }
 
 export type FieldType =
@@ -115,6 +134,16 @@ export interface TemplateContext {
   accessRules?: AccessControlRules;
   indexes?: IndexDefinition[];
   businessRules?: string[];
+  isSubcollection: boolean;
+  parentEntity?: string;
+  parentEntityLower?: string;
+  parentCollectionName?: string;
+  ancestorChain: AncestorSegment[];
+  hasEncryption: boolean;
+  hasTransparentFields: boolean;
+  hasGuardedFields: boolean;
+  transparentFields: string[];
+  guardedFields: string[];
 }
 
 export interface FieldContext {
@@ -127,12 +156,21 @@ export interface FieldContext {
   defaultValue?: string;
   validation: string[];
   description?: string;
+  isBaseEntityField: boolean;
+  encryption?: 'transparent' | 'guarded';
+  encryptedUnique?: boolean;
 }
 
 export interface RelationshipContext {
   name: string;
   type: RelationshipType;
   entity: string;
+  foreignKey?: string;
+  targetStorage?: {
+    type: 'collection' | 'subcollection';
+    collectionName: string;
+    ancestorChain: AncestorSegment[];
+  };
   cascadeDelete: boolean;
   description?: string;
 }

@@ -18,6 +18,7 @@ export const ProjectWithSubcollectionsModel: DataModelSpecification = {
   entities: {
     Project: {
       description: 'A project with members and tasks stored as subcollections',
+      storage: { type: 'collection', collectionName: 'projects' },
       fields: {
         id: { type: 'uuid', required: true, unique: true },
         name: { type: 'string', required: true, minLength: 1, maxLength: 200 },
@@ -53,9 +54,11 @@ export const ProjectWithSubcollectionsModel: DataModelSpecification = {
       description: 'A member of a project, stored as a subcollection under the project',
       storage: {
         type: 'subcollection',
+        collectionName: 'members',
         parent: {
           entity: 'Project',
           collectionName: 'projects',
+          foreignKey: 'projectId',
         },
       },
       fields: {
@@ -88,9 +91,11 @@ export const ProjectWithSubcollectionsModel: DataModelSpecification = {
       description: 'A task within a project, stored as a subcollection under the project',
       storage: {
         type: 'subcollection',
+        collectionName: 'tasks',
         parent: {
           entity: 'Project',
           collectionName: 'projects',
+          foreignKey: 'projectId',
         },
       },
       fields: {

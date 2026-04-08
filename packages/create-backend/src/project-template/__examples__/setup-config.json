@@ -1,0 +1,22 @@
+{
+  "projectName": "my-app",
+  "firebaseProject": "my-firebase-project-id",
+  "deploymentMode": "standalone",
+  "environment": "development",
+  "multiDB": true,
+  "apiBasePath": "/api/v1",
+  "corsOrigins": "http://localhost:5173,http://localhost:3000",
+  "features": {
+    "auth": true,
+    "multiTenant": false,
+    "fileUploads": true,
+    "notifications": true,
+    "analytics": false,
+    "realtime": true
+  },
+  "selectedUtils": [
+    "@xbg.solutions/utils-cache-connector",
+    "@xbg.solutions/utils-token-handler",
+    "@xbg.solutions/utils-validation"
+  ]
+}

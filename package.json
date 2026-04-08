@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/boilerplate-backend",
-  "version": "1.3.1",
+  "version": "1.3.3",
   "private": true,
   "description": "XBG Backend Boilerplate - Monorepo",
   "workspaces": [

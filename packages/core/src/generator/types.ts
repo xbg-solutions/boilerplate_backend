@@ -21,10 +21,19 @@ export interface EntitySpecification {
 
 export interface EntityStorageSpec {
   type: 'collection' | 'subcollection';
+  collectionName?: string;
   parent?: {
     entity: string;
     collectionName: string;
+    foreignKey?: string;
   };
+}
+
+export interface AncestorSegment {
+  entity: string;
+  entityLower: string;
+  collectionName: string;
+  paramName: string;
 }
 
 export interface FieldDefinition {
@@ -128,7 +137,8 @@ export interface TemplateContext {
   isSubcollection: boolean;
   parentEntity?: string;
   parentEntityLower?: string;
-  subcollectionName?: string;
+  parentCollectionName?: string;
+  ancestorChain: AncestorSegment[];
   hasEncryption: boolean;
   hasTransparentFields: boolean;
   hasGuardedFields: boolean;
@@ -155,6 +165,12 @@ export interface RelationshipContext {
   name: string;
   type: RelationshipType;
   entity: string;
+  foreignKey?: string;
+  targetStorage?: {
+    type: 'collection' | 'subcollection';
+    collectionName: string;
+    ancestorChain: AncestorSegment[];
+  };
   cascadeDelete: boolean;
   description?: string;
 }

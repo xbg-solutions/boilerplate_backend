@@ -15,6 +15,84 @@ interface InitOptions {
   directory: string;
   name?: string;
   skipInstall?: boolean;
+  config?: string;
+}
+
+interface SetupConfig {
+  projectName: string;
+  firebaseProject: string;
+  deploymentMode: 'standalone' | 'monorepo';
+  environment: 'development' | 'staging' | 'production';
+  multiDB: boolean;
+  apiBasePath: string;
+  corsOrigins: string;
+  features: {
+    auth: boolean;
+    multiTenant: boolean;
+    fileUploads: boolean;
+    notifications: boolean;
+    analytics: boolean;
+    realtime: boolean;
+  };
+  selectedUtils: string[];
+}
+
+const SETUP_CONFIG_DEFAULTS: Omit<SetupConfig, 'projectName' | 'firebaseProject'> = {
+  deploymentMode: 'standalone',
+  environment: 'development',
+  multiDB: true,
+  apiBasePath: '/api/v1',
+  corsOrigins: 'http://localhost:5173,http://localhost:3000',
+  features: {
+    auth: true,
+    multiTenant: false,
+    fileUploads: true,
+    notifications: true,
+    analytics: false,
+    realtime: true,
+  },
+  selectedUtils: [
+    '@xbg.solutions/utils-cache-connector',
+    '@xbg.solutions/utils-token-handler',
+    '@xbg.solutions/utils-validation',
+  ],
+};
+
+function loadSetupConfig(configPath: string, fallbackName: string): { answers: any; features: any; selectedUtils: string[] } {
+  const resolved = path.resolve(configPath);
+  if (!nativeFs.existsSync(resolved)) {
+    throw new Error(`Config file not found: ${resolved}`);
+  }
+
+  const raw = JSON.parse(nativeFs.readFileSync(resolved, 'utf-8')) as Partial<SetupConfig>;
+
+  if (!raw.firebaseProject) {
+    throw new Error('setup-config.json requires "firebaseProject"');
+  }
+
+  const merged: SetupConfig = {
+    projectName: raw.projectName || fallbackName,
+    firebaseProject: raw.firebaseProject,
+    deploymentMode: raw.deploymentMode ?? SETUP_CONFIG_DEFAULTS.deploymentMode,
+    environment: raw.environment ?? SETUP_CONFIG_DEFAULTS.environment,
+    multiDB: raw.multiDB ?? SETUP_CONFIG_DEFAULTS.multiDB,
+    apiBasePath: raw.apiBasePath ?? SETUP_CONFIG_DEFAULTS.apiBasePath,
+    corsOrigins: raw.corsOrigins ?? SETUP_CONFIG_DEFAULTS.corsOrigins,
+    features: { ...SETUP_CONFIG_DEFAULTS.features, ...raw.features },
+    selectedUtils: raw.selectedUtils ?? SETUP_CONFIG_DEFAULTS.selectedUtils,
+  };
+
+  const answers = {
+    projectName: merged.projectName,
+    firebaseProject: merged.firebaseProject,
+    deploymentMode: merged.deploymentMode,
+    environment: merged.environment,
+    multiDB: merged.multiDB,
+    apiBasePath: merged.apiBasePath,
+    corsOrigins: merged.corsOrigins,
+  };
+
+  return { answers, features: merged.features, selectedUtils: merged.selectedUtils };
 }
 
 /**
@@ -75,94 +153,108 @@ export async function initProject(options: InitOptions): Promise<void> {
   console.log(chalk.yellow(`[DEBUG] __dirname: ${__dirname}`));
   console.log(chalk.yellow(`[DEBUG] templateDir: ${templateDir}`));
 
-  // ── Gather configuration ──────────────────────────────
-  const answers = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'projectName',
-      message: 'Project name:',
-      default: options.name || path.basename(targetDir) || 'my-backend-api',
-    },
-    {
-      type: 'input',
-      name: 'firebaseProject',
-      message: 'Firebase project ID:',
-      validate: (input: string) => input.trim() ? true : 'Firebase project ID is required',
-    },
-    {
-      type: 'list',
-      name: 'deploymentMode',
-      message: 'Deployment mode:',
-      choices: [
-        { name: 'Backend-only (standalone Firebase Functions)', value: 'standalone' },
-        { name: 'Mono-repo (frontend + backend in one repo)', value: 'monorepo' },
-      ],
-    },
-    {
-      type: 'list',
-      name: 'environment',
-      message: 'Initial environment:',
-      choices: ['development', 'staging', 'production'],
-      default: 'development',
-    },
-    {
-      type: 'confirm',
-      name: 'multiDB',
-      message: 'Use multi-database mode? (recommended)',
-      default: true,
-    },
-    {
-      type: 'input',
-      name: 'apiBasePath',
-      message: 'API base path:',
-      default: '/api/v1',
-    },
-    {
-      type: 'input',
-      name: 'corsOrigins',
-      message: 'CORS origins:',
-      default: 'http://localhost:5173,http://localhost:3000',
-    },
-  ]);
+  let answers: any;
+  let features: any;
+  let selectedUtils: string[];
 
-  // ── Feature flags ─────────────────────────────────────
-  const features = await inquirer.prompt([
-    { type: 'confirm', name: 'auth', message: 'Authentication:', default: true },
-    { type: 'confirm', name: 'multiTenant', message: 'Multi-tenant:', default: false },
-    { type: 'confirm', name: 'fileUploads', message: 'File uploads:', default: true },
-    { type: 'confirm', name: 'notifications', message: 'Notifications:', default: true },
-    { type: 'confirm', name: 'analytics', message: 'Analytics:', default: false },
-    { type: 'confirm', name: 'realtime', message: 'Realtime (SSE/WebSocket):', default: true },
-  ]);
+  if (options.config) {
+    // ── Non-interactive: load from config file ───────────
+    const fallbackName = options.name || path.basename(targetDir) || 'my-backend-api';
+    const config = loadSetupConfig(options.config, fallbackName);
+    answers = config.answers;
+    features = config.features;
+    selectedUtils = config.selectedUtils;
+    console.log(chalk.cyan(`Loaded configuration from ${options.config}`));
+  } else {
+    // ── Interactive: gather configuration ─────────────────
+    answers = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'projectName',
+        message: 'Project name:',
+        default: options.name || path.basename(targetDir) || 'my-backend-api',
+      },
+      {
+        type: 'input',
+        name: 'firebaseProject',
+        message: 'Firebase project ID:',
+        validate: (input: string) => input.trim() ? true : 'Firebase project ID is required',
+      },
+      {
+        type: 'list',
+        name: 'deploymentMode',
+        message: 'Deployment mode:',
+        choices: [
+          { name: 'Backend-only (standalone Firebase Functions)', value: 'standalone' },
+          { name: 'Mono-repo (frontend + backend in one repo)', value: 'monorepo' },
+        ],
+      },
+      {
+        type: 'list',
+        name: 'environment',
+        message: 'Initial environment:',
+        choices: ['development', 'staging', 'production'],
+        default: 'development',
+      },
+      {
+        type: 'confirm',
+        name: 'multiDB',
+        message: 'Use multi-database mode? (recommended)',
+        default: true,
+      },
+      {
+        type: 'input',
+        name: 'apiBasePath',
+        message: 'API base path:',
+        default: '/api/v1',
+      },
+      {
+        type: 'input',
+        name: 'corsOrigins',
+        message: 'CORS origins:',
+        default: 'http://localhost:5173,http://localhost:3000',
+      },
+    ]);
 
-  // ── Utility selection ─────────────────────────────────
-  console.log(chalk.cyan('\n── Select Utilities ─────────────────────────────'));
-  console.log(chalk.dim('Core utilities (logger, events, errors, firestore) are always included.\n'));
+    // ── Feature flags ─────────────────────────────────────
+    features = await inquirer.prompt([
+      { type: 'confirm', name: 'auth', message: 'Authentication:', default: true },
+      { type: 'confirm', name: 'multiTenant', message: 'Multi-tenant:', default: false },
+      { type: 'confirm', name: 'fileUploads', message: 'File uploads:', default: true },
+      { type: 'confirm', name: 'notifications', message: 'Notifications:', default: true },
+      { type: 'confirm', name: 'analytics', message: 'Analytics:', default: false },
+      { type: 'confirm', name: 'realtime', message: 'Realtime (SSE/WebSocket):', default: true },
+    ]);
 
-  const optionalUtils = getOptionalUtilities();
-  const categories = [...new Set(optionalUtils.map((u) => u.category))];
+    // ── Utility selection ─────────────────────────────────
+    console.log(chalk.cyan('\n── Select Utilities ─────────────────────────────'));
+    console.log(chalk.dim('Core utilities (logger, events, errors, firestore) are always included.\n'));
 
-  const utilChoices = categories.flatMap((category) => {
-    const categoryUtils = optionalUtils.filter((u) => u.category === category);
-    return [
-      new inquirer.Separator(`── ${category.toUpperCase()} ──`),
-      ...categoryUtils.map((u) => ({
-        name: `${u.name} - ${chalk.dim(u.description)}`,
-        value: u.package,
-        checked: ['@xbg.solutions/utils-cache-connector', '@xbg.solutions/utils-token-handler', '@xbg.solutions/utils-validation'].includes(u.package),
-      })),
-    ];
-  });
+    const optionalUtils = getOptionalUtilities();
+    const categories = [...new Set(optionalUtils.map((u) => u.category))];
 
-  const { selectedUtils } = await inquirer.prompt([
-    {
-      type: 'checkbox',
-      name: 'selectedUtils',
-      message: 'Select utilities to include:',
-      choices: utilChoices,
-      pageSize: 25,
-    },
-  ]);
+    const utilChoices = categories.flatMap((category) => {
+      const categoryUtils = optionalUtils.filter((u) => u.category === category);
+      return [
+        new inquirer.Separator(`── ${category.toUpperCase()} ──`),
+        ...categoryUtils.map((u) => ({
+          name: `${u.name} - ${chalk.dim(u.description)}`,
+          value: u.package,
+          checked: ['@xbg.solutions/utils-cache-connector', '@xbg.solutions/utils-token-handler', '@xbg.solutions/utils-validation'].includes(u.package),
+        })),
+      ];
+    });
+
+    ({ selectedUtils } = await inquirer.prompt([
+      {
+        type: 'checkbox',
+        name: 'selectedUtils',
+        message: 'Select utilities to include:',
+        choices: utilChoices,
+        pageSize: 25,
+      },
+    ]));
+  }
 
   // ── Scaffold project ──────────────────────────────────
   console.log(chalk.cyan('\n── Scaffolding Project ─────────────────────────'));
@@ -301,11 +393,16 @@ export async function initProject(options: InitOptions): Promise<void> {
 
   // ── Install dependencies ──────────────────────────────
   if (!options.skipInstall) {
-    const { install } = await inquirer.prompt([
-      { type: 'confirm', name: 'install', message: 'Install dependencies?', default: true },
-    ]);
+    let shouldInstall = true;
 
-    if (install) {
+    if (!options.config) {
+      const { install } = await inquirer.prompt([
+        { type: 'confirm', name: 'install', message: 'Install dependencies?', default: true },
+      ]);
+      shouldInstall = install;
+    }
+
+    if (shouldInstall) {
       console.log(chalk.dim('\nInstalling dependencies...'));
       try {
         execSync('npm install', { cwd: functionsDir, stdio: 'inherit' });

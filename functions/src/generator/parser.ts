@@ -10,6 +10,7 @@ import {
   TemplateContext,
   FieldContext,
   RelationshipContext,
+  AncestorSegment,
   FieldType,
 } from './types';
 
@@ -19,27 +20,53 @@ import {
 export function parseEntitySpecification(
   entityName: string,
   spec: EntitySpecification,
-  collectionName?: string
+  collectionName?: string,
+  allEntities?: Record<string, EntitySpecification>
 ): TemplateContext {
   const fields = parseFields(spec.fields);
-  const relationships = parseRelationships(spec.relationships || {});
+  const relationships = parseRelationships(spec.relationships || {}, allEntities);
+  const isSubcollection = spec.storage?.type === 'subcollection';
+  const ancestorChain = allEntities ? resolveAncestorChain(spec, allEntities) : [];
+
+  // Compute encryption aggregates
+  const { transparentFields, guardedFields } = collectEncryptedFields(spec.fields);
+  const hasTransparentFields = transparentFields.length > 0;
+  const hasGuardedFields = guardedFields.length > 0;
+  const hasEncryption = hasTransparentFields || hasGuardedFields;
 
   return {
     entityName,
     entityNameLower: toLowerCamelCase(entityName),
     entityNamePlural: pluralize(entityName),
-    collectionName: collectionName || toSnakeCase(pluralize(entityName)),
+    collectionName: collectionName || spec.storage?.collectionName || toLowerCamelCase(pluralize(entityName)),
     fields,
     relationships,
-    imports: generateImports(fields, relationships),
+    imports: generateImports(fields, relationships, isSubcollection, hasEncryption, entityName),
     hasTimestamps: hasTimestampFields(fields),
     hasSoftDelete: hasSoftDeleteField(fields),
     hasValidation: fields.some((f) => f.validation.length > 0),
     accessRules: spec.access,
     indexes: spec.indexes,
     businessRules: spec.businessRules,
+    isSubcollection,
+    parentEntity: isSubcollection ? spec.storage!.parent?.entity : undefined,
+    parentEntityLower: isSubcollection && spec.storage!.parent?.entity
+      ? toLowerCamelCase(spec.storage!.parent.entity)
+      : undefined,
+    parentCollectionName: isSubcollection ? spec.storage!.parent?.collectionName : undefined,
+    ancestorChain,
+    hasEncryption,
+    hasTransparentFields,
+    hasGuardedFields,
+    transparentFields,
+    guardedFields,
   };
 }
+
+/**
+ * Base entity field names (should not be duplicated in generated entities)
+ */
+const BASE_ENTITY_FIELDS = new Set(['id', 'createdAt', 'updatedAt', 'deletedAt', 'version']);
 
 /**
  * Parse field definitions
@@ -50,25 +77,80 @@ function parseFields(fields: Record<string, FieldDefinition>): FieldContext[] {
     type: def.type,
     tsType: mapFieldTypeToTypeScript(def),
     required: def.required || false,
-    unique: def.unique || false,
+    unique: (def.unique || false) && !def.encryption, // encrypted fields can't be queried by value
     hasDefault: def.default !== undefined,
     defaultValue: formatDefaultValue(def.default, def.type),
     validation: generateValidationRules(name, def),
     description: def.description,
+    isBaseEntityField: BASE_ENTITY_FIELDS.has(name),
+    encryption: def.encryption,
+    encryptedUnique: (def.unique || false) && !!def.encryption,
   }));
 }
 
 /**
  * Parse relationship definitions
  */
-function parseRelationships(relationships: Record<string, RelationshipDefinition>): RelationshipContext[] {
-  return Object.entries(relationships).map(([name, def]) => ({
-    name,
-    type: def.type,
-    entity: def.entity || '',
-    cascadeDelete: def.cascadeDelete || false,
-    description: def.description,
-  }));
+function parseRelationships(
+  relationships: Record<string, RelationshipDefinition>,
+  allEntities?: Record<string, EntitySpecification>
+): RelationshipContext[] {
+  return Object.entries(relationships).map(([name, def]) => {
+    const targetEntity = def.entity || '';
+    const targetSpec = allEntities?.[targetEntity];
+
+    let targetStorage: RelationshipContext['targetStorage'] | undefined;
+    if (targetSpec && allEntities) {
+      const targetIsSubcollection = targetSpec.storage?.type === 'subcollection';
+      const targetCollName = targetSpec.storage?.collectionName
+        || toLowerCamelCase(pluralize(targetEntity));
+      targetStorage = {
+        type: targetIsSubcollection ? 'subcollection' : 'collection',
+        collectionName: targetCollName,
+        ancestorChain: resolveAncestorChain(targetSpec, allEntities),
+      };
+    }
+
+    return {
+      name,
+      type: def.type,
+      entity: targetEntity,
+      foreignKey: def.foreignKey,
+      targetStorage,
+      cascadeDelete: def.cascadeDelete || false,
+      description: def.description,
+    };
+  });
+}
+
+/**
+ * Resolve the full ancestor chain for a subcollection entity.
+ * Walks up the parent chain via allEntities, building the path from root to immediate parent.
+ */
+function resolveAncestorChain(
+  spec: EntitySpecification,
+  allEntities: Record<string, EntitySpecification>
+): AncestorSegment[] {
+  const chain: AncestorSegment[] = [];
+  let current = spec;
+  const maxDepth = 10;
+
+  while (current.storage?.type === 'subcollection' && current.storage.parent && chain.length < maxDepth) {
+    const parent = current.storage.parent;
+    const parentSpec = allEntities[parent.entity];
+
+    chain.unshift({
+      entity: parent.entity,
+      entityLower: toLowerCamelCase(parent.entity),
+      collectionName: parentSpec?.storage?.collectionName || parent.collectionName,
+      paramName: parent.foreignKey || `${toLowerCamelCase(parent.entity)}Id`,
+    });
+
+    if (!parentSpec) break;
+    current = parentSpec;
+  }
+
+  return chain;
 }
 
 /**
@@ -94,7 +176,7 @@ function mapFieldTypeToTypeScript(field: FieldDefinition): string {
       case 'array':
         return 'any[]';
       case 'nested':
-        return field.schema || 'Record<string, any>';
+        return typeof field.schema === 'string' ? field.schema : 'Record<string, any>';
       case 'reference':
         return 'string';
       case 'json':
@@ -177,19 +259,61 @@ function generateValidationRules(fieldName: string, field: FieldDefinition): str
 }
 
 /**
+ * Collect encrypted field names/dot-paths from the specification.
+ * Handles flat fields, whole-nested-object encryption, and inline nested sub-field encryption.
+ */
+function collectEncryptedFields(fields: Record<string, FieldDefinition>): {
+  transparentFields: string[];
+  guardedFields: string[];
+} {
+  const transparentFields: string[] = [];
+  const guardedFields: string[] = [];
+
+  for (const [name, def] of Object.entries(fields)) {
+    if (def.encryption) {
+      // Flat field or whole nested object marked with encryption
+      const target = def.encryption === 'transparent' ? transparentFields : guardedFields;
+      target.push(name);
+    } else if (def.type === 'nested' && typeof def.schema === 'object') {
+      // Inline nested schema — check sub-fields for encryption
+      for (const [subName, subDef] of Object.entries(def.schema)) {
+        if (subDef.encryption) {
+          const target = subDef.encryption === 'transparent' ? transparentFields : guardedFields;
+          target.push(`${name}.${subName}`);
+        }
+      }
+    }
+  }
+
+  return { transparentFields, guardedFields };
+}
+
+/**
  * Generate imports based on fields and relationships
  */
-function generateImports(fields: FieldContext[], relationships: RelationshipContext[]): string[] {
+function generateImports(fields: FieldContext[], relationships: RelationshipContext[], isSubcollection?: boolean, hasEncryption?: boolean, entityName?: string): string[] {
+  const coreImports = isSubcollection
+    ? 'BaseEntity, BaseEntityData, ValidationResult, ValidationHelper, RepositoryFactory, IScopedRepository, QueryOptions'
+    : 'BaseEntity, BaseEntityData, ValidationResult, ValidationHelper';
+
   const imports: string[] = [
-    "import { BaseEntity, ValidationResult, ValidationHelper } from '@base/BaseEntity';",
+    `import { ${coreImports} } from '@xbg.solutions/backend-core';`,
     "import { Timestamp, FieldValue } from 'firebase-admin/firestore';",
   ];
 
-  // Add relationship imports
-  const relatedEntities = new Set(relationships.map((r) => r.entity));
-  relatedEntities.forEach((entity) => {
-    imports.push(`import { ${entity} } from './${entity}';`);
-  });
+  if (hasEncryption) {
+    imports.push("import { hashTransparentFields, unhashTransparentFields } from '@xbg.solutions/utils-hashing';");
+  }
+
+  // Add imports for relationship target entities (deduplicated, excluding self-references)
+  const relatedEntities = new Set(
+    relationships
+      .filter((r) => r.targetStorage && r.entity !== entityName)
+      .map((r) => r.entity)
+  );
+  for (const entity of relatedEntities) {
+    imports.push(`import { ${entity} } from '../entities/${entity}';`);
+  }
 
   return imports;
 }
@@ -213,10 +337,6 @@ function hasSoftDeleteField(fields: FieldContext[]): boolean {
  */
 function toLowerCamelCase(str: string): string {
   return str.charAt(0).toLowerCase() + str.slice(1);
-}
-
-function toSnakeCase(str: string): string {
-  return str.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
 }
 
 function pluralize(str: string): string {

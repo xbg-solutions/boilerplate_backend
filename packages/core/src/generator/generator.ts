@@ -25,6 +25,10 @@ Handlebars.registerHelper('uppercase', (str: string) => {
   return str.toUpperCase();
 });
 
+Handlebars.registerHelper('ifEquals', function (this: any, a: any, b: any, options: any) {
+  return a === b ? options.fn(this) : options.inverse(this);
+});
+
 /**
  * Code Generator Class
  */
@@ -43,12 +47,14 @@ export class CodeGenerator {
   async generateEntity(
     entityName: string,
     spec: EntitySpecification,
-    config: Partial<GeneratorConfig> = {}
+    config: Partial<GeneratorConfig> = {},
+    allEntities?: Record<string, EntitySpecification>
   ): Promise<TemplateContext> {
     const context = parseEntitySpecification(
       entityName,
       spec,
-      config.collectionName
+      config.collectionName,
+      allEntities
     );
 
     // Ensure output directories exist
@@ -138,13 +144,22 @@ export class CodeGenerator {
       }
 
       const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && f !== 'index.ts');
-      const exports = files.map((f) => {
-        const name = f.replace('.ts', '');
-        return `export * from './${name}';`;
-      });
+      const allExports = new Set(
+        files.map((f) => `export * from './${f.replace('.ts', '')}';`)
+      );
 
+      // Merge with existing barrel exports (preserves hand-added lines)
       const indexPath = path.join(dir, 'index.ts');
-      fs.writeFileSync(indexPath, exports.join('\n') + '\n', 'utf-8');
+      if (fs.existsSync(indexPath)) {
+        const existing = fs.readFileSync(indexPath, 'utf-8');
+        existing
+          .split('\n')
+          .filter((line) => line.startsWith('export '))
+          .forEach((line) => allExports.add(line));
+      }
+
+      const sorted = [...allExports].sort();
+      fs.writeFileSync(indexPath, sorted.join('\n') + '\n', 'utf-8');
     }
 
     console.log('✅ Generated barrel exports');

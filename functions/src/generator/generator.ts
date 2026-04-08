@@ -8,6 +8,7 @@ import * as path from 'path';
 import Handlebars from 'handlebars';
 import { EntitySpecification, GeneratorConfig, TemplateContext } from './types';
 import { parseEntitySpecification } from './parser';
+import { getTemplate } from './templates';
 
 /**
  * Register Handlebars helpers
@@ -24,30 +25,36 @@ Handlebars.registerHelper('uppercase', (str: string) => {
   return str.toUpperCase();
 });
 
+Handlebars.registerHelper('ifEquals', function (this: any, a: any, b: any, options: any) {
+  return a === b ? options.fn(this) : options.inverse(this);
+});
+
 /**
  * Code Generator Class
  */
 export class CodeGenerator {
-  private templatesDir: string;
   private outputDir: string;
 
-  constructor(templatesDir: string, outputDir: string) {
-    this.templatesDir = templatesDir;
+  constructor(outputDir: string) {
     this.outputDir = outputDir;
   }
 
   /**
-   * Generate all code for an entity
+   * Generate all code for an entity.
+   * Returns the TemplateContext so callers can collect contexts
+   * for encryption registry generation.
    */
   async generateEntity(
     entityName: string,
     spec: EntitySpecification,
-    config: Partial<GeneratorConfig> = {}
-  ): Promise<void> {
+    config: Partial<GeneratorConfig> = {},
+    allEntities?: Record<string, EntitySpecification>
+  ): Promise<TemplateContext> {
     const context = parseEntitySpecification(
       entityName,
       spec,
-      config.collectionName
+      config.collectionName,
+      allEntities
     );
 
     // Ensure output directories exist
@@ -71,19 +78,19 @@ export class CodeGenerator {
     }
 
     console.log(`✅ Generated code for ${entityName}`);
+    return context;
   }
 
   /**
-   * Generate from a template file
+   * Generate from an embedded template
    */
   private async generateFromTemplate(
     templateName: string,
     context: TemplateContext,
     outputPath: string
   ): Promise<void> {
-    // Read template
-    const templatePath = path.join(this.templatesDir, `${templateName}.hbs`);
-    const templateContent = fs.readFileSync(templatePath, 'utf-8');
+    // Get embedded template content
+    const templateContent = getTemplate(templateName);
 
     // Compile template
     const template = Handlebars.compile(templateContent);
@@ -137,16 +144,66 @@ export class CodeGenerator {
       }
 
       const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && f !== 'index.ts');
-      const exports = files.map((f) => {
-        const name = f.replace('.ts', '');
-        return `export * from './${name}';`;
-      });
+      const allExports = new Set(
+        files.map((f) => `export * from './${f.replace('.ts', '')}';`)
+      );
 
+      // Merge with existing barrel exports (preserves hand-added lines)
       const indexPath = path.join(dir, 'index.ts');
-      fs.writeFileSync(indexPath, exports.join('\n') + '\n', 'utf-8');
+      if (fs.existsSync(indexPath)) {
+        const existing = fs.readFileSync(indexPath, 'utf-8');
+        existing
+          .split('\n')
+          .filter((line) => line.startsWith('export '))
+          .forEach((line) => allExports.add(line));
+      }
+
+      const sorted = [...allExports].sort();
+      fs.writeFileSync(indexPath, sorted.join('\n') + '\n', 'utf-8');
     }
 
     console.log('✅ Generated barrel exports');
+  }
+
+  /**
+   * Generate encryption registry file from collected template contexts.
+   * Produces a startup registration file that calls registerHashedFields()
+   * for each entity with encrypted fields.
+   *
+   * Call this after all generateEntity() calls, passing the collected contexts.
+   */
+  async generateEncryptionRegistry(contexts: TemplateContext[]): Promise<void> {
+    const encrypted = contexts.filter((c) => c.hasEncryption);
+    if (encrypted.length === 0) return;
+
+    const lines: string[] = [
+      "/**",
+      " * Encryption Registry — Auto-generated",
+      " * Call registerEncryptedFields() at app startup before any read/write operations.",
+      " */",
+      "",
+      "import { registerHashedFields } from '@xbg.solutions/utils-hashing';",
+      "",
+      "export function registerEncryptedFields(): void {",
+    ];
+
+    for (const ctx of encrypted) {
+      if (ctx.transparentFields.length > 0) {
+        const fields = ctx.transparentFields.map((f) => `'${f}'`).join(', ');
+        lines.push(`  registerHashedFields('${ctx.entityNameLower}', [${fields}], 'transparent');`);
+      }
+      if (ctx.guardedFields.length > 0) {
+        const fields = ctx.guardedFields.map((f) => `'${f}'`).join(', ');
+        lines.push(`  registerHashedFields('${ctx.entityNameLower}', [${fields}], 'guarded');`);
+      }
+    }
+
+    lines.push("}");
+    lines.push("");
+
+    const outputPath = path.join(this.outputDir, 'encryption-registry.ts');
+    fs.writeFileSync(outputPath, lines.join('\n'), 'utf-8');
+    console.log('✅ Generated encryption registry');
   }
 }
 
@@ -154,8 +211,6 @@ export class CodeGenerator {
  * Helper function to create generator instance
  */
 export function createGenerator(outputDir?: string): CodeGenerator {
-  const templatesDir = path.join(__dirname, '../templates');
   const output = outputDir || path.join(__dirname, '../generated');
-
-  return new CodeGenerator(templatesDir, output);
+  return new CodeGenerator(output);
 }
