@@ -14,6 +14,7 @@ export interface CommunicationsConfig {
   workManagement: WorkManagementConfig;
   survey: SurveyConfig;
   document: DocumentConfig;
+  notificationInbox: NotificationInboxConfig;
 }
 
 export interface EmailConfig {
@@ -108,6 +109,23 @@ export interface PushNotificationsConfig {
     fcm?: {
       projectId: string;
       serviceAccountPath?: string;
+    };
+  };
+}
+
+export interface NotificationInboxRetentionConfig {
+  defaultTTLSeconds: number;
+  perType?: Record<string, number>;
+}
+
+export interface NotificationInboxConfig {
+  enabled: boolean;
+  provider: 'firestore';
+  collection: string;
+  retention: NotificationInboxRetentionConfig;
+  providers: {
+    firestore?: {
+      databaseId?: string;
     };
   };
 }
@@ -342,6 +360,29 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
       },
     },
   },
+
+  notificationInbox: {
+    enabled: process.env.NOTIFICATION_INBOX_ENABLED === 'true',
+    provider: 'firestore' as const,
+    collection: process.env.NOTIFICATION_INBOX_COLLECTION || 'notification-inbox',
+    retention: {
+      defaultTTLSeconds: parseInt(process.env.NOTIFICATION_INBOX_DEFAULT_TTL || '2592000', 10),
+      perType: (() => {
+        try {
+          return process.env.NOTIFICATION_INBOX_TTL_PER_TYPE
+            ? JSON.parse(process.env.NOTIFICATION_INBOX_TTL_PER_TYPE)
+            : undefined;
+        } catch {
+          return undefined;
+        }
+      })(),
+    },
+    providers: {
+      firestore: {
+        databaseId: process.env.NOTIFICATION_INBOX_FIRESTORE_DB || undefined,
+      },
+    },
+  },
 };
 
 /**
@@ -398,6 +439,19 @@ export function validateCommunicationsConfig(): void {
     const workday = COMMUNICATIONS_CONFIG.erp.providers.workday;
     if (!workday?.tenant || !workday?.clientId || !workday?.clientSecret) {
       errors.push('WORKDAY configuration (tenant, clientId, clientSecret) is required when ERP is enabled');
+    }
+  }
+
+  // Validate Notification Inbox
+  if (COMMUNICATIONS_CONFIG.notificationInbox.enabled) {
+    if (!COMMUNICATIONS_CONFIG.notificationInbox.collection) {
+      errors.push('NOTIFICATION_INBOX_COLLECTION is required when notification inbox is enabled');
+    }
+    if (
+      process.env.NOTIFICATION_INBOX_TTL_PER_TYPE &&
+      COMMUNICATIONS_CONFIG.notificationInbox.retention.perType === undefined
+    ) {
+      errors.push('NOTIFICATION_INBOX_TTL_PER_TYPE must be valid JSON (e.g. {"system":86400})');
     }
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/backend-core",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "XBG Backend Core - Base classes, middleware, config, and code generator",
   "main": "lib/core/src/index.js",
   "types": "lib/core/src/index.d.ts",

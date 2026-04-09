@@ -23,6 +23,7 @@ import { getSMSConnector } from '../utilities/sms-connector';
 import { getCRMConnector } from '../utilities/crm-connector';
 import { getRealtimeConnector } from '../utilities/realtime-connector';
 import { getPushNotificationsConnector } from '../utilities/push-notifications-connector';
+import { getNotificationInboxConnector } from '../utilities/notification-inbox-connector';
 import { logger } from '../utilities/logger';
 
 /**
@@ -35,6 +36,7 @@ export function initializeCommunicationSubscribers(): void {
   initializeCRMSync();
   initializeRealtimeUpdates();
   initializePushNotifications();
+  initializeNotificationInbox();
 
   logger.info('Communication subscribers initialized');
 }
@@ -185,4 +187,35 @@ function initializePushNotifications(): void {
   // });
 
   // Add more push notification handlers here
+}
+
+/**
+ * Notification Inbox — persist notification records for REST and realtime delivery
+ */
+function initializeNotificationInbox(): void {
+  const inboxConnector = getNotificationInboxConnector();
+  if (!inboxConnector) {
+    logger.debug('Notification inbox connector disabled, skipping');
+    return;
+  }
+
+  // Example: Welcome notification when a user is created
+  eventBus.subscribe(EventType.USER_CREATED, async (payload) => {
+    try {
+      const userData = payload.data as any;
+      await inboxConnector.writeNotification({
+        userId: userData?.id || payload.entityId || '',
+        type: 'system',
+        title: 'Welcome!',
+        body: 'Your account has been created successfully.',
+        sourceEvent: EventType.USER_CREATED,
+        actionUrl: '/dashboard',
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error('Failed to write inbox notification for USER_CREATED', err);
+    }
+  });
+
+  // Add more event -> notification mappings here
 }

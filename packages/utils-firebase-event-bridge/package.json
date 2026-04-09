@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-firebase-event-bridge",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "Firebase triggers to event normalization",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

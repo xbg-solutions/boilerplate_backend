@@ -286,7 +286,9 @@ export function registerProductSubscribers(): void {
 registerProductSubscribers();
 ```
 
-**Important:** The event bus is synchronous. Errors in subscribers are silently caught (by design) so one failing subscriber doesn't block others. For reliable async processing, use Firebase Pub/Sub or a queue.
+**Important:** The event bus is in-process and ephemeral. Events are not persisted — if no subscriber is listening when an event fires, it's lost. Errors in subscribers are silently caught (by design) so one failing subscriber doesn't block others. For reliable async processing, use Firebase Pub/Sub or a queue.
+
+**For persistent notifications:** Use the Notification Inbox Connector (`@xbg.solutions/utils-notification-inbox-connector`) to write notification records to a database. The inbox connector integrates with the event bus via communication subscribers — events trigger notification writes to Firestore, where clients can fetch via REST or subscribe via Firestore `onSnapshot` for realtime delivery. This is the serverless-compatible alternative to the SSE/WebSocket realtime connector.
 
 ---
 

@@ -481,6 +481,90 @@ ANTHROPIC_API_KEY=...
 ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
+### Notification Inbox Connector
+
+**Package:** `@xbg.solutions/utils-notification-inbox-connector`
+
+Provider: Firestore (serverless-compatible)
+
+Persistent notification inbox that supports both REST pull and Firestore `onSnapshot` realtime delivery. Unlike the realtime connector (SSE/WebSocket), this works in serverless environments (Firebase Cloud Functions) because it uses database writes instead of long-lived connections. The server writes notification records; clients can either fetch via REST endpoints or subscribe via Firestore's native realtime listeners on the client side.
+
+```typescript
+import { getNotificationInboxConnector } from '@xbg.solutions/utils-notification-inbox-connector';
+
+const inbox = getNotificationInboxConnector();
+
+// Write a notification
+await inbox.writeNotification({
+  userId: 'user-123',
+  type: 'system',
+  title: 'Order Shipped',
+  body: 'Your order #456 has been shipped.',
+  data: { orderId: 'order-456' },
+  actionUrl: '/orders/456',
+  priority: 'high',
+});
+
+// Query notifications
+const result = await inbox.getNotifications('user-123', {
+  read: false,
+  limit: 20,
+  orderDirection: 'desc',
+});
+
+// Mark as read
+await inbox.markAsRead('notification-id');
+await inbox.markMultipleAsRead(['id-1', 'id-2']);
+await inbox.markAllAsRead('user-123');
+
+// Get unread count
+const { count } = await inbox.getUnreadCount('user-123');
+
+// Delete
+await inbox.deleteNotification('notification-id');
+
+// Cleanup expired (runs on daily schedule automatically)
+await inbox.deleteExpired();
+```
+
+Configure:
+```bash
+NOTIFICATION_INBOX_ENABLED=true
+NOTIFICATION_INBOX_COLLECTION=notification-inbox    # Firestore collection name
+NOTIFICATION_INBOX_DEFAULT_TTL=2592000              # 30 days (seconds)
+NOTIFICATION_INBOX_TTL_PER_TYPE={"alert":604800}    # Per-type overrides (JSON)
+NOTIFICATION_INBOX_FIRESTORE_DB=                    # Optional named database
+```
+
+**TTL/Retention:** Configurable globally and per notification type. TTL is computed at write time. A scheduled function runs daily to clean up expired notifications. Per-notification override is also supported via `ttlSeconds` in the write request.
+
+**REST Endpoints** (all require auth, userId derived from token):
+```
+GET    /notifications              — list (query: read, type, limit, offset, etc.)
+GET    /notifications/unread-count — unread count
+PATCH  /notifications/:id/read    — mark one read
+PATCH  /notifications/read        — mark multiple read (body: { ids: [...] })
+PATCH  /notifications/read-all    — mark all read
+DELETE /notifications/:id         — delete one
+```
+
+**Client-side realtime** (no server infrastructure needed):
+```typescript
+// Client-side Firestore onSnapshot — realtime notifications without SSE/WebSocket
+const q = query(
+  collection(db, 'notification-inbox'),
+  where('userId', '==', currentUser.uid),
+  where('read', '==', false),
+  orderBy('createdAt', 'desc'),
+  limit(50)
+);
+const unsubscribe = onSnapshot(q, (snapshot) => {
+  // Update UI with snapshot.docs
+});
+```
+
+Firestore security rules allow authenticated users to read/update/delete their own notifications. Only the server (Admin SDK) can create them.
+
 ### Other Connectors
 
 | Package | Description |
@@ -491,7 +575,7 @@ ANTHROPIC_MODEL=claude-sonnet-4-6
 | `@xbg.solutions/utils-work-mgmt-connector` | Tasks (ClickUp/Notion) |
 | `@xbg.solutions/utils-erp-connector` | HR/Finance (Workday) |
 | `@xbg.solutions/utils-address-validation` | Google Maps validation |
-| `@xbg.solutions/utils-realtime-connector` | Firebase Realtime DB |
+| `@xbg.solutions/utils-realtime-connector` | SSE/WebSocket realtime — requires long-lived connections, **not compatible with serverless**. For serverless, use the Notification Inbox Connector instead. |
 | `@xbg.solutions/utils-firebase-event-bridge` | Firebase → internal events |
 | `@xbg.solutions/utils-firestore-connector` | Multi-DB Firestore setup |
 | `@xbg.solutions/utils-timezone` | Timezone conversion utils |
@@ -548,6 +632,17 @@ import { isFeatureEnabled } from '@xbg.solutions/backend-core';
 if (isFeatureEnabled('notifications')) {
   await emailConnector.send({ ... });
 }
+
+// ❌ Don't use SSE/WebSocket realtime connector in serverless (Firebase Cloud Functions)
+// It requires long-lived connections that serverless can't maintain
+import { getRealtimeConnector } from '@xbg.solutions/utils-realtime-connector';
+const realtime = getRealtimeConnector(); // Will fail or disconnect immediately
+
+// ✅ Use notification inbox for serverless notification delivery
+import { getNotificationInboxConnector } from '@xbg.solutions/utils-notification-inbox-connector';
+const inbox = getNotificationInboxConnector();
+await inbox.writeNotification({ userId, type: 'alert', title: '...', body: '...' });
+// Clients get realtime via Firestore onSnapshot on the client side
 
 // ❌ Don't block on communication failures
 try {

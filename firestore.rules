@@ -8,5 +8,19 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if false;
     }
+
+    // Notification Inbox — opt-in client-side access for Firestore onSnapshot realtime.
+    // Authenticated users can read/update/delete their own notifications.
+    // Only the server (Admin SDK) can create notifications.
+    // To use REST-only delivery (no client-side onSnapshot), remove this block.
+    match /notification-inbox/{notificationId} {
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+    }
   }
 }
