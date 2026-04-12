@@ -46,7 +46,7 @@ jest.mock('firebase-admin/firestore', () => ({
 }));
 
 // Mock logger
-jest.mock('../../logger', () => ({
+jest.mock('@xbg.solutions/utils-logger', () => ({
   logger: {
     debug: jest.fn(),
     info: jest.fn(),
@@ -599,6 +599,72 @@ describe('Firestore Connector', () => {
       const connector = createMultiDatabaseConnector(multiConfig, options);
 
       expect(connector).toBeInstanceOf(FirestoreConnector);
+    });
+  });
+
+  describe('production named databases', () => {
+    it('calls getFirestore with (app, databaseId) for each configured database', () => {
+      (detectEnvironment as jest.Mock).mockReturnValue({
+        isFunctionsEnvironment: false,
+        isEmulator: false,
+        isLocal: true,
+      });
+
+      const connector = new FirestoreConnector(config);
+      connector.initializeFirebase();
+
+      expect(getFirestore).toHaveBeenCalledWith(expect.anything(), 'identityDB');
+      expect(getFirestore).toHaveBeenCalledWith(expect.anything(), 'relationshipsDB');
+    });
+
+    it('honors explicit firestoreName override from config', () => {
+      (detectEnvironment as jest.Mock).mockReturnValue({
+        isFunctionsEnvironment: false,
+        isEmulator: false,
+        isLocal: true,
+      });
+
+      const overrideConfig: DatabaseConfig<'identityDB' | 'relationshipsDB'> = {
+        identityDB: {
+          collections: ['users'],
+          firestoreName: 'identity-prod',
+          emulatorSupport: true,
+        },
+        relationshipsDB: {
+          collections: ['contacts'],
+          firestoreName: 'relationships-prod',
+          emulatorSupport: true,
+        },
+      };
+
+      const connector = new FirestoreConnector(overrideConfig);
+      connector.initializeFirebase();
+
+      expect(getFirestore).toHaveBeenCalledWith(expect.anything(), 'identity-prod');
+      expect(getFirestore).toHaveBeenCalledWith(expect.anything(), 'relationships-prod');
+    });
+
+    it('routes getDbByName to the instance created for that databaseId', () => {
+      (detectEnvironment as jest.Mock).mockReturnValue({
+        isFunctionsEnvironment: false,
+        isEmulator: false,
+        isLocal: true,
+      });
+
+      const identityInstance = { databaseId: 'identityDB', collection: jest.fn() };
+      const relationshipsInstance = { databaseId: 'relationshipsDB', collection: jest.fn() };
+
+      (getFirestore as jest.Mock).mockImplementation((_app: unknown, databaseId?: string) => {
+        if (databaseId === 'identityDB') return identityInstance;
+        if (databaseId === 'relationshipsDB') return relationshipsInstance;
+        throw new Error(`Unexpected databaseId: ${databaseId}`);
+      });
+
+      const connector = new FirestoreConnector(config);
+      connector.initializeFirebase();
+
+      expect(connector.getDbByName('identityDB')).toBe(identityInstance);
+      expect(connector.getDbByName('relationshipsDB')).toBe(relationshipsInstance);
     });
   });
 

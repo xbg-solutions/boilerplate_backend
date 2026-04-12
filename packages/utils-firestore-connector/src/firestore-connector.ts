@@ -113,9 +113,7 @@ export class FirestoreConnector<TDatabaseNames extends string = string> {
         // Production: Use named databases
         for (const [dbName, dbConfig] of Object.entries(this.config) as Array<[TDatabaseNames, DatabaseConfig<TDatabaseNames>[TDatabaseNames]]>) {
           const firestoreName = dbConfig.firestoreName || dbName;
-          // In firebase-admin v10, getFirestore only takes the app parameter
-          // Database IDs are set via environment or config
-          dbInstances[dbName] = getFirestore(admin.app());
+          dbInstances[dbName] = getFirestore(admin.app(), firestoreName);
         }
         
         logger.info(`Initialized ${this.getDatabaseNames().length} named Firestore databases`, {
