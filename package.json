@@ -19,5 +19,9 @@
   },
   "engines": {
     "node": "22"
+  },
+  "overrides": {
+    "fast-xml-parser": "^5.7.0",
+    "uuid": "^14.0.0"
   }
 }
