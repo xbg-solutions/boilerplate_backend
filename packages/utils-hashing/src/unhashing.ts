@@ -12,11 +12,29 @@ import {
   isHashedField,
   getTransparentFields,
   PII_BLOB_KEY,
+  PII_JSON_SENTINEL,
 } from './hashed-fields-lookup';
 
 // AES-256-GCM configuration
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32; // 256 bits
+
+/**
+ * Restore the original JS value after decryption. If the plaintext begins
+ * with PII_JSON_SENTINEL, the remainder is JSON-parsed back into an object /
+ * array / number / boolean. Otherwise it was originally a string, returned
+ * as-is (backward compat with pre-sentinel data).
+ */
+function deserializeAfterDecryption(plaintext: string): unknown {
+  if (plaintext.startsWith(PII_JSON_SENTINEL)) {
+    try {
+      return JSON.parse(plaintext.slice(PII_JSON_SENTINEL.length));
+    } catch {
+      return plaintext;
+    }
+  }
+  return plaintext;
+}
 
 /**
  * Get a value at a dot-separated path (e.g., 'contactPerson.email')
@@ -167,7 +185,7 @@ export function unhashFields<T extends Record<string, unknown>>(
 
     // Only attempt to decrypt string values that appear to be encrypted
     if (value && typeof value === 'string' && isEncrypted(value)) {
-      (result as Record<string, unknown>)[fieldName] = unhashValue(value);
+      (result as Record<string, unknown>)[fieldName] = deserializeAfterDecryption(unhashValue(value));
     }
   }
 
@@ -197,7 +215,7 @@ export function unhashFieldsByName<T extends Record<string, unknown>>(
     const value = result[fieldName];
 
     if (value && typeof value === 'string' && isEncrypted(value)) {
-      (result as Record<string, unknown>)[fieldName] = unhashValue(value);
+      (result as Record<string, unknown>)[fieldName] = deserializeAfterDecryption(unhashValue(value));
     }
   }
 
@@ -237,7 +255,7 @@ export function unhashTransparentFields<T extends Record<string, unknown>>(
   if (piiBlob && typeof piiBlob === 'string' && isEncrypted(piiBlob)) {
     // New format: decrypt the blob and spread fields back
     const decryptedJson = unhashValue(piiBlob);
-    const fields = JSON.parse(decryptedJson) as Record<string, string>;
+    const fields = JSON.parse(decryptedJson) as Record<string, unknown>;
 
     for (const [fieldName, value] of Object.entries(fields)) {
       if (fieldName.includes('.')) {
@@ -259,10 +277,11 @@ export function unhashTransparentFields<T extends Record<string, unknown>>(
         : result[fieldName];
 
       if (value && typeof value === 'string' && isEncrypted(value)) {
+        const decoded = deserializeAfterDecryption(unhashValue(value));
         if (isDotPath) {
-          setNestedValue(result as Record<string, unknown>, fieldName, unhashValue(value));
+          setNestedValue(result as Record<string, unknown>, fieldName, decoded);
         } else {
-          (result as Record<string, unknown>)[fieldName] = unhashValue(value);
+          (result as Record<string, unknown>)[fieldName] = decoded;
         }
       }
     }
@@ -293,7 +312,7 @@ export function unhashTransparentFieldsByName<T extends Record<string, unknown>>
   if (piiBlob && typeof piiBlob === 'string' && isEncrypted(piiBlob)) {
     // New format: decrypt the blob and spread fields back
     const decryptedJson = unhashValue(piiBlob);
-    const fields = JSON.parse(decryptedJson) as Record<string, string>;
+    const fields = JSON.parse(decryptedJson) as Record<string, unknown>;
 
     for (const [fieldName, value] of Object.entries(fields)) {
       if (fieldName.includes('.')) {
@@ -313,10 +332,11 @@ export function unhashTransparentFieldsByName<T extends Record<string, unknown>>
         : result[fieldName];
 
       if (value && typeof value === 'string' && isEncrypted(value)) {
+        const decoded = deserializeAfterDecryption(unhashValue(value));
         if (isDotPath) {
-          setNestedValue(result as Record<string, unknown>, fieldName, unhashValue(value));
+          setNestedValue(result as Record<string, unknown>, fieldName, decoded);
         } else {
-          (result as Record<string, unknown>)[fieldName] = unhashValue(value);
+          (result as Record<string, unknown>)[fieldName] = decoded;
         }
       }
     }

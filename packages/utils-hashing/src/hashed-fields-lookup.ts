@@ -29,6 +29,16 @@ interface HashedFieldConfig {
  */
 export const PII_BLOB_KEY = '_pii';
 
+/**
+ * Sentinel prefix prepended to JSON-serialized non-string values before
+ * encryption, so the decrypt side can distinguish "originally an object/
+ * number/array" from "a plain string that happens to contain JSON-like text".
+ *
+ * Backward-compat: existing encrypted strings predate this sentinel and
+ * decrypt unchanged (no prefix → returned as raw string).
+ */
+export const PII_JSON_SENTINEL = 'pii:json:';
+
 const hashedFields: Record<string, HashedFieldConfig> = {
   // User PII (built-in defaults — guarded for backward compatibility)
   'user.email': { mode: 'guarded' },

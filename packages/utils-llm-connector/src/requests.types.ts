@@ -10,13 +10,35 @@ export interface BaseRequest {
 }
 
 /**
- * Text generation request
+ * A single role-tagged turn in a conversation. Mirrors the shape used by
+ * Anthropic and OpenAI message arrays — system is NOT a valid role here;
+ * it goes in the top-level `system` field on the request.
+ */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/**
+ * Text generation request.
+ *
+ * Two input shapes are supported:
+ *   1. Preferred: `messages` (role-tagged turns) plus optional top-level `system`.
+ *      This matches the native Anthropic/OpenAI shape and supports multi-turn dialogue.
+ *   2. Legacy: `prompt` (a single user turn) plus optional `systemPrompt`.
+ *      Retained for back-compat; new code should use `messages`.
+ *
+ * Exactly one of `messages` or `prompt` must be provided.
  */
 export interface TextGenerationRequest extends BaseRequest {
-  prompt: string;
+  messages?: ChatMessage[];
+  system?: string;
+  /** @deprecated use `messages` */
+  prompt?: string;
+  /** @deprecated use `system` */
+  systemPrompt?: string;
   maxTokens?: number;
   temperature?: number;
-  systemPrompt?: string;
   stopSequences?: string[];
 }
 

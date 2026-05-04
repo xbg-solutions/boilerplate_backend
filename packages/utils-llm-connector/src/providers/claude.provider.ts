@@ -21,33 +21,31 @@ export class ClaudeProvider extends BaseProvider {
   async generateText(request: TextGenerationRequest): Promise<TextGenerationResponse> {
     const startTime = Date.now();
     const requestId = this.generateRequestId();
-    
+
     try {
       this.validateRequest(request);
       await this.applyRateLimit();
 
       // Import Anthropic SDK dynamically to avoid requiring it if not used
       const Anthropic = await this.getAnthropicSDK();
-      
+
       // Use user API key if provided, otherwise platform key
       const apiKey = this.getApiKey(request.userApiKey);
       const client = new Anthropic({ apiKey });
 
-      const messages: any[] = [];
-      
-      // Add system message if provided
-      if (request.systemPrompt) {
-        messages.push({ role: 'system', content: request.systemPrompt });
-      }
-      
-      messages.push({ role: 'user', content: request.prompt });
+      const messages = request.messages?.length
+        ? request.messages.map(m => ({ role: m.role, content: m.content }))
+        : [{ role: 'user', content: request.prompt as string }];
+
+      const system = request.system ?? request.systemPrompt;
 
       const response = await client.messages.create({
         model: request.model,
         messages,
         max_tokens: request.maxTokens || 1000,
         temperature: request.temperature || 0.7,
-        stop_sequences: request.stopSequences || []
+        stop_sequences: request.stopSequences || [],
+        ...(system ? { system } : {})
       });
 
       const processingTime = Date.now() - startTime;

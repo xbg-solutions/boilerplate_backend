@@ -121,14 +121,28 @@ export abstract class BaseProvider {
       throw new Error('Model is required');
     }
 
-    // Type-specific validation
-    if ('prompt' in request && !request.prompt?.trim()) {
-      throw new Error('Prompt is required for text generation');
-    }
-
-    if ('imageUrl' in request || 'imageBase64' in request) {
+    // Text generation: require either a non-empty `messages` array or a non-empty `prompt`.
+    // ImageAnalysisRequest carries `analysisType` and isn't subject to this check.
+    if ('analysisType' in request) {
       if (!request.imageUrl && !request.imageBase64) {
         throw new Error('Either imageUrl or imageBase64 is required for image analysis');
+      }
+    } else {
+      const textRequest = request as TextGenerationRequest;
+      const hasMessages = Array.isArray(textRequest.messages) && textRequest.messages.length > 0;
+      const hasPrompt = typeof textRequest.prompt === 'string' && textRequest.prompt.trim().length > 0;
+      if (!hasMessages && !hasPrompt) {
+        throw new Error('Either `messages` or `prompt` is required for text generation');
+      }
+      if (hasMessages) {
+        for (const m of textRequest.messages!) {
+          if (m.role !== 'user' && m.role !== 'assistant') {
+            throw new Error(`Invalid message role '${m.role}'. Only 'user' and 'assistant' are valid; use the top-level 'system' field for system prompts.`);
+          }
+          if (typeof m.content !== 'string' || m.content.length === 0) {
+            throw new Error('Each message must have non-empty string content');
+          }
+        }
       }
     }
   }

@@ -13,12 +13,49 @@ import {
   getTransparentFields,
   getGuardedFields,
   PII_BLOB_KEY,
+  PII_JSON_SENTINEL,
 } from './hashed-fields-lookup';
 
 // AES-256-GCM configuration
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // 96 bits for GCM
 const KEY_LENGTH = 32; // 256 bits
+
+/**
+ * Shape check for an AES-256-GCM ciphertext string produced by hashValue:
+ * `${iv}:${encrypted}:${authTag}` (base64, 12-byte IV → 16 chars, 16-byte
+ * auth tag → 24 chars). Used to make the hashers idempotent: merge flows
+ * that pass stored ciphertext back through on write should not re-encrypt.
+ */
+function looksEncrypted(value: string): boolean {
+  const parts = value.split(':');
+  if (parts.length !== 3 || parts.some(p => p.length === 0)) return false;
+  const [iv, , authTag] = parts;
+  return iv.length === 16 && authTag.length === 24;
+}
+
+/**
+ * Prepare a value for AES-GCM encryption. Strings pass through unchanged
+ * (backward compat with pre-sentinel data). Objects, arrays, numbers, and
+ * booleans are JSON-stringified with PII_JSON_SENTINEL prepended so decrypt
+ * can distinguish them from plain strings.
+ *
+ * Returns null if the value should not be encrypted (null/undefined/empty
+ * string, or an already-encrypted ciphertext string — idempotency for
+ * merge-then-rewrite flows).
+ */
+function serializeForEncryption(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') {
+    if (value.length === 0) return null;
+    if (looksEncrypted(value)) return null;
+    return value;
+  }
+  if (typeof value === 'object' || typeof value === 'number' || typeof value === 'boolean') {
+    return PII_JSON_SENTINEL + JSON.stringify(value);
+  }
+  return null;
+}
 
 /**
  * Get a value at a dot-separated path (e.g., 'contactPerson.email')
@@ -134,16 +171,13 @@ export function hashFields<T extends Record<string, unknown>>(
 ): T {
   const result = { ...data };
 
-  // Iterate through top-level fields and check if they should be hashed
   for (const fieldName of Object.keys(result)) {
     const fieldPath = `${entityType}.${fieldName}`;
 
     if (isHashedField(fieldPath)) {
-      const value = result[fieldName];
-
-      // Only hash non-null, non-empty strings
-      if (value && typeof value === 'string' && value.length > 0) {
-        (result as Record<string, unknown>)[fieldName] = hashValue(value);
+      const serialized = serializeForEncryption(result[fieldName]);
+      if (serialized !== null) {
+        (result as Record<string, unknown>)[fieldName] = hashValue(serialized);
       }
     }
   }
@@ -172,10 +206,9 @@ export function hashFieldsByName<T extends Record<string, unknown>>(
   const result = { ...data };
 
   for (const fieldName of fields) {
-    const value = result[fieldName];
-
-    if (value && typeof value === 'string' && value.length > 0) {
-      (result as Record<string, unknown>)[fieldName] = hashValue(value);
+    const serialized = serializeForEncryption(result[fieldName]);
+    if (serialized !== null) {
+      (result as Record<string, unknown>)[fieldName] = hashValue(serialized);
     }
   }
 
@@ -220,9 +253,11 @@ export function hashTransparentFields<T extends Record<string, unknown>>(
     }
   }
 
-  // Bundle transparent fields into a single encrypted blob
+  // Bundle transparent fields into a single encrypted blob. The bundle
+  // itself is JSON-serialized, so nested objects / numbers / booleans
+  // roundtrip naturally — no per-value sentinel needed inside the bundle.
   if (transparentFieldNames.length > 0) {
-    const bundle: Record<string, string> = {};
+    const bundle: Record<string, unknown> = {};
 
     for (const fieldName of transparentFieldNames) {
       const isDotPath = fieldName.includes('.');
@@ -230,13 +265,14 @@ export function hashTransparentFields<T extends Record<string, unknown>>(
         ? getNestedValue(result as Record<string, unknown>, fieldName)
         : result[fieldName];
 
-      if (value && typeof value === 'string' && value.length > 0) {
-        bundle[fieldName] = value;
-        if (isDotPath) {
-          deleteNestedValue(result as Record<string, unknown>, fieldName);
-        } else {
-          delete (result as Record<string, unknown>)[fieldName];
-        }
+      if (value === null || value === undefined) continue;
+      if (typeof value === 'string' && value.length === 0) continue;
+
+      bundle[fieldName] = value;
+      if (isDotPath) {
+        deleteNestedValue(result as Record<string, unknown>, fieldName);
+      } else {
+        delete (result as Record<string, unknown>)[fieldName];
       }
     }
 
@@ -245,15 +281,17 @@ export function hashTransparentFields<T extends Record<string, unknown>>(
     }
   }
 
-  // Encrypt guarded fields individually
+  // Encrypt guarded fields individually. Non-string values (address objects,
+  // numeric caps, etc.) are sentinel-tagged so decrypt can JSON.parse them.
   for (const fieldName of guardedFieldNames) {
     const isDotPath = fieldName.includes('.');
     const value = isDotPath
       ? getNestedValue(result as Record<string, unknown>, fieldName)
       : result[fieldName];
 
-    if (value && typeof value === 'string' && value.length > 0) {
-      const encrypted = hashValue(value);
+    const serialized = serializeForEncryption(value);
+    if (serialized !== null) {
+      const encrypted = hashValue(serialized);
       if (isDotPath) {
         setNestedValue(result as Record<string, unknown>, fieldName, encrypted);
       } else {
@@ -302,9 +340,11 @@ export function hashTransparentFieldsByName<T extends Record<string, unknown>>(
     }
   }
 
-  // Bundle transparent fields into a single encrypted blob
+  // Bundle transparent fields into a single encrypted blob. The bundle
+  // itself is JSON-serialized, so nested objects / numbers / booleans
+  // roundtrip naturally — no per-value sentinel needed inside the bundle.
   if (transparentFields.length > 0) {
-    const bundle: Record<string, string> = {};
+    const bundle: Record<string, unknown> = {};
 
     for (const fieldName of transparentFields) {
       const isDotPath = fieldName.includes('.');
@@ -312,13 +352,14 @@ export function hashTransparentFieldsByName<T extends Record<string, unknown>>(
         ? getNestedValue(result as Record<string, unknown>, fieldName)
         : result[fieldName];
 
-      if (value && typeof value === 'string' && value.length > 0) {
-        bundle[fieldName] = value;
-        if (isDotPath) {
-          deleteNestedValue(result as Record<string, unknown>, fieldName);
-        } else {
-          delete (result as Record<string, unknown>)[fieldName];
-        }
+      if (value === null || value === undefined) continue;
+      if (typeof value === 'string' && value.length === 0) continue;
+
+      bundle[fieldName] = value;
+      if (isDotPath) {
+        deleteNestedValue(result as Record<string, unknown>, fieldName);
+      } else {
+        delete (result as Record<string, unknown>)[fieldName];
       }
     }
 
@@ -327,15 +368,17 @@ export function hashTransparentFieldsByName<T extends Record<string, unknown>>(
     }
   }
 
-  // Encrypt guarded fields individually
+  // Encrypt guarded fields individually. Non-string values (address objects,
+  // numeric caps, etc.) are sentinel-tagged so decrypt can JSON.parse them.
   for (const fieldName of guardedFields) {
     const isDotPath = fieldName.includes('.');
     const value = isDotPath
       ? getNestedValue(result as Record<string, unknown>, fieldName)
       : result[fieldName];
 
-    if (value && typeof value === 'string' && value.length > 0) {
-      const encrypted = hashValue(value);
+    const serialized = serializeForEncryption(value);
+    if (serialized !== null) {
+      const encrypted = hashValue(serialized);
       if (isDotPath) {
         setNestedValue(result as Record<string, unknown>, fieldName, encrypted);
       } else {

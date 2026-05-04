@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-logger",
-  "version": "1.3.5",
+  "version": "1.3.6",
   "description": "Structured logging with PII sanitization and GCP Cloud Logging",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -14,6 +14,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "firebase-functions": "^6.0.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

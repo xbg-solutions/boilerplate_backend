@@ -302,6 +302,36 @@ describe('LLM Connector', () => {
         "Provider 'nonexistent' not found or not enabled"
       );
     });
+
+    it('accepts messages-array format with role-tagged turns', async () => {
+      const config: Record<string, ProviderConfig> = {
+        claude: {
+          name: 'claude',
+          enabled: true,
+          defaultModel: 'claude-3-5-sonnet-20241022',
+          timeout: 30000,
+          maxRetries: 2,
+        },
+      };
+
+      const connector = new LLMConnector(config);
+
+      const request: TextGenerationRequest = {
+        provider: 'claude',
+        model: 'claude-3-5-sonnet-20241022',
+        system: 'You are a helpful assistant.',
+        messages: [
+          { role: 'user', content: 'What is 2+2?' },
+          { role: 'assistant', content: '4' },
+          { role: 'user', content: 'And 3+3?' },
+        ],
+      };
+
+      const response = await connector.generateText(request);
+
+      expect(response.success).toBe(true);
+      expect(response.provider).toBe('claude');
+    });
   });
 
   describe('analyzeImage', () => {

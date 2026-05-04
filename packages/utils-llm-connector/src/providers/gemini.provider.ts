@@ -28,17 +28,24 @@ export class GeminiProvider extends BaseProvider {
 
       // Import Google Generative AI SDK dynamically
       const { GoogleGenerativeAI } = await this.getGeminiSDK();
-      
+
       // Use user API key if provided, otherwise platform key
       const apiKey = this.getApiKey(request.userApiKey);
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: request.model });
 
-      // Prepare prompt with system instruction if provided
-      let fullPrompt = request.prompt;
-      if (request.systemPrompt) {
-        fullPrompt = `${request.systemPrompt}\n\n${request.prompt}`;
-      }
+      const system = request.system ?? request.systemPrompt;
+      const model = genAI.getGenerativeModel({
+        model: request.model,
+        ...(system ? { systemInstruction: system } : {})
+      });
+
+      // Gemini uses 'model' for assistant-role turns
+      const contents = request.messages?.length
+        ? request.messages.map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+          }))
+        : [{ role: 'user', parts: [{ text: request.prompt as string }] }];
 
       const generationConfig = {
         maxOutputTokens: request.maxTokens || 1000,
@@ -47,17 +54,19 @@ export class GeminiProvider extends BaseProvider {
       };
 
       const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        contents,
         generationConfig
       });
 
       const response = result.response;
       const text = response.text();
-      
+
       const processingTime = Date.now() - startTime;
-      
+
       // Gemini usage info is limited, estimate tokens
-      const estimatedInputTokens = Math.ceil(fullPrompt.length / 4);
+      const promptCharCount = (system?.length ?? 0)
+        + contents.reduce((sum, c) => sum + (c.parts[0]?.text?.length ?? 0), 0);
+      const estimatedInputTokens = Math.ceil(promptCharCount / 4);
       const estimatedOutputTokens = Math.ceil(text.length / 4);
       
       const usage: UsageMetrics = {

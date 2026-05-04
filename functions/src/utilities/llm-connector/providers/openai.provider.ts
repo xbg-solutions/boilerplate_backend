@@ -34,13 +34,19 @@ export class OpenAIProvider extends BaseProvider {
       const client = new OpenAI({ apiKey });
 
       const messages: any[] = [];
-      
-      // Add system message if provided
-      if (request.systemPrompt) {
-        messages.push({ role: 'system', content: request.systemPrompt });
+
+      const system = request.system ?? request.systemPrompt;
+      if (system) {
+        messages.push({ role: 'system', content: system });
       }
-      
-      messages.push({ role: 'user', content: request.prompt });
+
+      if (request.messages?.length) {
+        for (const m of request.messages) {
+          messages.push({ role: m.role, content: m.content });
+        }
+      } else {
+        messages.push({ role: 'user', content: request.prompt as string });
+      }
 
       const response = await client.chat.completions.create({
         model: request.model,
