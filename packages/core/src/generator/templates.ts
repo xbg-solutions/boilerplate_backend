@@ -430,7 +430,7 @@ export class {{entityName}}Service {
   /**
    * Business Rules:
 {{#each businessRules}}
-   * - {{this}}
+   * - {{commentSafe this}}
 {{/each}}
    */
 {{/if}}
@@ -489,7 +489,8 @@ export class {{entityName}}Service extends BaseService<{{entityName}}> {
 
     return false;
     {{else}}
-    return true;
+    // No rule declared for this operation — deny by default (fail closed).
+    return false;
     {{/if}}
   }
 
@@ -511,7 +512,8 @@ export class {{entityName}}Service extends BaseService<{{entityName}}> {
 
     return false;
     {{else}}
-    return true;
+    // No rule declared for this operation — deny by default (fail closed).
+    return false;
     {{/if}}
   }
 
@@ -528,7 +530,8 @@ export class {{entityName}}Service extends BaseService<{{entityName}}> {
 
     return false;
     {{else}}
-    return true;
+    // No rule declared for this operation — deny by default (fail closed).
+    return false;
     {{/if}}
   }
 {{/if}}
@@ -537,7 +540,7 @@ export class {{entityName}}Service extends BaseService<{{entityName}}> {
   /**
    * Business Rules:
 {{#each businessRules}}
-   * - {{this}}
+   * - {{commentSafe this}}
 {{/each}}
    */
 {{/if}}
@@ -575,13 +578,35 @@ export class {{entityName}}Controller {
     this.registerRoutes();
   }
 
+  /**
+   * Authentication guard applied to every route — required by default (fail closed).
+   * Until you wire your project's token handler, every route returns 401 so the
+   * subcollection can never be exposed unauthenticated by accident. To enable auth:
+   *
+   *   import { requiredAuth } from '@xbg.solutions/backend-core';
+   *   import { tokenHandler } from '../config/tokens.config';
+   *   private authGuard() { return [requiredAuth(tokenHandler)]; }
+   *
+   * To make a route public, return [] for that route in registerRoutes().
+   */
+  private authGuard(): Array<(req: Request, res: Response, next: NextFunction) => void> {
+    return [
+      (_req: Request, res: Response) => {
+        res.status(401).json({
+          success: false,
+          error: { code: 'UNAUTHENTICATED', message: 'Authentication is required but not configured for this controller' },
+        });
+      },
+    ];
+  }
+
   protected registerRoutes(): void {
-    this.router.post('/', this.handleCreate.bind(this));
-    this.router.get('/', this.handleFindAll.bind(this));
-    this.router.get('/:id', this.handleFindById.bind(this));
-    this.router.put('/:id', this.handleUpdate.bind(this));
-    this.router.patch('/:id', this.handleUpdate.bind(this));
-    this.router.delete('/:id', this.handleDelete.bind(this));
+    this.router.post('/', ...this.authGuard(), this.handleCreate.bind(this));
+    this.router.get('/', ...this.authGuard(), this.handleFindAll.bind(this));
+    this.router.get('/:id', ...this.authGuard(), this.handleFindById.bind(this));
+    this.router.put('/:id', ...this.authGuard(), this.handleUpdate.bind(this));
+    this.router.patch('/:id', ...this.authGuard(), this.handleUpdate.bind(this));
+    this.router.delete('/:id', ...this.authGuard(), this.handleDelete.bind(this));
   }
 
   private createService(req: Request): {{entityName}}Service {
@@ -697,6 +722,23 @@ export class {{entityName}}Controller extends BaseController<{{entityName}}> {
   constructor(service: {{entityName}}Service, basePath = '/{{entityNameLower}}s') {
     super(service, basePath);
   }
+
+  /**
+   * Authentication guard for every route — REQUIRED BY DEFAULT (fail closed).
+   * The base class returns 401 on every route until you wire your auth guard
+   * here, so this controller can never be exposed unauthenticated by accident.
+   * To enable authentication, uncomment and point at your token handler:
+   *
+   *   import { requiredAuth } from '@xbg.solutions/backend-core';
+   *   import { tokenHandler } from '../config/tokens.config';
+   *   protected authMiddlewares() { return [requiredAuth(tokenHandler)]; }
+   */
+  // protected authMiddlewares() { return [requiredAuth(tokenHandler)]; }
+
+  /**
+   * Opt specific routes out of authentication (make them public). Example:
+   *   protected publicRoutes() { return [{ method: 'get', path: '/' }]; }
+   */
 
   /**
    * Register custom routes

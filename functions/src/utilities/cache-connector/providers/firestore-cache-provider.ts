@@ -21,6 +21,7 @@
  * - Size limit: 1MB per document
  */
 
+import * as crypto from 'crypto';
 import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { BaseCacheProvider } from './base-cache-provider';
@@ -71,9 +72,24 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
     return this.db.collection(this.config.collection) as admin.firestore.CollectionReference<FirestoreCacheDocument>;
   }
 
+  /**
+   * Map a cache key to a safe Firestore document ID. A raw `/` in a key would
+   * be interpreted by Firestore as a sub-path (so `a/b/c` addresses a nested
+   * doc, not one named "a/b/c") — a cross-namespace collision / injection risk
+   * if keys are ever built from user input. Encoding neutralizes `/`; reserved
+   * (`.`/`..`/empty) or oversized (>1500-byte) keys fall back to a SHA-256 hash.
+   */
+  private docId(key: string): string {
+    const encoded = encodeURIComponent(key);
+    if (encoded === '' || encoded === '.' || encoded === '..' || Buffer.byteLength(encoded) > 1400) {
+      return crypto.createHash('sha256').update(key).digest('hex');
+    }
+    return encoded;
+  }
+
   async get<T>(key: string): Promise<T | null> {
     try {
-      const docRef = this.getCollection().doc(key);
+      const docRef = this.getCollection().doc(this.docId(key));
       const doc = await docRef.get();
 
       if (!doc.exists) {
@@ -123,7 +139,7 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
 
   async getWithMetadata<T>(key: string): Promise<CacheEntry<T> | null> {
     try {
-      const docRef = this.getCollection().doc(key);
+      const docRef = this.getCollection().doc(this.docId(key));
       const doc = await docRef.get();
 
       if (!doc.exists) {
@@ -190,7 +206,7 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
         size,
       };
 
-      await this.getCollection().doc(key).set(cacheDoc);
+      await this.getCollection().doc(this.docId(key)).set(cacheDoc);
     } catch (error) {
       logger.error('Error setting cache entry in Firestore', error as Error, {
         operation: 'cache.set',
@@ -203,7 +219,7 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
 
   async delete(key: string): Promise<boolean> {
     try {
-      const docRef = this.getCollection().doc(key);
+      const docRef = this.getCollection().doc(this.docId(key));
       const doc = await docRef.get();
 
       if (!doc.exists) {
@@ -223,7 +239,7 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
 
   async has(key: string): Promise<boolean> {
     try {
-      const docRef = this.getCollection().doc(key);
+      const docRef = this.getCollection().doc(this.docId(key));
       const doc = await docRef.get();
 
       if (!doc.exists) {

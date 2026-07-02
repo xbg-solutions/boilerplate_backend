@@ -109,6 +109,9 @@ export class OpenAIProvider extends BaseProvider {
       // Prepare image content
       let imageContent: any;
       if (request.imageUrl) {
+        // SSRF guard: the OpenAI backend will fetch this URL, so reject
+        // private/loopback/metadata hosts before forwarding it.
+        this.assertPublicImageUrl(request.imageUrl);
         imageContent = {
           type: "image_url",
           image_url: { url: request.imageUrl }

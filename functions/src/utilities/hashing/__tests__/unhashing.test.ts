@@ -153,7 +153,8 @@ describe('Unhashing Utilities', () => {
       parts[0] = 'corrupted';
       const corrupted = parts.join(':');
 
-      expect(() => unhashValue(corrupted)).toThrow(/Decryption failed/);
+      // Rejected either by the IV/tag length guard or by GCM authentication.
+      expect(() => unhashValue(corrupted)).toThrow(/Decryption failed|wrong length/);
     });
 
     it('handles multiple encryptions/decryptions of same value', () => {

@@ -283,11 +283,33 @@ export class GeminiProvider extends BaseProvider {
    * Fetch image from URL and convert to base64
    */
   private async fetchImageAsBase64(url: string): Promise<string> {
+    // SSRF guard: reject private/loopback/metadata hosts and non-http(s) schemes
+    // before making the server-side request.
+    this.assertPublicImageUrl(url);
+
+    const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // 20 MB cap to bound memory use
+
     try {
       // In Node.js environment
       if (typeof fetch !== 'undefined') {
-        const response = await fetch(url);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        let response: Response;
+        try {
+          response = await fetch(url, { signal: controller.signal, redirect: 'error' });
+        } finally {
+          clearTimeout(timeout);
+        }
+
+        const declaredLength = Number(response.headers.get('content-length') ?? '0');
+        if (declaredLength > MAX_IMAGE_BYTES) {
+          throw new Error('Image exceeds maximum allowed size');
+        }
+
         const arrayBuffer = await response.arrayBuffer();
+        if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) {
+          throw new Error('Image exceeds maximum allowed size');
+        }
         const buffer = Buffer.from(arrayBuffer);
         return buffer.toString('base64');
       } else {

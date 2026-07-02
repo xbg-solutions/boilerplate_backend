@@ -1,0 +1,3 @@
+# Never publish local Claude Code permission allowlists — they can auto-approve
+# destructive commands in downstream projects.
+**/settings.local.json

@@ -13,6 +13,8 @@ import { isHashedField } from './hashed-fields-lookup';
 // AES-256-GCM configuration
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32; // 256 bits
+const IV_LENGTH = 12; // 96 bits for GCM
+const AUTH_TAG_LENGTH = 16; // 128-bit GCM authentication tag
 
 /**
  * Get encryption key from environment
@@ -70,6 +72,14 @@ export function unhashValue(value: string): string {
   const [ivBase64, encryptedBase64, authTagBase64] = value.split(':');
   const iv = Buffer.from(ivBase64, 'base64');
   const authTag = Buffer.from(authTagBase64, 'base64');
+
+  // Enforce exact byte lengths BEFORE decryption. Node's GCM accepts
+  // truncated auth tags (4/8/12-15 bytes), which would drop forgery
+  // resistance from 2^128 to as low as 2^32. Validate the decoded buffers
+  // directly — base64 string-length checks are not sufficient.
+  if (iv.length !== IV_LENGTH || authTag.length !== AUTH_TAG_LENGTH) {
+    throw new Error('Invalid encrypted value: IV or authentication tag has wrong length');
+  }
 
   // Create decipher
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);

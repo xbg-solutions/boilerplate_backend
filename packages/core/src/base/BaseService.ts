@@ -364,18 +364,26 @@ export abstract class BaseService<T extends BaseEntity> {
   protected async afterDelete(_entity: T, _context: RequestContext): Promise<void> {}
 
   /**
-   * Access control methods (override in subclasses)
+   * Access-control methods — DEFAULT DENY (fail closed).
+   *
+   * These gate single-record read/update/delete. They return `false` by
+   * default so that an entity which never declares access rules is NOT exposed
+   * by accident: a forgotten rule blocks access (403) rather than silently
+   * granting it. Generated services override these when the model declares
+   * `accessRules`; hand-written services must override to grant access.
+   *
+   * NOTE: list endpoints are scoped via `applyUserFilters`, not these methods.
    */
   protected async checkReadAccess(_entity: T, _context: RequestContext): Promise<boolean> {
-    return true;
+    return false;
   }
 
   protected async checkUpdateAccess(_entity: T, _context: RequestContext): Promise<boolean> {
-    return true;
+    return false;
   }
 
   protected async checkDeleteAccess(_entity: T, _context: RequestContext): Promise<boolean> {
-    return true;
+    return false;
   }
 
   /**
@@ -427,10 +435,14 @@ export abstract class BaseService<T extends BaseEntity> {
    */
   protected handleError(error: unknown): ServiceErrorDetail {
     if (error instanceof Error) {
+      // Never expose stack traces outside development — this ServiceError is
+      // serialized to the HTTP client by BaseController.sendError, which does
+      // not itself gate on environment.
+      const isDevelopment = process.env.NODE_ENV === 'development';
       return {
         code: 'INTERNAL_ERROR',
         message: error.message,
-        details: { stack: error.stack },
+        details: isDevelopment ? { stack: error.stack } : undefined,
       };
     }
 

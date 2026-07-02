@@ -244,18 +244,8 @@ if (runCommand('npx tsc --noEmit')) {
   printWarning('TypeScript compilation has errors - run: npm run build');
 }
 
-// Check linting (if requested)
-const skipLint = process.argv.includes('--skip-lint');
-if (!skipLint) {
-  printHeader('Code Quality');
-
-  console.log(`${colors.dim}Running ESLint...${colors.reset}`);
-  if (runCommand('npm run lint')) {
-    printSuccess('ESLint passed');
-  } else {
-    printWarning('ESLint found issues - run: npm run lint:fix');
-  }
-}
+// ESLint is not configured by default in this boilerplate, so validation does
+// not run a lint step. Add your own ESLint config and re-enable here if desired.
 
 // Check tests (if requested)
 const skipTests = process.argv.includes('--skip-tests');

@@ -7,7 +7,7 @@ An experiment by [XBG Solutions](https://xbg.solutions) aided by [Claude Code](h
 Build and launch backend APIs in **days, not months** using modern AI-assisted development patterns.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-796%20Passing-green)](./functions/src/__tests__)
+[![Tests](https://img.shields.io/badge/Tests-797%20Passing-green)](./functions/src/__tests__)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](./LICENSE)
 
 **Sister Project:** [boilerplate_frontend](https://github.com/xbg-solutions/boilerplate_frontend) - SvelteKit 5 frontend boilerplate
@@ -93,10 +93,15 @@ my-project/
 │   │   ├── index.ts              # Firebase Functions entry point
 │   │   └── generated/            # Code generator output
 │   ├── package.json              # Depends on @xbg.solutions/* packages
+│   ├── .gitignore                # Ignores .env*, node_modules, lib, keys
 │   └── tsconfig.json
 ├── __scripts__/                  # Setup, generate, deploy, validate
 ├── __examples__/                 # Example data models
+├── .gitignore                    # Written at scaffold time (protects secrets)
 ├── firebase.json
+├── firestore.rules
+├── firestore.indexes.json        # Token-revocation composite index
+├── UPGRADING.md                  # Read before bumping @xbg.solutions/* versions
 └── .firebaserc
 ```
 
@@ -131,7 +136,8 @@ npx @xbg.solutions/create-backend add-util
 - **Rapid API Development**: Define your data model, generate CRUD endpoints in seconds
 - **Update Propagation**: Projects built on this boilerplate receive updates via npm
 - **Modular Utilities**: Only install what you need — no bloated dependency trees
-- **Production Readiness**: 796 passing tests, security-first architecture, deployment infrastructure
+- **Production Readiness**: 797 passing tests, security-first architecture, deployment infrastructure
+- **Secure by Default**: generated routes require authentication (explicit `public` opt-out), base access checks default to deny, list endpoints are page-size capped, and PII is encrypted with authenticated AES-256-GCM. Breaking secure-by-default changes and dependency upgrades are documented in [UPGRADING.md](./UPGRADING.md).
 
 ### The Development Workflow
 

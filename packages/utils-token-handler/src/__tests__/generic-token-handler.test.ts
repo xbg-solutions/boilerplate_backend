@@ -432,28 +432,33 @@ describe('Generic Token Handler', () => {
   });
 
   describe('edge cases', () => {
-    it('handles provider token with missing iat field', async () => {
+    it('rejects a provider token with a missing iat field (fail closed)', async () => {
       const tokenWithoutIat = { uid: 'auth-123' };
       mockAdapter.verifyToken.mockResolvedValue(tokenWithoutIat);
       mockAdapter.getTokenIdentifier.mockResolvedValue('jti-123');
+      // A global revocation exists, so the missing-iat path is exercised.
+      mockDatabase.getUserRevocationTime.mockResolvedValue(new Date());
       mockAdapter.normalizeToken.mockReturnValue({} as NormalizedToken);
 
-      await handler.verifyAndUnpack('raw-token', mockLogger);
+      const result = await handler.verifyAndUnpack('raw-token', mockLogger);
 
-      // Should not throw, uses current time as fallback
-      expect(mockAdapter.verifyToken).toHaveBeenCalled();
+      // Fail closed: without a valid iat we cannot evaluate global revocation,
+      // so the token must be rejected rather than defaulting iat to "now".
+      expect(result.isValid).toBe(false);
     });
 
-    it('handles provider token with missing uid field', async () => {
+    it('rejects a provider token with a missing uid field (fail closed)', async () => {
       const tokenWithoutUID = { iat: 123456 };
       mockAdapter.verifyToken.mockResolvedValue(tokenWithoutUID);
       mockAdapter.getTokenIdentifier.mockResolvedValue('jti-123');
       mockAdapter.normalizeToken.mockReturnValue({} as NormalizedToken);
 
-      await handler.verifyAndUnpack('raw-token', mockLogger);
+      const result = await handler.verifyAndUnpack('raw-token', mockLogger);
 
-      // Should handle gracefully (empty string as fallback)
-      expect(mockDatabase.getUserRevocationTime).toHaveBeenCalledWith('');
+      // Fail closed: without a stable subject we cannot look up per-user
+      // revocation, so the token must be rejected (never queried with '').
+      expect(result.isValid).toBe(false);
+      expect(mockDatabase.getUserRevocationTime).not.toHaveBeenCalledWith('');
     });
 
     it('handles very long token strings', async () => {

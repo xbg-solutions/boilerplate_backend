@@ -64,7 +64,15 @@ export class Logger {
 
       if (isSensitive) {
         sanitized[key] = '[REDACTED]';
-      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      } else if (Array.isArray(value)) {
+        // Recurse into array elements so sensitive fields nested inside
+        // arrays (e.g. recipients: [{ email, token }]) are still redacted.
+        sanitized[key] = value.map((item) =>
+          item && typeof item === 'object'
+            ? this.sanitizeMetadata(item as LogContext)
+            : item
+        );
+      } else if (value && typeof value === 'object') {
         // Recursively sanitize nested objects
         sanitized[key] = this.sanitizeMetadata(value as LogContext);
       } else {

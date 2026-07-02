@@ -172,7 +172,7 @@ function mapFieldTypeToTypeScript(field: FieldDefinition): string {
       case 'date':
         return 'Timestamp | FieldValue';
       case 'enum':
-        return field.values ? field.values.map((v) => `'${v}'`).join(' | ') : 'string';
+        return field.values ? field.values.map((v) => JSON.stringify(String(v))).join(' | ') : 'string';
       case 'array':
         return 'any[]';
       case 'nested':
@@ -201,7 +201,7 @@ function formatDefaultValue(value: any, type: FieldType): string | undefined {
     case 'url':
     case 'uuid':
     case 'enum':
-      return `'${value}'`;
+      return JSON.stringify(String(value));
     case 'number':
     case 'boolean':
       return String(value);
@@ -247,11 +247,16 @@ function generateValidationRules(fieldName: string, field: FieldDefinition): str
   }
 
   if (field.pattern) {
-    rules.push(`ValidationHelper.pattern(this.${fieldName}, /${field.pattern}/, '${fieldName}')`);
+    // Emit the pattern as a RegExp built from a JSON-encoded string rather than
+    // splicing it into a `/.../` literal — otherwise a pattern containing `/`
+    // or a newline could break out and inject arbitrary code into generated source.
+    rules.push(
+      `ValidationHelper.pattern(this.${fieldName}, new RegExp(${JSON.stringify(field.pattern)}), '${fieldName}')`
+    );
   }
 
   if (field.values) {
-    const values = field.values.map((v) => `'${v}'`).join(', ');
+    const values = field.values.map((v) => JSON.stringify(String(v))).join(', ');
     rules.push(`ValidationHelper.oneOf(this.${fieldName}, [${values}], '${fieldName}')`);
   }
 

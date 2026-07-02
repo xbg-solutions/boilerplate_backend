@@ -148,6 +148,51 @@ export abstract class BaseProvider {
   }
 
   /**
+   * Validate a caller-supplied image URL before it is fetched server-side (or
+   * handed to an upstream provider that will fetch it). Blocks SSRF against
+   * cloud metadata endpoints and internal services by requiring http(s) and
+   * rejecting private, loopback, and link-local hosts.
+   *
+   * Note: this checks the literal host in the URL. Full protection against
+   * DNS-rebinding also requires validating the resolved IP at fetch time, but
+   * this blocks the common `169.254.169.254` / `localhost` / RFC-1918 vectors.
+   */
+  protected assertPublicImageUrl(rawUrl: string): void {
+    let url: URL;
+    try {
+      url = new URL(rawUrl);
+    } catch {
+      throw new Error('Invalid image URL');
+    }
+
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      throw new Error(`Unsupported image URL scheme: ${url.protocol}`);
+    }
+
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+    // Loopback / unspecified / metadata / link-local and private ranges.
+    const blocked =
+      host === 'localhost' ||
+      host === '::1' ||
+      host === '::' ||
+      host === '0.0.0.0' ||
+      host === '169.254.169.254' ||        // AWS/GCP/Azure metadata
+      host === 'metadata.google.internal' ||
+      /^127\./.test(host) ||               // 127.0.0.0/8
+      /^10\./.test(host) ||                // 10.0.0.0/8
+      /^192\.168\./.test(host) ||          // 192.168.0.0/16
+      /^169\.254\./.test(host) ||          // link-local
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host) || // 172.16.0.0/12
+      /^(fc|fd)[0-9a-f]{2}:/i.test(host) || // fc00::/7 unique-local
+      /^fe80:/i.test(host);                // link-local IPv6
+
+    if (blocked) {
+      throw new Error('Image URL host is not allowed (private, loopback, or metadata address)');
+    }
+  }
+
+  /**
    * Apply rate limiting if configured
    */
   protected async applyRateLimit(): Promise<void> {

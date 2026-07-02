@@ -7,8 +7,15 @@ import * as path from 'path';
 import * as fs from 'fs-extra';
 import * as nativeFs from 'fs';
 import chalk from 'chalk';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { UTILITY_REGISTRY } from '../utils-registry';
+
+/**
+ * npm package-name grammar (scoped or unscoped). Used to validate dependency
+ * names read from a project's package.json before they are passed to npm, so a
+ * hand-crafted/poisoned package.json cannot inject shell commands.
+ */
+const NPM_PACKAGE_NAME = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 
 interface SyncOptions {
   directory: string;
@@ -60,10 +67,20 @@ export async function syncProject(options: SyncOptions): Promise<void> {
 
   for (const pkg of installedXbgPackages) {
     const currentVersion = deps[pkg];
+
+    // Defense-in-depth: never pass an unvalidated package name to a shell.
+    if (!NPM_PACKAGE_NAME.test(pkg)) {
+      console.log(chalk.dim(`  Skipped: ${pkg} (invalid package name)`));
+      continue;
+    }
+
     try {
-      const latestVersion = execSync(`npm view ${pkg} version 2>/dev/null`, {
+      // execFileSync (no shell) — arguments are passed as an argv array, so
+      // shell metacharacters in `pkg` cannot be interpreted as commands.
+      const latestVersion = execFileSync('npm', ['view', pkg, 'version'], {
         encoding: 'utf8',
         timeout: 10000,
+        stdio: ['ignore', 'pipe', 'ignore'],
       }).trim();
 
       if (latestVersion && currentVersion !== `^${latestVersion}`) {

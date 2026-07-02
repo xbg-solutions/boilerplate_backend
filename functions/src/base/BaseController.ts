@@ -4,7 +4,7 @@
  * All controllers should extend this class
  */
 
-import { Request, Response, NextFunction, Router } from 'express';
+import { Request, Response, NextFunction, Router, RequestHandler } from 'express';
 import { BaseService, RequestContext } from './BaseService';
 import { BaseEntity } from './BaseEntity';
 import { logger } from '../utilities/logger';
@@ -47,15 +47,54 @@ export abstract class BaseController<T extends BaseEntity> {
   }
 
   /**
-   * Register routes (override in subclasses to add custom routes)
+   * Authentication middleware applied to every route by default.
+   *
+   * DEFAULT: FAIL CLOSED. If a subclass does not override this, every
+   * non-public route responds 401 — so a controller can never be exposed
+   * without authentication by accident. Override to supply your guard, e.g.
+   * `protected authMiddlewares() { return [requiredAuth(tokenHandler)]; }`.
+   */
+  protected authMiddlewares(): RequestHandler[] {
+    return [
+      (_req: Request, res: Response) => {
+        res.status(401).json({
+          success: false,
+          error: {
+            code: 'UNAUTHENTICATED',
+            message: 'Authentication is required but not configured for this controller',
+          },
+        });
+      },
+    ];
+  }
+
+  /**
+   * Routes that should skip authentication (opt-out). Override to return
+   * entries like `[{ method: 'get', path: '/' }]` to make a specific route public.
+   */
+  protected publicRoutes(): Array<{ method: string; path: string }> {
+    return [];
+  }
+
+  /** Resolve the guard chain for a route: auth middlewares unless it is public. */
+  private guards(method: string, path: string): RequestHandler[] {
+    const isPublic = this.publicRoutes().some(
+      (r) => r.method.toLowerCase() === method.toLowerCase() && r.path === path
+    );
+    return isPublic ? [] : this.authMiddlewares();
+  }
+
+  /**
+   * Register routes (override in subclasses to add custom routes).
+   * Every route is auth-guarded by default; see authMiddlewares()/publicRoutes().
    */
   protected registerRoutes(): void {
-    this.router.post('/', this.handleCreate.bind(this));
-    this.router.get('/', this.handleFindAll.bind(this));
-    this.router.get('/:id', this.handleFindById.bind(this));
-    this.router.put('/:id', this.handleUpdate.bind(this));
-    this.router.patch('/:id', this.handleUpdate.bind(this));
-    this.router.delete('/:id', this.handleDelete.bind(this));
+    this.router.post('/', ...this.guards('post', '/'), this.handleCreate.bind(this));
+    this.router.get('/', ...this.guards('get', '/'), this.handleFindAll.bind(this));
+    this.router.get('/:id', ...this.guards('get', '/:id'), this.handleFindById.bind(this));
+    this.router.put('/:id', ...this.guards('put', '/:id'), this.handleUpdate.bind(this));
+    this.router.patch('/:id', ...this.guards('patch', '/:id'), this.handleUpdate.bind(this));
+    this.router.delete('/:id', ...this.guards('delete', '/:id'), this.handleDelete.bind(this));
   }
 
   /**
@@ -236,9 +275,16 @@ export abstract class BaseController<T extends BaseEntity> {
   protected parseQueryOptions(req: Request): QueryOptions {
     const options: QueryOptions = {};
 
-    // Parse limit
+    // Parse limit — always bounded. An unbounded list request can read an
+    // entire collection (data exfiltration + Firestore read-cost blowout), so
+    // we clamp to [1, MAX_PAGE_SIZE] and apply DEFAULT_PAGE_SIZE when omitted.
+    // Subclasses can raise their own ceiling by overriding maxPageSize().
+    const max = this.maxPageSize();
     if (req.query.limit) {
-      options.limit = parseInt(req.query.limit as string);
+      const parsed = parseInt(req.query.limit as string, 10);
+      options.limit = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, max) : this.defaultPageSize();
+    } else {
+      options.limit = this.defaultPageSize();
     }
 
     // Parse offset
@@ -270,6 +316,21 @@ export abstract class BaseController<T extends BaseEntity> {
     }
 
     return options;
+  }
+
+  /**
+   * Hard maximum page size for list endpoints. Override in a subclass to raise
+   * or lower the ceiling for a specific resource.
+   */
+  protected maxPageSize(): number {
+    return 100;
+  }
+
+  /**
+   * Default page size applied when the client does not supply a limit.
+   */
+  protected defaultPageSize(): number {
+    return 50;
   }
 
   /**

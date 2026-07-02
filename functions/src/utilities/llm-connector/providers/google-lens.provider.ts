@@ -142,6 +142,9 @@ export class GoogleLensProvider extends BaseProvider {
    */
   private buildImageRequest(request: ImageAnalysisRequest): any {
     if (request.imageUrl) {
+      // SSRF guard: the Vision API backend will fetch this URI, so reject
+      // private/loopback/metadata hosts before forwarding it.
+      this.assertPublicImageUrl(request.imageUrl);
       return { source: { imageUri: request.imageUrl } };
     } else if (request.imageBase64) {
       return { content: request.imageBase64 };

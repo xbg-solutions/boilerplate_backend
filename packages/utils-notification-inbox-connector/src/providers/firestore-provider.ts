@@ -139,12 +139,14 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
     };
   }
 
-  async markAsRead(notificationId: string): Promise<MarkReadResult> {
+  async markAsRead(notificationId: string, userId: string): Promise<MarkReadResult> {
     try {
       const docRef = this.collection.doc(notificationId);
       const doc = await docRef.get();
 
-      if (!doc.exists) {
+      // Ownership check: only the notification's owner may modify it.
+      // Returns "not found" (not "forbidden") so IDs cannot be enumerated.
+      if (!doc.exists || doc.data()?.userId !== userId) {
         return { success: false, modifiedCount: 0, error: 'Notification not found' };
       }
 
@@ -163,7 +165,7 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
     }
   }
 
-  async markMultipleAsRead(notificationIds: string[]): Promise<MarkReadResult> {
+  async markMultipleAsRead(notificationIds: string[], userId: string): Promise<MarkReadResult> {
     if (notificationIds.length === 0) {
       return { success: true, modifiedCount: 0 };
     }
@@ -173,10 +175,21 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
 
       for (let i = 0; i < notificationIds.length; i += BATCH_LIMIT) {
         const batchIds = notificationIds.slice(i, i + BATCH_LIMIT);
-        const batch = this.db.batch();
 
-        for (const id of batchIds) {
-          const docRef = this.collection.doc(id);
+        // Ownership check: only update docs that exist AND belong to the caller.
+        // Docs owned by other users are silently skipped rather than mutated.
+        const refs = batchIds.map((id) => this.collection.doc(id));
+        const snapshots = await this.db.getAll(...refs);
+        const ownedRefs = snapshots
+          .filter((snap) => snap.exists && snap.data()?.userId === userId)
+          .map((snap) => snap.ref);
+
+        if (ownedRefs.length === 0) {
+          continue;
+        }
+
+        const batch = this.db.batch();
+        for (const docRef of ownedRefs) {
           batch.update(docRef, {
             read: true,
             readAt: admin.firestore.Timestamp.now(),
@@ -184,7 +197,7 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
         }
 
         await batch.commit();
-        modifiedCount += batchIds.length;
+        modifiedCount += ownedRefs.length;
       }
 
       return { success: true, modifiedCount };
@@ -240,12 +253,14 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
     }
   }
 
-  async deleteNotification(notificationId: string): Promise<DeleteResult> {
+  async deleteNotification(notificationId: string, userId: string): Promise<DeleteResult> {
     try {
       const docRef = this.collection.doc(notificationId);
       const doc = await docRef.get();
 
-      if (!doc.exists) {
+      // Ownership check: only the notification's owner may delete it.
+      // Returns "not found" (not "forbidden") so IDs cannot be enumerated.
+      if (!doc.exists || doc.data()?.userId !== userId) {
         return { success: false, deletedCount: 0, error: 'Notification not found' };
       }
 

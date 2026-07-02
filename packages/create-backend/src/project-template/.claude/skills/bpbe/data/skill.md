@@ -180,6 +180,8 @@ const products = await repo.findAll(options);
 
 **Supported operators:** `==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not-in`, `array-contains`, `array-contains-any`
 
+> **Page-size cap (security):** List queries are clamped at the controller layer — the default `limit` is **50** and the maximum is **100**. An omitted `limit` defaults to 50, and any `limit` above the max is clamped down to 100. A request can no longer return an entire collection unbounded. (Repository calls still accept a raw `limit`, but any list endpoint exposed through a controller enforces these bounds.)
+
 ### Pagination
 
 ```typescript
@@ -193,6 +195,8 @@ const page = await repo.findPaginated(1, 20, {
 // page.page: number
 // page.pageSize: number
 ```
+
+The same page-size cap applies here: when paginated list endpoints are reached through a controller, `pageSize` defaults to 50 and is clamped to a maximum of 100.
 
 ### Caching (opt-in per repository)
 

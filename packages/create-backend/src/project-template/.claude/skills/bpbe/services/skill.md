@@ -82,6 +82,8 @@ interface ServiceResult<T> {
 }
 ```
 
+`BaseService.handleError` builds the `error` object and never leaks stack traces to clients: `details` includes `{ stack }` **only when `NODE_ENV === 'development'`**. In staging/production `details` is `undefined`.
+
 ---
 
 ## Lifecycle Hooks
@@ -151,7 +153,12 @@ export class ProductService extends BaseService<Product> {
 
 ## Access Control
 
-Override the check methods to implement authorization. Default is open (returns `true`).
+`checkReadAccess`, `checkUpdateAccess`, and `checkDeleteAccess` gate the single-record `findById` / `update` / `delete` operations. They **default to DENY** (return `false`) — access control fails closed.
+
+- A service that never declares access rules and never overrides these methods returns `403 FORBIDDEN` on get-by-id / update / delete.
+- Generated services override these methods **only** when the model declares an `accessRules` block. If a model declares `accessRules` but omits an operation (e.g. declares `read` but not `delete`), the omitted operation also **denies by default** — fail closed.
+- To grant access, either declare the appropriate `accessRules` in the model and regenerate, or override the relevant check method to return `true` / implement your own ownership logic.
+- List endpoints (`findAll` / `findPaginated`) are scoped via `applyUserFilters`, **not** via these check methods. `applyUserFilters` still defaults to a no-op (returns options unchanged).
 
 ```typescript
 export class ProductService extends BaseService<Product> {

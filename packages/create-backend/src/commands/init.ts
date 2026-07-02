@@ -329,7 +329,13 @@ export async function initProject(options: InitOptions): Promise<void> {
   const claudeDir = path.join(templateDir, '.claude');
   if (await fs.pathExists(claudeDir)) {
     try {
-      safeCopyDir(claudeDir, path.join(targetDir, '.claude'));
+      // Never scaffold a local permission allowlist — settings.local.json can
+      // auto-approve destructive commands (npm publish, git checkout, rm).
+      safeCopyDir(
+        claudeDir,
+        path.join(targetDir, '.claude'),
+        (src) => path.basename(src) !== 'settings.local.json'
+      );
       console.log(chalk.green('  Created'), '.claude/');
     } catch (error) {
       console.error(chalk.red('  Failed to copy .claude/'), error);
@@ -339,12 +345,12 @@ export async function initProject(options: InitOptions): Promise<void> {
 
   // Generate firebase.json
   const firebaseJson = {
-    firestore: { rules: 'firestore.rules' },
+    firestore: { rules: 'firestore.rules', indexes: 'firestore.indexes.json' },
     functions: {
       source: 'functions',
       runtime: 'nodejs22',
       ignore: ['node_modules', '.git', 'firebase-debug.log', 'firebase-debug.*.log'],
-      predeploy: ['npm --prefix "$RESOURCE_DIR" run lint', 'npm --prefix "$RESOURCE_DIR" run build'],
+      predeploy: ['npm --prefix "$RESOURCE_DIR" run build'],
     },
     emulators: {
       functions: { port: 5001 },
@@ -369,6 +375,20 @@ export async function initProject(options: InitOptions): Promise<void> {
     console.log(chalk.green('  Created'), 'firestore.rules');
   }
 
+  // Copy firestore.indexes.json if exists (required by the token-revocation query)
+  const indexesTemplate = path.join(templateDir, 'firestore.indexes.json');
+  if (await fs.pathExists(indexesTemplate)) {
+    safeCopyFile(indexesTemplate, path.join(targetDir, 'firestore.indexes.json'));
+    console.log(chalk.green('  Created'), 'firestore.indexes.json');
+  }
+
+  // Copy UPGRADING.md (dependency-upgrade playbook) if exists
+  const upgradingTemplate = path.join(templateDir, 'UPGRADING.md');
+  if (await fs.pathExists(upgradingTemplate)) {
+    safeCopyFile(upgradingTemplate, path.join(targetDir, 'UPGRADING.md'));
+    console.log(chalk.green('  Created'), 'UPGRADING.md');
+  }
+
   // Generate package.json for functions/
   const requiredUtils = getRequiredUtilities();
   const allPackages = [
@@ -380,6 +400,12 @@ export async function initProject(options: InitOptions): Promise<void> {
   const functionsPackageJson = generateFunctionsPackageJson(answers.projectName, allPackages);
   await fs.writeJson(path.join(functionsDir, 'package.json'), functionsPackageJson, { spaces: 2 });
   console.log(chalk.green('  Created'), 'functions/package.json');
+
+  // Write .gitignore files BEFORE the secret-bearing .env so a scaffolded
+  // project can never accidentally commit credentials on first push.
+  await fs.writeFile(path.join(targetDir, '.gitignore'), rootGitignore());
+  await fs.writeFile(path.join(functionsDir, '.gitignore'), functionsGitignore());
+  console.log(chalk.green('  Created'), '.gitignore, functions/.gitignore');
 
   // Generate .env
   const envContent = generateEnvFile(answers, features);
@@ -432,13 +458,13 @@ function generateFunctionsPackageJson(projectName: string, packages: string[]): 
 
   // Add XBG packages
   for (const pkg of packages) {
-    deps[pkg] = '^1.0.0';
+    deps[pkg] = '^2.0.0';
   }
 
   // Add required non-XBG dependencies
   deps['dotenv'] = '^16.3.1';
-  deps['firebase-admin'] = '^12.0.0';
-  deps['firebase-functions'] = '^4.6.0';
+  deps['firebase-admin'] = '^13.7.0';
+  deps['firebase-functions'] = '^7.2.2';
 
   return {
     name: `${projectName}-functions`,
@@ -454,8 +480,6 @@ function generateFunctionsPackageJson(projectName: string, packages: string[]): 
       start: 'npm run shell',
       deploy: 'firebase deploy --only functions',
       logs: 'firebase functions:log',
-      lint: 'eslint --ext .js,.ts .',
-      'lint:fix': 'eslint --ext .js,.ts . --fix',
       test: 'jest',
       'test:watch': 'jest --watch',
       'test:coverage': 'jest --coverage',
@@ -468,11 +492,6 @@ function generateFunctionsPackageJson(projectName: string, packages: string[]): 
     dependencies: deps,
     devDependencies: {
       '@types/node': '^20.11.0',
-      '@typescript-eslint/eslint-plugin': '^6.18.1',
-      '@typescript-eslint/parser': '^6.18.1',
-      eslint: '^8.56.0',
-      'eslint-config-google': '^0.14.0',
-      'eslint-plugin-import': '^2.29.1',
       'firebase-functions-test': '^3.1.1',
       jest: '^29.7.0',
       'ts-jest': '^29.1.1',
@@ -480,6 +499,75 @@ function generateFunctionsPackageJson(projectName: string, packages: string[]): 
     },
     private: true,
   };
+}
+
+function rootGitignore(): string {
+  return `# Dependencies
+node_modules/
+
+# Environment variables (ignore every .env* except the checked-in example)
+.env
+.env.*
+!.env.example
+
+# Compiled output
+lib/
+dist/
+build/
+*.tsbuildinfo
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+.runtimeconfig.json
+
+# Service account keys / credentials
+serviceAccountKey*.json
+*-credentials.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+`;
+}
+
+function functionsGitignore(): string {
+  return `# Compiled JavaScript
+lib/
+src/**/*.js
+src/**/*.js.map
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Environment variables (ignore every .env* except the checked-in example)
+.env
+.env.*
+!.env.example
+
+# Service account keys / credentials
+serviceAccountKey*.json
+*-credentials.json
+
+# Generated code (keep the folder marker, ignore instances)
+src/generated/*
+!src/generated/.gitkeep
+
+# Testing
+coverage/
+
+# Logs
+*.log
+`;
 }
 
 function generateEnvFile(answers: any, features: any): string {

@@ -60,11 +60,19 @@ export class OrttoEmailProvider implements EmailProvider {
       const qs = query.toString();
       if (qs) url += `?${qs}`;
     }
-    const res = await fetch(url, {
-      method,
-      headers: this.headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: this.headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => undefined);
       const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -181,7 +189,7 @@ export class OrttoEmailProvider implements EmailProvider {
    */
   async getTemplate(templateId: string): Promise<EmailTemplate> {
     try {
-      const response = await this.request(`/v1/email/templates/${templateId}`);
+      const response = await this.request(`/v1/email/templates/${encodeURIComponent(templateId)}`);
       const template = response.data;
 
       return {
@@ -271,7 +279,7 @@ export class OrttoEmailProvider implements EmailProvider {
    */
   async deleteTemplate(templateId: string): Promise<void> {
     try {
-      await this.request(`/v1/email/templates/${templateId}`, { method: 'DELETE' });
+      await this.request(`/v1/email/templates/${encodeURIComponent(templateId)}`, { method: 'DELETE' });
     } catch (error: any) {
       throw new Error(`Failed to delete template: ${error.message}`);
     }

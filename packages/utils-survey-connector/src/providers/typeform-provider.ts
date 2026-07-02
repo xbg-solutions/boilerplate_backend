@@ -45,11 +45,19 @@ export class TypeformProvider implements SurveyProvider {
       const qs = query.toString();
       if (qs) url += `?${qs}`;
     }
-    const res = await fetch(url, {
-      method,
-      headers: this.headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: this.headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => undefined);
       const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -61,7 +69,7 @@ export class TypeformProvider implements SurveyProvider {
   }
 
   async getSurvey(surveyId: string): Promise<Survey> {
-    const response = await this.request(`/forms/${surveyId}`);
+    const response = await this.request(`/forms/${encodeURIComponent(surveyId)}`);
     return this.mapTypeformToSurvey(response.data);
   }
 
@@ -99,16 +107,16 @@ export class TypeformProvider implements SurveyProvider {
     const payload: any = {};
     if (updates.title) payload.title = updates.title;
 
-    await this.request(`/forms/${surveyId}`, { method: 'PATCH', body: payload });
+    await this.request(`/forms/${encodeURIComponent(surveyId)}`, { method: 'PATCH', body: payload });
     return this.getSurvey(surveyId);
   }
 
   async deleteSurvey(surveyId: string): Promise<void> {
-    await this.request(`/forms/${surveyId}`, { method: 'DELETE' });
+    await this.request(`/forms/${encodeURIComponent(surveyId)}`, { method: 'DELETE' });
   }
 
   async getResponses(surveyId: string, options?: SurveyQueryOptions): Promise<SurveyResponse[]> {
-    const response = await this.request(`/forms/${surveyId}/responses`, {
+    const response = await this.request(`/forms/${encodeURIComponent(surveyId)}/responses`, {
       params: {
         page_size: options?.limit || 1000,
       },

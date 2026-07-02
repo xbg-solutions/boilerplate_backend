@@ -42,12 +42,21 @@ my-project/
 │   │   └── generated/            # Code generator output
 │   ├── package.json              # Depends on @xbg.solutions/* packages
 │   ├── tsconfig.json
-│   └── .env
+│   ├── .gitignore                # Ignores .env, node_modules, lib, keys
+│   └── .env                      # Secrets — gitignored, never committed
 ├── __scripts__/                  # Setup, generate, deploy, validate
 ├── __examples__/                 # Example data models
 ├── firebase.json
+├── firestore.rules
+├── firestore.indexes.json        # Composite indexes (required for token revocation)
+├── .gitignore                    # Root-level ignore rules
+├── UPGRADING.md                  # Read before bumping @xbg.solutions/* versions
 └── .firebaserc
 ```
+
+> **Secrets never get committed.** `init` writes `.gitignore` files — at the project root **and** in `functions/` — *before* it creates the secret-bearing `functions/.env`, so credentials can't be accidentally committed on your first push. These ignore `.env`/`.env.*` (except `.env.example`), `node_modules/`, `lib/`, `serviceAccountKey*.json`, `*-credentials.json`, and similar.
+>
+> Only the skills under `.claude/skills/` are scaffolded — projects no longer ship a `.claude/settings.local.json` permission allowlist (which could auto-approve destructive commands).
 
 ### Updating an Existing Project
 
@@ -61,6 +70,8 @@ cd functions && npm update
 # Add a new utility
 npx @xbg.solutions/create-backend add-util
 ```
+
+> Read **`UPGRADING.md`** (project root) before bumping `@xbg.solutions/*` package versions — it documents breaking secure-by-default changes and the deferred `firebase-admin` v14 upgrade.
 
 ---
 
@@ -195,14 +206,10 @@ npm test               # All tests
 npm run test:coverage  # Coverage report
 npm run test:watch     # Watch mode
 
-# Code Quality
-npm run lint           # ESLint
-npm run lint:fix       # Auto-fix lint issues
-
 # Setup & Validation
 npm run setup          # Interactive setup wizard
-npm run validate       # Full: build + lint + tests
-npm run validate:quick # Quick: build + lint only
+npm run validate       # Full: build + tests
+npm run validate:quick # Quick: build only
 
 # Code Generation
 npm run generate <model-file>   # Generate from DataModelSpecification
@@ -220,11 +227,23 @@ npm run logs           # View Firebase logs
 
 ### `firebase.json` (project root)
 
-Defines functions source directory and references `firestore.rules`. Generally don't modify this.
+Defines the functions source directory and references `firestore.rules` and `firestore.indexes.json`. Its `functions.predeploy` hook runs **build only** — `["npm --prefix \"$RESOURCE_DIR\" run build"]`. It does **not** run lint; ESLint is not configured by default, so there is no lint step to fix before deploying. Generally don't modify this.
 
 ### `firestore.rules` (project root)
 
 Deny-all rules for client SDK access. This backend uses the Admin SDK (which bypasses rules). These rules act as defense-in-depth against accidental client-side database exposure.
+
+### `firestore.indexes.json` (project root)
+
+Wired into `firebase.json` as `firestore.indexes`. It ships the composite index **required** by the token-handler global-revocation query — the `tokenBlacklist` collection indexed on `tokenJTI` (ASC) + `blacklistedAt` (DESC). That query runs on **every authenticated request**; without the index a fresh deploy returns `FAILED_PRECONDITION` and every authenticated request fails.
+
+Deploy indexes with:
+
+```bash
+firebase deploy --only firestore:indexes   # or a full `firebase deploy`
+```
+
+> If you change `TOKEN_BLACKLIST_COLLECTION` from its default, update the index's `collectionGroup` in `firestore.indexes.json` to match.
 
 ### `.firebaserc` (project root)
 

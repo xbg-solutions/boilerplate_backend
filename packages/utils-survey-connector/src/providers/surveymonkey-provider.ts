@@ -45,11 +45,19 @@ export class SurveyMonkeyProvider implements SurveyProvider {
       const qs = query.toString();
       if (qs) url += `?${qs}`;
     }
-    const res = await fetch(url, {
-      method,
-      headers: this.headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: this.headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => undefined);
       const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -62,8 +70,8 @@ export class SurveyMonkeyProvider implements SurveyProvider {
 
   async getSurvey(surveyId: string): Promise<Survey> {
     const [surveyResp, detailsResp] = await Promise.all([
-      this.request(`/surveys/${surveyId}`),
-      this.request(`/surveys/${surveyId}/details`),
+      this.request(`/surveys/${encodeURIComponent(surveyId)}`),
+      this.request(`/surveys/${encodeURIComponent(surveyId)}/details`),
     ]);
 
     return this.mapSurveyMonkeySurveyToSurvey(surveyResp.data, detailsResp.data);
@@ -79,7 +87,7 @@ export class SurveyMonkeyProvider implements SurveyProvider {
 
     return Promise.all(
       response.data.data.map(async (survey: any) => {
-        const details = await this.request(`/surveys/${survey.id}/details`);
+        const details = await this.request(`/surveys/${encodeURIComponent(survey.id)}/details`);
         return this.mapSurveyMonkeySurveyToSurvey(survey, details.data);
       })
     );
@@ -95,7 +103,7 @@ export class SurveyMonkeyProvider implements SurveyProvider {
     const surveyId = surveyResp.data.id;
 
     // Add pages and questions
-    const pageResp = await this.request(`/surveys/${surveyId}/pages`, {
+    const pageResp = await this.request(`/surveys/${encodeURIComponent(surveyId)}/pages`, {
       method: 'POST',
       body: { title: 'Page 1' },
     });
@@ -103,7 +111,7 @@ export class SurveyMonkeyProvider implements SurveyProvider {
     const pageId = pageResp.data.id;
 
     for (const question of request.questions) {
-      await this.request(`/surveys/${surveyId}/pages/${pageId}/questions`, {
+      await this.request(`/surveys/${encodeURIComponent(surveyId)}/pages/${encodeURIComponent(pageId)}/questions`, {
         method: 'POST',
         body: {
           heading: question.text,
@@ -123,16 +131,16 @@ export class SurveyMonkeyProvider implements SurveyProvider {
     const payload: any = {};
     if (updates.title) payload.title = updates.title;
 
-    await this.request(`/surveys/${surveyId}`, { method: 'PATCH', body: payload });
+    await this.request(`/surveys/${encodeURIComponent(surveyId)}`, { method: 'PATCH', body: payload });
     return this.getSurvey(surveyId);
   }
 
   async deleteSurvey(surveyId: string): Promise<void> {
-    await this.request(`/surveys/${surveyId}`, { method: 'DELETE' });
+    await this.request(`/surveys/${encodeURIComponent(surveyId)}`, { method: 'DELETE' });
   }
 
   async getResponses(surveyId: string, options?: SurveyQueryOptions): Promise<SurveyResponse[]> {
-    const response = await this.request(`/surveys/${surveyId}/responses/bulk`, {
+    const response = await this.request(`/surveys/${encodeURIComponent(surveyId)}/responses/bulk`, {
       params: {
         page: options?.page || 1,
         per_page: options?.limit || 100,
@@ -143,7 +151,7 @@ export class SurveyMonkeyProvider implements SurveyProvider {
   }
 
   async getResponse(responseId: string): Promise<SurveyResponse> {
-    const response = await this.request(`/responses/${responseId}/details`);
+    const response = await this.request(`/responses/${encodeURIComponent(responseId)}/details`);
     return this.mapSurveyMonkeyResponseToSurveyResponse(response.data, response.data.survey_id);
   }
 

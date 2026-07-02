@@ -138,11 +138,21 @@ import { emailConnector } from '@xbg.solutions/utils-email-connector';
 - **Deployment:** Firebase Functions (also runs on Cloud Run, AWS Lambda, Docker)
 - **Database:** Firestore (multi-database support)
 - **Auth:** Firebase Auth + custom JWT token handler with blacklisting
-- **Testing:** Jest, 796 passing tests
+- **Testing:** Jest, 797 passing tests
 - **Caching:** Memory / Firestore / Redis (progressive, per-repository opt-in)
 - **Events:** Internal EventEmitter-based event bus (not Pub/Sub)
 
 ---
+
+## Security Posture — Secure by Default
+
+The base classes fail **closed**. When generating or extending code, assume these defaults and grant access explicitly:
+
+- **Routes require authentication by default.** Every `BaseController` route returns 401 until you override `authMiddlewares()` to supply your guard; use `publicRoutes()` to opt specific routes out. See `bpbe/api/skill.md`.
+- **Access checks default to DENY.** `BaseService.checkReadAccess/checkUpdateAccess/checkDeleteAccess` return `false` by default — declare `accessRules` in the model (or override) or single-record get/update/delete returns 403. See `bpbe/services/skill.md`.
+- **List endpoints are page-size capped** (default 50, max 100; override `maxPageSize()`).
+- **PII encryption is authenticated** (AES-256-GCM with strict IV/tag length validation) and error responses never leak stack traces outside development.
+- **Upgrades:** breaking secure-by-default changes and the deferred `firebase-admin` v14 bump are documented in `UPGRADING.md` at the project root — read it before bumping `@xbg.solutions/*` versions.
 
 ## Non-Obvious Decisions
 

@@ -50,11 +50,19 @@ export class WorkdayProvider implements ERPProvider {
       const qs = query.toString();
       if (qs) url += `?${qs}`;
     }
-    const res = await fetch(url, {
-      method,
-      headers: this.headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: this.headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => undefined);
       const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -70,7 +78,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getEmployee(employeeId: string): Promise<Employee> {
     try {
-      const response = await this.request(`/Human_Resources/v1/workers/${employeeId}`);
+      const response = await this.request(`/Human_Resources/v1/workers/${encodeURIComponent(employeeId)}`);
       return this.mapWorkdayWorkerToEmployee(response.data);
     } catch (error: any) {
       throw new Error(`Failed to get employee: ${error.message}`);
@@ -145,7 +153,7 @@ export class WorkdayProvider implements ERPProvider {
       if (updates.department) payload.organization = updates.department;
       if (updates.workLocation) payload.location = updates.workLocation;
 
-      const response = await this.request(`/Human_Resources/v1/workers/${employeeId}`, { method: 'PATCH', body: payload });
+      const response = await this.request(`/Human_Resources/v1/workers/${encodeURIComponent(employeeId)}`, { method: 'PATCH', body: payload });
       return this.mapWorkdayWorkerToEmployee(response.data);
     } catch (error: any) {
       throw new Error(`Failed to update employee: ${error.message}`);
@@ -188,7 +196,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getTimeOffBalance(employeeId: string): Promise<TimeOffBalance[]> {
     try {
-      const response = await this.request(`/Absence_Management/v1/workers/${employeeId}/timeOffBalances`);
+      const response = await this.request(`/Absence_Management/v1/workers/${encodeURIComponent(employeeId)}/timeOffBalances`);
 
       return response.data?.data?.map((balance: any) => ({
         employeeId,
@@ -207,7 +215,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getTimeOffRequests(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<TimeOffRequest>> {
     try {
-      const response = await this.request(`/Absence_Management/v1/workers/${employeeId}/timeOffEntries`);
+      const response = await this.request(`/Absence_Management/v1/workers/${encodeURIComponent(employeeId)}/timeOffEntries`);
 
       const requests = response.data?.data?.map((entry: any) => ({
         employeeId,
@@ -240,7 +248,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getPayStubs(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<PayStub>> {
     try {
-      const response = await this.request(`/Payroll/v1/workers/${employeeId}/payStatements`);
+      const response = await this.request(`/Payroll/v1/workers/${encodeURIComponent(employeeId)}/payStatements`);
 
       const payStubs = response.data?.data?.map((statement: any) => ({
         id: statement.id,
@@ -305,7 +313,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getExpenseReports(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<ExpenseReport>> {
     try {
-      const response = await this.request(`/Expense/v1/workers/${employeeId}/expenseReports`);
+      const response = await this.request(`/Expense/v1/workers/${encodeURIComponent(employeeId)}/expenseReports`);
 
       const reports = response.data?.data?.map((report: any) => ({
         id: report.id,
@@ -339,7 +347,7 @@ export class WorkdayProvider implements ERPProvider {
    */
   async getDepartment(departmentId: string): Promise<Department> {
     try {
-      const response = await this.request(`/Human_Resources/v1/organizations/${departmentId}`);
+      const response = await this.request(`/Human_Resources/v1/organizations/${encodeURIComponent(departmentId)}`);
       const org = response.data;
 
       return {

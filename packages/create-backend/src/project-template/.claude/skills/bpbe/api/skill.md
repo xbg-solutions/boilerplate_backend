@@ -23,22 +23,33 @@ import { Request, Response, NextFunction } from 'express';
 import { BaseController, ApiResponse, requiredAuth, requireAdmin } from '@xbg.solutions/backend-core';
 import { Product } from '../entities/Product';
 import { ProductService } from '../services/ProductService';
-import { tokenHandler } from '@xbg.solutions/utils-token-handler';
+import { tokenHandler } from '../config/tokens.config';
 
 export class ProductController extends BaseController<Product> {
   constructor(private productService: ProductService) {
     super(productService, '/products');  // second arg = base path for this resource
   }
 
+  // REQUIRED: wire the auth guard for the default CRUD routes.
+  // BaseController is FAIL-CLOSED — if you do NOT override authMiddlewares(),
+  // every non-public route responds 401 UNAUTHENTICATED. Override it to supply
+  // your guard so the default GET /, GET /:id, POST /, PUT /:id, DELETE /:id are
+  // authenticated. (In the generated controller this override ships commented out.)
+  protected authMiddlewares() {
+    return [requiredAuth(tokenHandler)];
+  }
+
+  // OPTIONAL: opt specific default routes OUT of auth (make them public).
+  // Only listed routes skip the auth guard; everything else stays protected.
+  protected publicRoutes() {
+    return [{ method: 'get', path: '/' }];  // e.g. public product listing
+  }
+
   // Override to add custom routes ON TOP of the default CRUD routes
   protected registerRoutes(): void {
-    super.registerRoutes();  // ← registers GET /, GET /:id, POST /, PUT /:id, DELETE /:id
+    super.registerRoutes();  // ← registers GET /, GET /:id, POST /, PUT /:id, DELETE /:id (all auth-guarded via authMiddlewares/publicRoutes)
 
-    // Add auth middleware to writes
-    this.router.post('/', requiredAuth(tokenHandler), this.handleCreate.bind(this));
-    this.router.put('/:id', requireAdmin(tokenHandler), this.handleUpdate.bind(this));
-    this.router.delete('/:id', requireAdmin(tokenHandler), this.handleDelete.bind(this));
-
+    // Custom routes are NOT auto-guarded — add auth middleware yourself.
     // Custom domain action
     this.router.post(
       '/:id/archive',
@@ -49,6 +60,7 @@ export class ProductController extends BaseController<Product> {
     // Custom query endpoint
     this.router.get(
       '/by-category/:categoryId',
+      requiredAuth(tokenHandler),
       this.handleFindByCategory.bind(this)
     );
   }
@@ -100,13 +112,17 @@ export class ProductController extends BaseController<Product> {
 | `PATCH` | `/:id` | `handleUpdate` (same handler) |
 | `DELETE` | `/:id` | `handleDelete` → `service.delete(id, context, hardDelete?)` |
 
+**Secure by default (fail-closed).** Every default route is wrapped by the guard chain from `authMiddlewares()`. The base implementation responds `401` (`UNAUTHENTICATED`) — so a controller that never wires auth is blocked, never accidentally exposed. Enable auth by overriding `authMiddlewares()` (see the example above); opt individual routes out via `publicRoutes()`. The generated standard controller ships the `authMiddlewares()` override commented out with instructions; the generated subcollection controller uses an equivalent fail-closed `authGuard()`.
+
+**Access checks default to DENY.** Even once authenticated, single-record `GET /:id`, `PUT /:id`, and `DELETE /:id` return `403` (`FORBIDDEN`) unless the model declares `accessRules` or the service overrides the relevant access-check methods (enforced in the service layer). So a default endpoint can return `401` (no auth wired) or `403` (no access rule) until both are configured.
+
 ### Query String Parsing (handleFindAll)
 
 ```
 GET /api/v1/products?limit=20&offset=0&orderBy=price:asc,name:desc&where=status:==:active&page=2&pageSize=10
 ```
 
-- `limit`, `offset`: pagination
+- `limit`, `offset`: pagination. **`limit` is always capped.** `parseQueryOptions` clamps it to `[1, maxPageSize()]` and applies `defaultPageSize()` when omitted or invalid. Defaults: `defaultPageSize()` = 50, `maxPageSize()` = 100 — both are overridable protected methods on the controller. A client can no longer request an unbounded list.
 - `orderBy`: `field:direction` comma-separated
 - `where`: `field:operator:value` comma-separated (multiple: repeat param)
 - `page` + `pageSize`: triggers `findPaginated` instead of `findAll`
@@ -180,6 +196,7 @@ this.sendError(res, { code: 'NOT_FOUND', message: 'Product not found', details: 
 |---|---|
 | `NOT_FOUND` | 404 |
 | `FORBIDDEN` | 403 |
+| `UNAUTHENTICATED` | 401 |
 | `UNAUTHORIZED` | 401 |
 | `VALIDATION_ERROR` | 400 |
 | `CONFLICT` | 409 |
@@ -262,12 +279,14 @@ The `api` export becomes your Cloud Function. All routes are mounted under `API_
 
 ### Adding Middleware to Specific Route Groups
 
+Authentication for the default CRUD routes is already handled by `authMiddlewares()` / `publicRoutes()` (see the controller example above) — you do **not** need to re-add it here. Use this pattern only for *additional* middleware scoped to custom routes:
+
 ```typescript
 // In your controller, you can scope middleware to specific routes:
 protected registerRoutes(): void {
   super.registerRoutes();
 
-  // Add auth to all write operations in this controller
+  // Apply extra middleware to custom write operations in this controller
   this.router.use((req, res, next) => {
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
       requiredAuth(tokenHandler)(req, res, next);

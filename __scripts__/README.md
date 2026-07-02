@@ -128,8 +128,8 @@ Pre-deployment validation script.
 
 **Usage:**
 ```bash
-npm run validate        # Full: build + lint + tests
-npm run validate:quick  # Quick: build + lint only
+npm run validate        # Full: build + tests
+npm run validate:quick  # Quick: config/env checks only (skips build + tests)
 ```
 
 **Checks:**

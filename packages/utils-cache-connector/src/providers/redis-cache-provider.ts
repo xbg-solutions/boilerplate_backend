@@ -385,20 +385,26 @@ export class RedisCacheProvider extends BaseCacheProvider {
         return 0;
       }
 
+      // Escape glob metacharacters in the caller-supplied pattern so it is
+      // matched literally — otherwise a `*`/`?`/`[` in `pattern` could match
+      // (and delete) far more keys than intended. The mode wildcards below are
+      // added AFTER escaping so they still function.
+      const escaped = pattern.replace(/[\\*?[\]^]/g, '\\$&');
+
       // Build Redis pattern based on mode
       let redisPattern: string;
       switch (mode) {
         case 'prefix':
-          redisPattern = `${pattern}*`;
+          redisPattern = `${escaped}*`;
           break;
         case 'suffix':
-          redisPattern = `*${pattern}`;
+          redisPattern = `*${escaped}`;
           break;
         case 'contains':
-          redisPattern = `*${pattern}*`;
+          redisPattern = `*${escaped}*`;
           break;
         default:
-          redisPattern = pattern;
+          redisPattern = escaped;
       }
 
       const keys: string[] = [];

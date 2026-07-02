@@ -237,7 +237,14 @@ export class TokenHandler<TCustomClaims = Record<string, any>>
    */
   private extractAuthUID(providerToken: any): string {
     // Common patterns for different providers
-    return providerToken.uid || providerToken.sub || providerToken.user_id || '';
+    const uid = providerToken.uid || providerToken.sub || providerToken.user_id;
+    if (!uid || typeof uid !== 'string') {
+      // Fail closed: without a stable subject we cannot look up per-user
+      // revocation, so an empty-string fallback would query the wrong record
+      // and silently skip the global-revocation check.
+      throw new Error('Token is missing a subject (uid/sub/user_id)');
+    }
+    return uid;
   }
 
   /**
@@ -245,7 +252,13 @@ export class TokenHandler<TCustomClaims = Record<string, any>>
    * Different providers may structure this differently
    */
   private extractIssuedAt(providerToken: any): number {
-    return providerToken.iat || providerToken.issued_at || Math.floor(Date.now() / 1000);
+    const iat = providerToken.iat ?? providerToken.issued_at;
+    if (typeof iat !== 'number' || !Number.isFinite(iat)) {
+      // Fail closed: defaulting a missing iat to "now" would place the token
+      // after any revocation timestamp, silently bypassing global revocation.
+      throw new Error('Token is missing a valid issued-at (iat) claim');
+    }
+    return iat;
   }
 }
 

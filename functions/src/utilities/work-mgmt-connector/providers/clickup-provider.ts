@@ -49,11 +49,19 @@ export class ClickUpProvider implements WorkManagementProvider {
       const qs = query.toString();
       if (qs) url += `?${qs}`;
     }
-    const res = await fetch(url, {
-      method,
-      headers: this.headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: this.headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => undefined);
       const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -65,12 +73,12 @@ export class ClickUpProvider implements WorkManagementProvider {
   }
 
   async getTask(taskId: string): Promise<WorkTask> {
-    const response = await this.request(`/task/${taskId}`);
+    const response = await this.request(`/task/${encodeURIComponent(taskId)}`);
     return this.mapClickUpTaskToWorkTask(response.data);
   }
 
   async getTasks(listId: string, options?: WorkQueryOptions): Promise<WorkTask[]> {
-    const response = await this.request(`/list/${listId}/task`, {
+    const response = await this.request(`/list/${encodeURIComponent(listId)}/task`, {
       params: {
         page: options?.page || 0,
         order_by: options?.sort?.field,
@@ -81,7 +89,7 @@ export class ClickUpProvider implements WorkManagementProvider {
   }
 
   async createTask(request: CreateTaskRequest): Promise<WorkTask> {
-    const response = await this.request(`/list/${request.listId}/task`, {
+    const response = await this.request(`/list/${encodeURIComponent(request.listId)}/task`, {
       method: 'POST',
       body: {
         name: request.title,
@@ -105,29 +113,29 @@ export class ClickUpProvider implements WorkManagementProvider {
     if (updates.assigneeIds) payload.assignees = { add: updates.assigneeIds };
     if (updates.dueDate) payload.due_date = updates.dueDate.getTime();
 
-    const response = await this.request(`/task/${taskId}`, { method: 'PUT', body: payload });
+    const response = await this.request(`/task/${encodeURIComponent(taskId)}`, { method: 'PUT', body: payload });
     return this.mapClickUpTaskToWorkTask(response.data);
   }
 
   async deleteTask(taskId: string): Promise<void> {
-    await this.request(`/task/${taskId}`, { method: 'DELETE' });
+    await this.request(`/task/${encodeURIComponent(taskId)}`, { method: 'DELETE' });
   }
 
   // ClickUp doesn't have native "article" support, so we use Docs API or tasks with rich descriptions
   async getArticle(articleId: string): Promise<WorkArticle> {
-    const response = await this.request(`/task/${articleId}`);
+    const response = await this.request(`/task/${encodeURIComponent(articleId)}`);
     return this.mapClickUpTaskToArticle(response.data);
   }
 
   async getArticles(parentId?: string, options?: WorkQueryOptions): Promise<WorkArticle[]> {
     if (!parentId) throw new Error('Parent list ID required for ClickUp');
-    const response = await this.request(`/list/${parentId}/task`);
+    const response = await this.request(`/list/${encodeURIComponent(parentId)}/task`);
     return response.data.tasks.map((task: any) => this.mapClickUpTaskToArticle(task));
   }
 
   async createArticle(request: CreateArticleRequest): Promise<WorkArticle> {
     if (!request.parentId) throw new Error('Parent list ID required for ClickUp');
-    const response = await this.request(`/list/${request.parentId}/task`, {
+    const response = await this.request(`/list/${encodeURIComponent(request.parentId)}/task`, {
       method: 'POST',
       body: {
         name: request.title,
@@ -142,12 +150,12 @@ export class ClickUpProvider implements WorkManagementProvider {
     const payload: any = {};
     if (updates.title) payload.name = updates.title;
     if (updates.content) payload.description = updates.content;
-    const response = await this.request(`/task/${articleId}`, { method: 'PUT', body: payload });
+    const response = await this.request(`/task/${encodeURIComponent(articleId)}`, { method: 'PUT', body: payload });
     return this.mapClickUpTaskToArticle(response.data);
   }
 
   async deleteArticle(articleId: string): Promise<void> {
-    await this.request(`/task/${articleId}`, { method: 'DELETE' });
+    await this.request(`/task/${encodeURIComponent(articleId)}`, { method: 'DELETE' });
   }
 
   async getWorkspaces(): Promise<Workspace[]> {
@@ -171,10 +179,10 @@ export class ClickUpProvider implements WorkManagementProvider {
   }
 
   async getLists(workspaceId: string): Promise<WorkList[]> {
-    const response = await this.request(`/team/${workspaceId}/space`);
+    const response = await this.request(`/team/${encodeURIComponent(workspaceId)}/space`);
     const lists: WorkList[] = [];
     for (const space of response.data.spaces) {
-      const spaceResponse = await this.request(`/space/${space.id}/list`);
+      const spaceResponse = await this.request(`/space/${encodeURIComponent(space.id)}/list`);
       lists.push(...spaceResponse.data.lists.map((list: any) => ({
         id: list.id,
         name: list.name,
@@ -186,7 +194,7 @@ export class ClickUpProvider implements WorkManagementProvider {
   }
 
   async getList(listId: string): Promise<WorkList> {
-    const response = await this.request(`/list/${listId}`);
+    const response = await this.request(`/list/${encodeURIComponent(listId)}`);
     return {
       id: response.data.id,
       name: response.data.name,
@@ -195,7 +203,7 @@ export class ClickUpProvider implements WorkManagementProvider {
   }
 
   async getComments(targetId: string): Promise<WorkComment[]> {
-    const response = await this.request(`/task/${targetId}/comment`);
+    const response = await this.request(`/task/${encodeURIComponent(targetId)}/comment`);
     return response.data.comments.map((comment: any) => ({
       id: comment.id,
       text: comment.comment_text,
@@ -208,7 +216,7 @@ export class ClickUpProvider implements WorkManagementProvider {
   }
 
   async createComment(request: CreateCommentRequest): Promise<WorkComment> {
-    const response = await this.request(`/task/${request.targetId}/comment`, {
+    const response = await this.request(`/task/${encodeURIComponent(request.targetId)}/comment`, {
       method: 'POST',
       body: {
         comment_text: request.text,

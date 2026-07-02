@@ -14,10 +14,10 @@ src/**/*.js.map
 # Node.js dependencies
 node_modules/
 
-# Environment variables
+# Environment variables (ignore every .env* except the checked-in example)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Firebase cache
 .firebase/

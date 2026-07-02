@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "//": "Required by the token-handler global-revocation check: where('tokenJTI','==',...).orderBy('blacklistedAt','desc'). Runs on every authenticated request; without this index Firestore returns FAILED_PRECONDITION and auth fails on a fresh deploy. If you change TOKEN_BLACKLIST_COLLECTION from its default, update collectionGroup below to match.",
+      "collectionGroup": "tokenBlacklist",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tokenJTI", "order": "ASCENDING" },
+        { "fieldPath": "blacklistedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

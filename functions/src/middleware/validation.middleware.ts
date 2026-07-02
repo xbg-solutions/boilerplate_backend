@@ -66,6 +66,11 @@ function sanitizeObject(obj: any): any {
   if (obj !== null && typeof obj === 'object') {
     const sanitized: any = {};
     for (const [key, value] of Object.entries(obj)) {
+      // Drop prototype-pollution keys rather than assigning them (assigning
+      // `__proto__`/`constructor`/`prototype` could reparent the object).
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        continue;
+      }
       sanitized[key] = sanitizeObject(value);
     }
     return sanitized;

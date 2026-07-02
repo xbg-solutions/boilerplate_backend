@@ -11,6 +11,23 @@ import { parseEntitySpecification } from './parser';
 import { getTemplate } from './templates';
 
 /**
+ * A safe TypeScript identifier for use as an entity name / filename segment.
+ * Entity names flow into generated file paths and `import`/class statements,
+ * so anything outside this set (path separators, `..`, quotes, spaces) is
+ * rejected to prevent path traversal and code injection.
+ */
+const SAFE_ENTITY_NAME = /^[A-Za-z][A-Za-z0-9]*$/;
+
+function assertSafeEntityName(entityName: string): void {
+  if (!SAFE_ENTITY_NAME.test(entityName)) {
+    throw new Error(
+      `Invalid entity name "${entityName}". Entity names must match ${SAFE_ENTITY_NAME} ` +
+      '(a letter followed by letters/digits) — they are used as file names and TypeScript identifiers.'
+    );
+  }
+}
+
+/**
  * Register Handlebars helpers
  */
 Handlebars.registerHelper('capitalize', (str: string) => {
@@ -27,6 +44,13 @@ Handlebars.registerHelper('uppercase', (str: string) => {
 
 Handlebars.registerHelper('ifEquals', function (this: any, a: any, b: any, options: any) {
   return a === b ? options.fn(this) : options.inverse(this);
+});
+
+// Neutralize block-comment terminators and newlines so model-authored text
+// (e.g. business rules) rendered inside a `/** ... */` block cannot close the
+// comment and inject code into generated source.
+Handlebars.registerHelper('commentSafe', (str: any) => {
+  return String(str ?? '').replace(/\*\//g, '* /').replace(/[\r\n]+/g, ' ');
 });
 
 /**
@@ -50,6 +74,8 @@ export class CodeGenerator {
     config: Partial<GeneratorConfig> = {},
     allEntities?: Record<string, EntitySpecification>
   ): Promise<TemplateContext> {
+    assertSafeEntityName(entityName);
+
     const context = parseEntitySpecification(
       entityName,
       spec,
@@ -98,8 +124,13 @@ export class CodeGenerator {
     // Generate code
     const code = template(context);
 
-    // Write to file
-    const fullOutputPath = path.join(this.outputDir, outputPath);
+    // Write to file — assert the resolved path stays within outputDir so a
+    // crafted outputPath can never escape the generation root.
+    const fullOutputPath = path.resolve(this.outputDir, outputPath);
+    const root = path.resolve(this.outputDir);
+    if (fullOutputPath !== root && !fullOutputPath.startsWith(root + path.sep)) {
+      throw new Error(`Refusing to write outside the output directory: ${outputPath}`);
+    }
     fs.writeFileSync(fullOutputPath, code, 'utf-8');
   }
 

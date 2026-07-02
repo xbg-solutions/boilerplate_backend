@@ -27,17 +27,17 @@ export interface NotificationInboxProvider {
   /** Query notifications for a user with filters */
   getNotifications(userId: string, filters?: NotificationFilter): Promise<NotificationQueryResult>;
 
-  /** Mark a single notification as read */
-  markAsRead(notificationId: string): Promise<MarkReadResult>;
+  /** Mark a single notification as read (scoped to owner) */
+  markAsRead(notificationId: string, userId: string): Promise<MarkReadResult>;
 
-  /** Mark multiple notifications as read */
-  markMultipleAsRead(notificationIds: string[]): Promise<MarkReadResult>;
+  /** Mark multiple notifications as read (scoped to owner) */
+  markMultipleAsRead(notificationIds: string[], userId: string): Promise<MarkReadResult>;
 
   /** Mark all notifications as read for a user */
   markAllAsRead(userId: string): Promise<MarkReadResult>;
 
-  /** Delete a single notification */
-  deleteNotification(notificationId: string): Promise<DeleteResult>;
+  /** Delete a single notification (scoped to owner) */
+  deleteNotification(notificationId: string, userId: string): Promise<DeleteResult>;
 
   /** Delete all expired notifications (expiresAt < now) */
   deleteExpired(): Promise<DeleteResult>;
@@ -106,10 +106,10 @@ export class NotificationInboxConnector {
     }
   }
 
-  async markAsRead(notificationId: string): Promise<MarkReadResult> {
-    this.log.debug?.('Marking notification as read', { notificationId });
+  async markAsRead(notificationId: string, userId: string): Promise<MarkReadResult> {
+    this.log.debug?.('Marking notification as read', { notificationId, userId });
     try {
-      return await this.provider.markAsRead(notificationId);
+      return await this.provider.markAsRead(notificationId, userId);
     } catch (error) {
       this.log.error?.(
         'Error marking notification as read',
@@ -119,10 +119,10 @@ export class NotificationInboxConnector {
     }
   }
 
-  async markMultipleAsRead(notificationIds: string[]): Promise<MarkReadResult> {
-    this.log.debug?.('Marking multiple notifications as read', { count: notificationIds.length });
+  async markMultipleAsRead(notificationIds: string[], userId: string): Promise<MarkReadResult> {
+    this.log.debug?.('Marking multiple notifications as read', { count: notificationIds.length, userId });
     try {
-      return await this.provider.markMultipleAsRead(notificationIds);
+      return await this.provider.markMultipleAsRead(notificationIds, userId);
     } catch (error) {
       this.log.error?.(
         'Error marking multiple notifications as read',
@@ -146,10 +146,10 @@ export class NotificationInboxConnector {
     }
   }
 
-  async deleteNotification(notificationId: string): Promise<DeleteResult> {
-    this.log.info?.('Deleting notification', { notificationId });
+  async deleteNotification(notificationId: string, userId: string): Promise<DeleteResult> {
+    this.log.info?.('Deleting notification', { notificationId, userId });
     try {
-      return await this.provider.deleteNotification(notificationId);
+      return await this.provider.deleteNotification(notificationId, userId);
     } catch (error) {
       this.log.error?.(
         'Error deleting notification',

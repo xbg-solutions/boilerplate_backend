@@ -151,7 +151,7 @@ export class NotificationInboxController {
       }
 
       const { id } = req.params;
-      const result = await this.connector.markAsRead(id);
+      const result = await this.connector.markAsRead(id, userId);
 
       if (result.success) {
         res.json({
@@ -190,7 +190,7 @@ export class NotificationInboxController {
         return;
       }
 
-      const result = await this.connector.markMultipleAsRead(ids);
+      const result = await this.connector.markMultipleAsRead(ids, userId);
 
       res.json({
         success: true,
@@ -237,7 +237,7 @@ export class NotificationInboxController {
       }
 
       const { id } = req.params;
-      const result = await this.connector.deleteNotification(id);
+      const result = await this.connector.deleteNotification(id, userId);
 
       if (result.success) {
         res.json({

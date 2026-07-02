@@ -33,6 +33,8 @@ The logger automatically redacts these field names from logged objects:
 - `email`, `phone`, `ssn`, `creditCard`, `cvv`
 - `firstName`, `lastName`, `address`
 
+Redaction recurses into nested objects **and array elements**, so a sensitive field buried inside an array (e.g. `recipients: [{ email, token }]`) is still redacted.
+
 ```typescript
 // This is safe to log — email will be redacted to '[REDACTED]'
 logger.info('User created', {
@@ -288,6 +290,8 @@ await cache.delete('my-key', { provider: 'memory' });
 await cache.invalidateByTags(['sessions'], { provider: 'memory' });
 ```
 
+> **Key safety.** Firestore cache keys are sanitized so a `/` in a key can no longer escape into a different document path. On the Redis provider, `invalidateByPattern` escapes glob metacharacters, so a literal `*` in a pattern only matches that character and won't wipe unrelated keys.
+
 ---
 
 ## Communication Connectors
@@ -442,6 +446,61 @@ ANTHROPIC_API_KEY=...
 ANTHROPIC_MODEL=claude-sonnet-4-6
 ```
 
+#### Image Analysis — SSRF-Guarded URLs
+
+`llmConnector.analyzeImage({ ... })` accepts either an `imageBase64` payload or an `imageUrl`. Caller-supplied `imageUrl` values are validated against SSRF before use: non-`http(s)` schemes and private/loopback/link-local/cloud-metadata hosts (e.g. `169.254.169.254`, `127.x`, `10.x`, `192.168.x`, `::1`) are rejected.
+
+```typescript
+// ✅ Public image URL — validated, then analyzed
+await llmConnector.analyzeImage({ imageUrl: 'https://cdn.example.com/photo.jpg' });
+
+// ✅ Or pass bytes directly (no fetch, no URL validation needed)
+await llmConnector.analyzeImage({ imageBase64: '<base64>' });
+
+// ❌ Rejected — private/metadata hosts and non-http(s) schemes are blocked
+await llmConnector.analyzeImage({ imageUrl: 'http://169.254.169.254/latest/meta-data/' });
+await llmConnector.analyzeImage({ imageUrl: 'file:///etc/passwd' });
+```
+
+Only **public** image URLs are accepted. The Gemini provider fetches the image server-side with a 15s timeout and a 20MB size cap; the OpenAI and Google-Lens providers validate the URL before forwarding it upstream.
+
+### Realtime Connector (WebSocket / SSE)
+
+**Package:** `@xbg.solutions/utils-realtime-connector`
+
+Push updates to connected clients over WebSocket or Server-Sent Events. The WebSocket provider ships with security and resource controls.
+
+```typescript
+import { WebSocketProvider } from '@xbg.solutions/utils-realtime-connector';
+
+// new WebSocketProvider(port, path?, options?)
+const provider = new WebSocketProvider(8080, '/ws', {
+  allowedOrigins: ['https://app.myapp.com'],   // reject other Origins (anti cross-site WS hijacking)
+  authenticate: async (req) => {
+    // Return the authenticated userId to accept, or null/throw to reject (closes 1008).
+    const token = new URL(req.url ?? '', 'http://x').searchParams.get('token');
+    const claims = await verifyToken(token);   // your token verification
+    return claims?.userUID ?? null;            // sets client.userId
+  },
+  authorizeChannel: (client, channel) =>        // sole gate on subscribe when set
+    channel === `user:${client.userId}`,
+  maxPayload: 1024 * 1024,                       // default 1 MiB
+  maxConnections: 10000,                         // default 10000
+});
+```
+
+`WebSocketProviderOptions`:
+
+| Option | Purpose | Default when omitted |
+|---|---|---|
+| `allowedOrigins?: string[]` | Permitted `Origin` header values (mitigates cross-site WebSocket hijacking). | All origins accepted; **warning logged**. |
+| `authenticate?: (req) => Promise<string\|null> \| string \| null` | Return the authenticated `userId` to accept the connection (sets `client.userId`), or return `null`/throw to reject (closes with code `1008`). | Connections are **anonymous**. |
+| `authorizeChannel?: (client, channel) => boolean` | Return `true` to allow a channel subscription. When set, it is the sole gate on `subscribe`. | **Any** channel subscription allowed; warning logged. |
+| `maxPayload?: number` | Max accepted message size in bytes. | 1 MiB |
+| `maxConnections?: number` | Max simultaneous connections. | 10000 |
+
+> **Production deployments carrying per-user/tenant data MUST configure `allowedOrigins` + `authenticate` + `authorizeChannel`.** Without them the endpoint is unauthenticated and any client from any origin can connect and subscribe to any channel (cross-user data exposure). The provider logs a warning for each of these left unset.
+
 ### Other Connectors
 
 | Package | Description |
@@ -452,7 +511,6 @@ ANTHROPIC_MODEL=claude-sonnet-4-6
 | `@xbg.solutions/utils-work-mgmt-connector` | Tasks (ClickUp/Notion) |
 | `@xbg.solutions/utils-erp-connector` | HR/Finance (Workday) |
 | `@xbg.solutions/utils-address-validation` | Google Maps validation |
-| `@xbg.solutions/utils-realtime-connector` | Firebase Realtime DB |
 | `@xbg.solutions/utils-firebase-event-bridge` | Firebase → internal events |
 | `@xbg.solutions/utils-firestore-connector` | Multi-DB Firestore setup |
 | `@xbg.solutions/utils-timezone` | Timezone conversion utils |

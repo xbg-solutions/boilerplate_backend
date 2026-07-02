@@ -49,11 +49,19 @@ export class MondayProvider implements WorkManagementProvider {
       const qs = query.toString();
       if (qs) url += `?${qs}`;
     }
-    const res = await fetch(url, {
-      method,
-      headers: this.headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: this.headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       const errorData = await res.json().catch(() => undefined);
       const error: any = new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -73,69 +81,69 @@ export class MondayProvider implements WorkManagementProvider {
   }
 
   async getTask(taskId: string): Promise<WorkTask> {
-    const query = `query { items(ids: [${taskId}]) { id name column_values { id text } state group { title } created_at updated_at } }`;
-    const data = await this.query(query);
+    const query = `query ($ids: [ID!]) { items(ids: $ids) { id name column_values { id text } state group { title } created_at updated_at } }`;
+    const data = await this.query(query, { ids: [taskId] });
     return this.mapMondayItemToTask(data.items[0]);
   }
 
   async getTasks(listId: string, options?: WorkQueryOptions): Promise<WorkTask[]> {
-    const query = `query { boards(ids: [${listId}]) { items(limit: ${options?.limit || 100}) { id name column_values { id text } state group { title } created_at updated_at } } }`;
-    const data = await this.query(query);
+    const query = `query ($ids: [ID!], $limit: Int) { boards(ids: $ids) { items(limit: $limit) { id name column_values { id text } state group { title } created_at updated_at } } }`;
+    const data = await this.query(query, { ids: [listId], limit: options?.limit || 100 });
     return data.boards[0].items.map((item: any) => this.mapMondayItemToTask(item));
   }
 
   async createTask(request: CreateTaskRequest): Promise<WorkTask> {
-    const mutation = `mutation { create_item(board_id: ${request.listId}, item_name: "${request.title}") { id name created_at } }`;
-    const data = await this.query(mutation);
+    const mutation = `mutation ($boardId: ID!, $itemName: String!) { create_item(board_id: $boardId, item_name: $itemName) { id name created_at } }`;
+    const data = await this.query(mutation, { boardId: request.listId, itemName: request.title });
     return this.mapMondayItemToTask(data.create_item);
   }
 
   async updateTask(taskId: string, updates: UpdateTaskRequest): Promise<WorkTask> {
     const columnValues = JSON.stringify({});
-    const mutation = `mutation { change_multiple_column_values(item_id: ${taskId}, board_id: 0, column_values: "${columnValues.replace(/"/g, '\\"')}") { id name } }`;
-    const data = await this.query(mutation);
+    const mutation = `mutation ($itemId: ID!, $boardId: ID!, $columnValues: JSON!) { change_multiple_column_values(item_id: $itemId, board_id: $boardId, column_values: $columnValues) { id name } }`;
+    const data = await this.query(mutation, { itemId: taskId, boardId: 0, columnValues });
     return this.mapMondayItemToTask(data.change_multiple_column_values);
   }
 
   async deleteTask(taskId: string): Promise<void> {
-    const mutation = `mutation { delete_item(item_id: ${taskId}) { id } }`;
-    await this.query(mutation);
+    const mutation = `mutation ($itemId: ID!) { delete_item(item_id: $itemId) { id } }`;
+    await this.query(mutation, { itemId: taskId });
   }
 
   // Monday.com uses Docs for articles
   async getArticle(articleId: string): Promise<WorkArticle> {
-    const query = `query { docs(ids: [${articleId}]) { id name content created_at updated_at url } }`;
-    const data = await this.query(query);
+    const query = `query ($ids: [ID!]) { docs(ids: $ids) { id name content created_at updated_at url } }`;
+    const data = await this.query(query, { ids: [articleId] });
     return this.mapMondayDocToArticle(data.docs[0]);
   }
 
   async getArticles(parentId?: string, options?: WorkQueryOptions): Promise<WorkArticle[]> {
-    const query = `query { docs(limit: ${options?.limit || 100}) { id name content created_at updated_at url } }`;
-    const data = await this.query(query);
+    const query = `query ($limit: Int) { docs(limit: $limit) { id name content created_at updated_at url } }`;
+    const data = await this.query(query, { limit: options?.limit || 100 });
     return data.docs.map((doc: any) => this.mapMondayDocToArticle(doc));
   }
 
   async createArticle(request: CreateArticleRequest): Promise<WorkArticle> {
-    const mutation = `mutation { create_doc(location: { workspace: ${request.parentId || 0} }, doc_kind: wiki) { id name url } }`;
-    const data = await this.query(mutation);
+    const mutation = `mutation ($workspaceId: ID!) { create_doc(location: { workspace: $workspaceId }, doc_kind: wiki) { id name url } }`;
+    const data = await this.query(mutation, { workspaceId: request.parentId || 0 });
     // Update content separately
-    const updateMutation = `mutation { update_doc(doc_id: ${data.create_doc.id}, content: "${request.content.replace(/"/g, '\\"')}") { id } }`;
-    await this.query(updateMutation);
+    const updateMutation = `mutation ($docId: ID!, $content: String!) { update_doc(doc_id: $docId, content: $content) { id } }`;
+    await this.query(updateMutation, { docId: data.create_doc.id, content: request.content });
     return this.mapMondayDocToArticle(data.create_doc);
   }
 
   async updateArticle(articleId: string, updates: UpdateArticleRequest): Promise<WorkArticle> {
     if (updates.content) {
-      const mutation = `mutation { update_doc(doc_id: ${articleId}, content: "${updates.content.replace(/"/g, '\\"')}") { id name content } }`;
-      const data = await this.query(mutation);
+      const mutation = `mutation ($docId: ID!, $content: String!) { update_doc(doc_id: $docId, content: $content) { id name content } }`;
+      const data = await this.query(mutation, { docId: articleId, content: updates.content });
       return this.mapMondayDocToArticle(data.update_doc);
     }
     return this.getArticle(articleId);
   }
 
   async deleteArticle(articleId: string): Promise<void> {
-    const mutation = `mutation { delete_doc(doc_id: ${articleId}) { id } }`;
-    await this.query(mutation);
+    const mutation = `mutation ($docId: ID!) { delete_doc(doc_id: $docId) { id } }`;
+    await this.query(mutation, { docId: articleId });
   }
 
   async getWorkspaces(): Promise<Workspace[]> {
@@ -149,8 +157,8 @@ export class MondayProvider implements WorkManagementProvider {
   }
 
   async getWorkspace(workspaceId: string): Promise<Workspace> {
-    const query = `query { workspaces(ids: [${workspaceId}]) { id name description } }`;
-    const data = await this.query(query);
+    const query = `query ($ids: [ID!]) { workspaces(ids: $ids) { id name description } }`;
+    const data = await this.query(query, { ids: [workspaceId] });
     return {
       id: data.workspaces[0].id,
       name: data.workspaces[0].name,
@@ -159,8 +167,8 @@ export class MondayProvider implements WorkManagementProvider {
   }
 
   async getLists(workspaceId: string): Promise<WorkList[]> {
-    const query = `query { boards(workspace_ids: [${workspaceId}]) { id name description } }`;
-    const data = await this.query(query);
+    const query = `query ($workspaceIds: [ID!]) { boards(workspace_ids: $workspaceIds) { id name description } }`;
+    const data = await this.query(query, { workspaceIds: [workspaceId] });
     return data.boards.map((board: any) => ({
       id: board.id,
       name: board.name,
@@ -170,8 +178,8 @@ export class MondayProvider implements WorkManagementProvider {
   }
 
   async getList(listId: string): Promise<WorkList> {
-    const query = `query { boards(ids: [${listId}]) { id name description } }`;
-    const data = await this.query(query);
+    const query = `query ($ids: [ID!]) { boards(ids: $ids) { id name description } }`;
+    const data = await this.query(query, { ids: [listId] });
     return {
       id: data.boards[0].id,
       name: data.boards[0].name,
@@ -180,8 +188,8 @@ export class MondayProvider implements WorkManagementProvider {
   }
 
   async getComments(targetId: string): Promise<WorkComment[]> {
-    const query = `query { items(ids: [${targetId}]) { updates { id body creator { id name } created_at } } }`;
-    const data = await this.query(query);
+    const query = `query ($ids: [ID!]) { items(ids: $ids) { updates { id body creator { id name } created_at } } }`;
+    const data = await this.query(query, { ids: [targetId] });
     return data.items[0].updates.map((update: any) => ({
       id: update.id,
       text: update.body,
@@ -194,8 +202,8 @@ export class MondayProvider implements WorkManagementProvider {
   }
 
   async createComment(request: CreateCommentRequest): Promise<WorkComment> {
-    const mutation = `mutation { create_update(item_id: ${request.targetId}, body: "${request.text.replace(/"/g, '\\"')}") { id body creator { id name } created_at } }`;
-    const data = await this.query(mutation);
+    const mutation = `mutation ($itemId: ID!, $body: String!) { create_update(item_id: $itemId, body: $body) { id body creator { id name } created_at } }`;
+    const data = await this.query(mutation, { itemId: request.targetId, body: request.text });
     return {
       id: data.create_update.id,
       text: data.create_update.body,
