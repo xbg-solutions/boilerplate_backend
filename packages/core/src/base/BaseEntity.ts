@@ -47,10 +47,26 @@ export abstract class BaseEntity {
       version: this.version,
     };
 
-    // Only include deletedAt if it's set
-    if (this.deletedAt) {
-      data.deletedAt = this.deletedAt;
-    }
+    // deletedAt is ALWAYS written, including as an explicit null.
+    //
+    // It used to be omitted when unset ("only include deletedAt if it's set"),
+    // which put this class in direct contradiction with its own repository:
+    // BaseRepository.findAll prepends `where('deletedAt', '==', null)`, and in
+    // Firestore that matches an explicit null and NEVER a missing field. So
+    // every record created through this path was written successfully,
+    // readable by id, and invisible to every list query in the application.
+    //
+    // That failure is silent and one-directional — the write reports success
+    // and only the queries disappear — so it surfaces much later as a
+    // duplicate, a missing row, or a find-or-create that can never find its
+    // own record. It went unnoticed for a long time because seed and migration
+    // scripts write raw documents (setting deletedAt themselves) and so never
+    // reproduced it.
+    //
+    // `?? null` rather than a bare null: update() also routes through here, and
+    // an entity loaded WITH a deletion timestamp must keep it. Only genuinely
+    // unset values become null, so this never resurrects a soft-deleted record.
+    data.deletedAt = this.deletedAt ?? null;
 
     // Remove undefined values
     Object.keys(data).forEach((key) => {
