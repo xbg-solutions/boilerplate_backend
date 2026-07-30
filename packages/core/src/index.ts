@@ -5,6 +5,11 @@
  * Exports base classes, middleware, configuration, types, and code generator
  */
 
+// Identifier generation — the platform-wide prefix registry lives here so the
+// allocation table is visible to every component at once rather than being
+// copied into whichever repo needed it first.
+export * from './lib/generate-id';
+
 // Base classes
 export * from './base/BaseEntity';
 export * from './base/BaseRepository';
