@@ -14,10 +14,11 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@xbg.solutions/utils-logger": "^2.0.0"
+    "@xbg.solutions/utils-logger": "^2.0.0",
+    "uuid": "14.0.1"
   },
   "peerDependencies": {
-    "firebase-admin": "^13.7.0"
+    "firebase-admin": "^14.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
