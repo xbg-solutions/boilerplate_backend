@@ -14,7 +14,7 @@ import { RealtimeMessage, RealtimeClient, BroadcastOptions } from '../types';
 import { logger } from '@xbg.solutions/utils-logger';
 
 // Mock logger
-jest.mock('../../logger', () => ({
+jest.mock('@xbg.solutions/utils-logger', () => ({
   logger: {
     info: jest.fn(),
     warn: jest.fn(),

@@ -19,7 +19,7 @@ import {
 import { Logger } from '@xbg.solutions/utils-logger';
 
 // Mock logger
-jest.mock('../../logger', () => ({
+jest.mock('@xbg.solutions/utils-logger', () => ({
   Logger: jest.fn().mockImplementation(() => ({
     debug: jest.fn(),
     info: jest.fn(),

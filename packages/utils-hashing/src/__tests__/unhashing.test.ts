@@ -149,9 +149,15 @@ describe('Unhashing Utilities', () => {
       const plaintext = 'test@example.com';
       const encrypted = hashValue(plaintext);
 
-      // Corrupt the IV
+      // Corrupt the IV while keeping it structurally valid (same byte length,
+      // so it still base64-decodes to a well-formed IV). Replacing it with a
+      // short literal instead trips the format guard, and the test then only
+      // proves that guard fires — which the malformed-input tests already cover.
       const parts = encrypted.split(':');
-      parts[0] = 'corrupted';
+      const originalIv = Buffer.from(parts[0], 'base64');
+      const corruptedIv = Buffer.from(originalIv);
+      corruptedIv[0] ^= 0xff; // guarantee it differs from the original
+      parts[0] = corruptedIv.toString('base64');
       const corrupted = parts.join(':');
 
       expect(() => unhashValue(corrupted)).toThrow(/Decryption failed/);

@@ -2,12 +2,121 @@
  * Email Connector Tests
  */
 
-import { EmailConnector } from '../email-connector';
-// Mock email provider locally
-const createMockEmailProvider = () => ({ send: jest.fn(), sendBatch: jest.fn(), getProviderName: jest.fn() });
+import { EmailConnector, EmailProvider } from '../email-connector';
+import {
+  BulkEmailRequest,
+  BulkEmailResult,
+  CreateTemplateRequest,
+  EmailResult,
+  EmailTemplate,
+  MarketingEmailRequest,
+  TransactionalEmailRequest,
+} from '../types';
+
+/**
+ * In-memory EmailProvider fake. Records what it was asked to send so the tests
+ * can assert on it, and can be told to fail the next operation so the
+ * connector's error path is exercised.
+ */
+const createMockEmailProvider = () => {
+  const sentEmails: TransactionalEmailRequest[] = [];
+  const sentMarketing: MarketingEmailRequest[] = [];
+  const sentBulk: BulkEmailRequest[] = [];
+  const createdTemplates: EmailTemplate[] = [];
+  let failNext = false;
+  let templateSeq = 0;
+
+  const consumeFailure = () => {
+    if (!failNext) return;
+    failNext = false;
+    throw new Error('Simulated provider failure');
+  };
+
+  const ok = (recipients: number): EmailResult => ({
+    success: true,
+    messageId: `msg-${Math.random().toString(36).slice(2, 10)}`,
+    recipients,
+    timestamp: new Date(),
+  });
+
+  return {
+    sentEmails,
+    sentMarketing,
+    sentBulk,
+    createdTemplates,
+
+    failNextOperation(): void {
+      failNext = true;
+    },
+
+    reset(): void {
+      sentEmails.length = 0;
+      sentMarketing.length = 0;
+      sentBulk.length = 0;
+      createdTemplates.length = 0;
+      failNext = false;
+      templateSeq = 0;
+    },
+
+    async sendTransactional(request: TransactionalEmailRequest): Promise<EmailResult> {
+      consumeFailure();
+      sentEmails.push(request);
+      return ok(request.to.length);
+    },
+
+    async sendMarketing(request: MarketingEmailRequest): Promise<EmailResult> {
+      consumeFailure();
+      sentMarketing.push(request);
+      return ok(request.to.length);
+    },
+
+    async sendBulk(request: BulkEmailRequest): Promise<BulkEmailResult> {
+      consumeFailure();
+      sentBulk.push(request);
+      const results = request.emails.map((m) => ok(m.to.length));
+      return {
+        success: true,
+        successful: results.length,
+        failed: 0,
+        results,
+        timestamp: new Date(),
+      };
+    },
+
+    async getTemplate(templateId: string): Promise<EmailTemplate> {
+      consumeFailure();
+      const found = createdTemplates.find((t) => t.id === templateId);
+      if (!found) throw new Error(`Template not found: ${templateId}`);
+      return found;
+    },
+
+    async createTemplate(template: CreateTemplateRequest): Promise<EmailTemplate> {
+      consumeFailure();
+      const created = {
+        ...template,
+        id: `tpl-${++templateSeq}`,
+        variables: template.variables ?? [],
+        metadata: { createdAt: new Date(), updatedAt: new Date() },
+      } as unknown as EmailTemplate;
+      createdTemplates.push(created);
+      return created;
+    },
+
+    async listTemplates(): Promise<EmailTemplate[]> {
+      consumeFailure();
+      return [...createdTemplates];
+    },
+
+    async deleteTemplate(templateId: string): Promise<void> {
+      consumeFailure();
+      const i = createdTemplates.findIndex((t) => t.id === templateId);
+      if (i >= 0) createdTemplates.splice(i, 1);
+    },
+  } satisfies EmailProvider & Record<string, unknown>;
+};
 
 // Mock the logger module
-jest.mock('../../logger', () => ({
+jest.mock('@xbg.solutions/utils-logger', () => ({
   logger: {
     info: jest.fn(),
     error: jest.fn(),

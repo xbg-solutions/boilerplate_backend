@@ -14,7 +14,7 @@ import { SMSRequest, SMSResult, BulkSMSResult, MessageStatus, DeliveryReport } f
 import { logger } from '@xbg.solutions/utils-logger';
 
 // Mock logger
-jest.mock('../../logger', () => ({
+jest.mock('@xbg.solutions/utils-logger', () => ({
   logger: {
     info: jest.fn(),
     warn: jest.fn(),

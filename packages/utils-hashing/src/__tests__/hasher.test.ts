@@ -10,7 +10,7 @@
 
 import { hashValue, hashFields, hashTransparentFields, hashTransparentFieldsByName } from '../hasher';
 import { registerHashedFields, PII_BLOB_KEY } from '../hashed-fields-lookup';
-import { unhashValue } from '../unhashing';
+import { unhashValue, unhashFields } from '../unhashing';
 
 // Mock environment variable
 const VALID_KEY = 'a'.repeat(64); // 64 hex characters = 32 bytes
@@ -267,7 +267,7 @@ describe('Hasher Utilities', () => {
       expect(result).toEqual({});
     });
 
-    it('handles non-string values in hashable fields', () => {
+    it('encrypts non-string values and restores their type on unhash', () => {
       const userData = {
         email: 123 as any, // Number instead of string
         phoneNumber: { value: '+61412345678' } as any, // Object instead of string
@@ -275,9 +275,24 @@ describe('Hasher Utilities', () => {
 
       const result = hashFields(userData, 'user');
 
-      // Non-string values should not be encrypted
-      expect(result.email).toBe(123);
-      expect(result.phoneNumber).toEqual({ value: '+61412345678' });
+      // serializeForEncryption() JSON-encodes numbers, booleans, arrays and
+      // objects behind PII_JSON_SENTINEL, so they are encrypted like any other
+      // value rather than passed through.
+      expect(typeof result.email).toBe('string');
+      expect(result.email).not.toBe(123);
+      expect(typeof result.phoneNumber).toBe('string');
+
+      // unhashValue() is the low-level decrypt-to-plaintext API and is typed to
+      // return a string, so it hands back the sentinel-prefixed form untouched.
+      expect(unhashValue(result.email as unknown as string)).toBe('pii:json:123');
+
+      // It is the field-level counterpart of hashFields() that deserialises,
+      // restoring the ORIGINAL type rather than a stringified copy.
+      // unhashFields() takes fully-qualified registry paths, matching the
+      // `${entityType}.${fieldName}` keys hashFields() builds internally.
+      const restored = unhashFields(result, ['user.email', 'user.phoneNumber']);
+      expect(restored.email).toBe(123);
+      expect(restored.phoneNumber).toEqual({ value: '+61412345678' });
     });
   });
 

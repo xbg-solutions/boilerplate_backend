@@ -20,7 +20,7 @@ import {
 // Mock the provider modules
 jest.mock('../providers', () => ({
   BaseProvider: jest.fn(),
-  ClaudeProvider: jest.fn().mockImplementation((config) => ({
+  ClaudeProvider: jest.fn().mockImplementation((_config) => ({
     getInfo: () => ({
       name: 'claude',
       enabled: true,
@@ -48,7 +48,7 @@ jest.mock('../providers', () => ({
       requestId: 'req-claude-img-1',
     }),
   })),
-  OpenAIProvider: jest.fn().mockImplementation((config) => ({
+  OpenAIProvider: jest.fn().mockImplementation((_config) => ({
     getInfo: () => ({
       name: 'openai',
       enabled: true,
@@ -76,7 +76,7 @@ jest.mock('../providers', () => ({
       requestId: 'req-openai-img-1',
     }),
   })),
-  GeminiProvider: jest.fn().mockImplementation((config) => ({
+  GeminiProvider: jest.fn().mockImplementation((_config) => ({
     getInfo: () => ({
       name: 'gemini',
       enabled: true,
@@ -104,7 +104,7 @@ jest.mock('../providers', () => ({
       requestId: 'req-gemini-img-1',
     }),
   })),
-  GoogleLensProvider: jest.fn().mockImplementation((config) => ({
+  GoogleLensProvider: jest.fn().mockImplementation((_config) => ({
     getInfo: () => ({
       name: 'google-lens',
       enabled: true,

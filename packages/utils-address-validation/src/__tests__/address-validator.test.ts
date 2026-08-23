@@ -13,16 +13,6 @@ import { Logger } from '@xbg.solutions/utils-logger';
 import { ValidationError } from '@xbg.solutions/utils-errors';
 import { Status } from '@googlemaps/google-maps-services-js';
 
-// Mock dependencies
-jest.mock('../address-validator', () => {
-  const actual = jest.requireActual('../address-validator');
-  return {
-    ...actual,
-    isGoogleMapsConfigured: jest.fn(),
-    getGoogleMapsApiKey: jest.fn(),
-  };
-});
-
 jest.mock('@googlemaps/google-maps-services-js', () => ({
   Client: jest.fn(),
   Status: {
@@ -33,11 +23,10 @@ jest.mock('@googlemaps/google-maps-services-js', () => ({
     REQUEST_DENIED: 'REQUEST_DENIED',
     UNKNOWN_ERROR: 'UNKNOWN_ERROR',
   },
-  };
-});
+}));
 
 import { Client } from '@googlemaps/google-maps-services-js';
-import { isGoogleMapsConfigured, getGoogleMapsApiKey } from '../address-validator';
+import { initializeAddressValidator } from '../address-validator';
 
 describe('Address Validator', () => {
   let mockLogger: Logger;
@@ -53,12 +42,11 @@ describe('Address Validator', () => {
     // Mock the Client constructor to return an object with geocode method
     (Client as jest.Mock).mockImplementation(() => ({
       geocode: mockGeocode,
-      };
-});
+    }));
 
-    // Default: Google Maps is configured
-    (isGoogleMapsConfigured as jest.Mock).mockReturnValue(true);
-    (getGoogleMapsApiKey as jest.Mock).mockReturnValue('test-api-key');
+    // Default: Google Maps is configured, via the module's own public entry
+    // point rather than by mocking its internals.
+    initializeAddressValidator({ apiKey: 'test-api-key' });
 
     // Reset the mock implementation to ensure fresh state
     mockGeocode.mockReset();
@@ -420,7 +408,7 @@ describe('Address Validator', () => {
     });
 
     it('allows addresses when Google Maps API not configured', async () => {
-      (isGoogleMapsConfigured as jest.Mock).mockReturnValue(false);
+      initializeAddressValidator({ apiKey: '' });
 
       const result = await addressValidator.validateAddress(validAddress, mockLogger);
 
@@ -547,7 +535,7 @@ describe('Address Validator', () => {
     });
 
     it('does not throw when API is not configured', async () => {
-      (isGoogleMapsConfigured as jest.Mock).mockReturnValue(false);
+      initializeAddressValidator({ apiKey: '' });
 
       await expect(
         addressValidator.validateAddressOrThrow(validAddress, mockLogger)
