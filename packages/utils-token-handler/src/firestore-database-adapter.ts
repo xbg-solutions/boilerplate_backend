@@ -3,15 +3,14 @@
  * Implements ITokenDatabase for Firestore operations
  */
 
-import * as admin from 'firebase-admin';
-import { Firestore } from 'firebase-admin/firestore';
+import { CollectionReference, Firestore } from 'firebase-admin/firestore';
 import {
   ITokenDatabase,
   TokenBlacklistEntry
 } from './token-types';
 
 export class FirestoreTokenDatabase implements ITokenDatabase {
-  private collection: admin.firestore.CollectionReference;
+  private collection: CollectionReference;
 
   constructor(
     private db: Firestore,
@@ -120,7 +119,7 @@ export class FirestoreTokenDatabase implements ITokenDatabase {
   /**
    * Get collection reference for advanced operations
    */
-  getCollection(): admin.firestore.CollectionReference {
+  getCollection(): CollectionReference {
     return this.collection;
   }
 
@@ -132,7 +131,7 @@ export class FirestoreTokenDatabase implements ITokenDatabase {
       // Simple read operation to test connectivity
       await this.collection.limit(1).get();
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

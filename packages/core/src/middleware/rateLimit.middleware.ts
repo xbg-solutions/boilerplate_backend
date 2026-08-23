@@ -18,7 +18,7 @@
 
 import rateLimit, { Store, ClientRateLimitInfo, Options } from 'express-rate-limit';
 import * as crypto from 'crypto';
-import * as admin from 'firebase-admin';
+import { DocumentReference, getFirestore } from 'firebase-admin/firestore';
 import { MIDDLEWARE_CONFIG } from '../config/middleware.config';
 import { logger } from '@xbg.solutions/utils-logger';
 
@@ -41,17 +41,17 @@ export class FirestoreRateLimitStore implements Store {
     this.windowMs = options.windowMs;
   }
 
-  private docRef(key: string): admin.firestore.DocumentReference {
+  private docRef(key: string): DocumentReference {
     // Hash the key: it may contain characters that are invalid in a Firestore
     // document ID (IPv6 ':' / '/'), and hashing also bounds the length.
     const id = crypto.createHash('sha256').update(this.prefix + key).digest('hex');
-    return admin.firestore().collection(this.collectionName).doc(id);
+    return getFirestore().collection(this.collectionName).doc(id);
   }
 
   async increment(key: string): Promise<ClientRateLimitInfo> {
     const ref = this.docRef(key);
     const nowMs = Date.now();
-    return admin.firestore().runTransaction(async (tx) => {
+    return getFirestore().runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.data();
       let totalHits: number;
@@ -71,7 +71,7 @@ export class FirestoreRateLimitStore implements Store {
 
   async decrement(key: string): Promise<void> {
     const ref = this.docRef(key);
-    await admin.firestore().runTransaction(async (tx) => {
+    await getFirestore().runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.data();
       if (data && typeof data.totalHits === 'number' && data.totalHits > 0) {

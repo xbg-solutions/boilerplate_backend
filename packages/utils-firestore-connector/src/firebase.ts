@@ -3,8 +3,10 @@
  * Centralized Firebase initialization for the backend boilerplate
  */
 
-import * as admin from 'firebase-admin';
-import { Firestore } from 'firebase-admin/firestore';
+import { App, applicationDefault, getApp, getApps, initializeApp } from 'firebase-admin/app';
+import { Auth, getAuth as getAuthInstance } from 'firebase-admin/auth';
+import { Firestore, getFirestore as getFirestoreInstance } from 'firebase-admin/firestore';
+import { Storage, getStorage as getStorageInstance } from 'firebase-admin/storage';
 import { logger } from '@xbg.solutions/utils-logger';
 
 let firestoreInstance: Firestore | null = null;
@@ -14,11 +16,11 @@ let isInitialized = false;
  * Initialize Firebase Admin SDK
  * Safe to call multiple times - only initializes once
  */
-export function initializeFirebase(): admin.app.App {
+export function initializeFirebase(): App {
   if (!isInitialized) {
     try {
       // Check if already initialized (e.g., by Firebase Functions runtime)
-      if (admin.apps.length === 0) {
+      if (getApps().length === 0) {
         const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT;
 
         if (!projectId) {
@@ -27,9 +29,9 @@ export function initializeFirebase(): admin.app.App {
 
         // Initialize with application default credentials in Cloud Functions
         // or with service account in local development
-        admin.initializeApp({
+        initializeApp({
           projectId,
-          credential: admin.credential.applicationDefault(),
+          credential: applicationDefault(),
         });
 
         logger.info('Firebase Admin SDK initialized', {
@@ -46,7 +48,7 @@ export function initializeFirebase(): admin.app.App {
     }
   }
 
-  return admin.app();
+  return getApp();
 }
 
 /**
@@ -61,7 +63,7 @@ export function getFirestore(): Firestore {
     initializeFirebase();
 
     // Get Firestore instance
-    firestoreInstance = admin.firestore();
+    firestoreInstance = getFirestoreInstance();
 
     // Configure Firestore settings
     firestoreInstance.settings({
@@ -79,17 +81,17 @@ export function getFirestore(): Firestore {
 /**
  * Get Firebase Auth instance
  */
-export function getAuth(): admin.auth.Auth {
+export function getAuth(): Auth {
   initializeFirebase();
-  return admin.auth();
+  return getAuthInstance();
 }
 
 /**
  * Get Firebase Storage instance
  */
-export function getStorage(): admin.storage.Storage {
+export function getStorage(): Storage {
   initializeFirebase();
-  return admin.storage();
+  return getStorageInstance();
 }
 
 /**

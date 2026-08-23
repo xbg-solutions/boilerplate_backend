@@ -3,7 +3,7 @@
  * Implements ITokenAdapter for Firebase Authentication
  */
 
-import * as admin from 'firebase-admin';
+import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 import * as crypto from 'crypto';
 import { Logger } from '@xbg.solutions/utils-logger';
 import {
@@ -19,11 +19,11 @@ export class FirebaseAuthAdapter<TCustomClaims = Record<string, any>>
   /**
    * Verify token with Firebase Auth
    */
-  async verifyToken(rawToken: string, logger: Logger): Promise<admin.auth.DecodedIdToken> {
+  async verifyToken(rawToken: string, logger: Logger): Promise<DecodedIdToken> {
     logger.debug('FirebaseAuthAdapter: Verifying token with Firebase');
 
     try {
-      const decodedToken = await admin.auth().verifyIdToken(rawToken, true);
+      const decodedToken = await getAuth().verifyIdToken(rawToken, true);
       
       logger.debug('FirebaseAuthAdapter: Token verified successfully', {
         authUID: decodedToken.uid
@@ -53,7 +53,7 @@ export class FirebaseAuthAdapter<TCustomClaims = Record<string, any>>
    * Normalize Firebase token to platform-agnostic structure
    */
   normalizeToken(
-    providerToken: admin.auth.DecodedIdToken,
+    providerToken: DecodedIdToken,
     customClaimsConfig: CustomClaimsConfig<TCustomClaims>
   ): NormalizedToken<TCustomClaims> {
     // Extract custom claims using provided configuration
@@ -66,7 +66,7 @@ export class FirebaseAuthAdapter<TCustomClaims = Record<string, any>>
         // If validation fails, use defaults
         customClaims = customClaimsConfig.defaults as TCustomClaims;
       }
-    } catch (error) {
+    } catch {
       // If extraction fails, use defaults
       customClaims = customClaimsConfig.defaults as TCustomClaims;
     }
@@ -102,7 +102,7 @@ export class FirebaseAuthAdapter<TCustomClaims = Record<string, any>>
     });
 
     try {
-      await admin.auth().setCustomUserClaims(authUID, claims as Record<string, any>);
+      await getAuth().setCustomUserClaims(authUID, claims as Record<string, any>);
       
       logger.info('FirebaseAuthAdapter: Custom claims synced successfully', {
         authUID
@@ -125,7 +125,7 @@ export class FirebaseAuthAdapter<TCustomClaims = Record<string, any>>
     });
 
     try {
-      await admin.auth().revokeRefreshTokens(authUID);
+      await getAuth().revokeRefreshTokens(authUID);
       
       logger.info('FirebaseAuthAdapter: User tokens revoked successfully', {
         authUID
@@ -186,7 +186,7 @@ export class FirebaseAuthAdapter<TCustomClaims = Record<string, any>>
    * structure their custom claims
    */
   private extractUserUID(
-    providerToken: admin.auth.DecodedIdToken,
+    providerToken: DecodedIdToken,
     customClaims: TCustomClaims
   ): string | null {
     // Try to extract from custom claims first

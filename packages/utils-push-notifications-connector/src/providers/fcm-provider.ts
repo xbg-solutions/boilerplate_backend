@@ -2,7 +2,12 @@
  * Firebase Cloud Messaging (FCM) Provider
  */
 
-import * as admin from 'firebase-admin';
+import {
+  getMessaging,
+  Message,
+  Messaging,
+  MulticastMessage,
+} from 'firebase-admin/messaging';
 import { PushNotificationsProvider } from '../push-notifications-connector';
 import {
   SendNotificationRequest,
@@ -11,16 +16,20 @@ import {
   TopicSubscriptionResponse,
 } from '../types';
 
+// Intentionally empty: FCM is configured through the globally-initialised
+// Firebase Admin SDK, and the type is kept so the provider signature matches
+// its siblings.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface FCMProviderConfig {
   // FCM uses Firebase Admin SDK which is initialized globally
   // No specific config needed here, but we keep the interface for consistency
 }
 
 export class FCMProvider implements PushNotificationsProvider {
-  private messaging: admin.messaging.Messaging;
+  private messaging: Messaging;
 
-  constructor(config?: FCMProviderConfig) {
-    this.messaging = admin.messaging();
+  constructor(_config?: FCMProviderConfig) {
+    this.messaging = getMessaging();
   }
 
   /**
@@ -173,7 +182,7 @@ export class FCMProvider implements PushNotificationsProvider {
       }, true); // dry run
 
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -181,7 +190,7 @@ export class FCMProvider implements PushNotificationsProvider {
   /**
    * Build FCM message for single target
    */
-  private buildMessage(request: SendNotificationRequest): admin.messaging.Message {
+  private buildMessage(request: SendNotificationRequest): Message {
     const basePayload = {
       notification: {
         title: request.notification.title,
@@ -192,7 +201,7 @@ export class FCMProvider implements PushNotificationsProvider {
     };
 
     // Build message with proper type based on target
-    let message: admin.messaging.Message;
+    let message: Message;
     if (request.target.token) {
       message = {
         ...basePayload,
@@ -248,7 +257,7 @@ export class FCMProvider implements PushNotificationsProvider {
   /**
    * Build FCM multicast message
    */
-  private buildMulticastMessage(request: SendNotificationRequest): admin.messaging.MulticastMessage {
+  private buildMulticastMessage(request: SendNotificationRequest): MulticastMessage {
     const baseMessage = this.buildMessage(request);
 
     return {

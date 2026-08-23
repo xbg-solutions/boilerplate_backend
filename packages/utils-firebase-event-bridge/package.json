@@ -17,7 +17,7 @@
     "@xbg.solutions/utils-events": "^2.0.0",
     "@xbg.solutions/utils-logger": "^2.0.0",
     "firebase-admin": "^14.2.0",
-    "firebase-functions": "^6.0.0",
+    "firebase-functions": "^7.0.0",
     "uuid": "14.0.1"
   },
   "devDependencies": {

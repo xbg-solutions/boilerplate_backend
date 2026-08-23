@@ -14,7 +14,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "firebase-functions": "^6.0.0",
+    "firebase-functions": "^7.0.0",
     "uuid": "^14.0.1"
   },
   "devDependencies": {
