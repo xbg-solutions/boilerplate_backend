@@ -155,7 +155,7 @@ export class SurveyMonkeyProvider implements SurveyProvider {
     return this.mapSurveyMonkeyResponseToSurveyResponse(response.data, response.data.survey_id);
   }
 
-  async submitResponse(request: SubmitResponseRequest): Promise<SurveyResponse> {
+  async submitResponse(_request: SubmitResponseRequest): Promise<SurveyResponse> {
     // SurveyMonkey doesn't support direct API submission - responses come through web collectors
     throw new Error('SurveyMonkey does not support API-based response submission. Use web collectors instead.');
   }

@@ -377,7 +377,7 @@ export class GoogleLensProvider extends BaseProvider {
   private async getVisionSDK(): Promise<any> {
     try {
       return await import('@google-cloud/vision');
-    } catch (error) {
+    } catch {
       throw new Error('Google Cloud Vision SDK not found. Please install @google-cloud/vision: npm install @google-cloud/vision');
     }
   }

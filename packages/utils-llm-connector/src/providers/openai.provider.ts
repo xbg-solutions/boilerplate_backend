@@ -275,7 +275,7 @@ export class OpenAIProvider extends BaseProvider {
     try {
       const module = await import('openai');
       return module.default || module;
-    } catch (error) {
+    } catch {
       throw new Error('OpenAI SDK not found. Please install openai: npm install openai');
     }
   }

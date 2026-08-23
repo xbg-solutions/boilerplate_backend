@@ -179,7 +179,7 @@ export class ClaudeProvider extends BaseProvider {
     try {
       const module = await import('@anthropic-ai/sdk');
       return module.default || module;
-    } catch (error) {
+    } catch {
       throw new Error('Anthropic SDK not found. Please install @anthropic-ai/sdk: npm install @anthropic-ai/sdk');
     }
   }

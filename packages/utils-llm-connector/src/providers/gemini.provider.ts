@@ -327,7 +327,7 @@ export class GeminiProvider extends BaseProvider {
   private async getGeminiSDK(): Promise<any> {
     try {
       return await import('@google/generative-ai');
-    } catch (error) {
+    } catch {
       throw new Error('Google Generative AI SDK not found. Please install @google/generative-ai: npm install @google/generative-ai');
     }
   }

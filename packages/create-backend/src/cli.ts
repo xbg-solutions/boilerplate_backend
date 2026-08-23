@@ -16,6 +16,9 @@ import { initProject } from './commands/init';
 import { syncProject } from './commands/sync';
 import { addUtility } from './commands/add-util';
 
+// Read at runtime so the CLI reports its own installed version; a static JSON
+// import would need import assertions and complicate the CJS build.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const pkg = require('../package.json');
 
 const program = new Command();

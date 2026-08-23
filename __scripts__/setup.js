@@ -188,7 +188,7 @@ async function setup() {
         stdio: 'inherit',
       });
       console.log(`${colors.green}Dependencies installed.${colors.reset}`);
-    } catch (error) {
+    } catch {
       console.error(`${colors.red}Failed to install dependencies. Run 'npm install' in functions/ manually.${colors.reset}`);
     }
   }

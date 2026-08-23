@@ -19,9 +19,12 @@ export function getLLMConnector(): LLMConnector {
   if (!defaultConnector) {
     try {
       // Try to import project-specific configuration
+      // Optional, project-supplied config that legitimately may not exist —
+      // require() is what makes the miss catchable at runtime.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { PROVIDER_CONFIGS } = require('../../config/llm-providers.config');
       defaultConnector = new LLMConnector(PROVIDER_CONFIGS);
-    } catch (error) {
+    } catch {
       // Fall back to default configuration if project config not found
       console.warn('Project LLM configuration not found, using default configuration');
       defaultConnector = new LLMConnector();

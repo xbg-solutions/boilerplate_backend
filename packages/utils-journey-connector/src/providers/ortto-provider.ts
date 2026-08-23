@@ -307,7 +307,7 @@ export class OrttoProvider implements JourneyProvider {
         enrolledCount: campaign.enrolled_count,
         completedCount: campaign.completed_count,
       })) || [];
-    } catch (error) {
+    } catch {
       return [];
     }
   }
@@ -325,7 +325,7 @@ export class OrttoProvider implements JourneyProvider {
         description: segment.description,
         conditions: segment.conditions,
       })) || [];
-    } catch (error) {
+    } catch {
       return [];
     }
   }

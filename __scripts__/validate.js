@@ -74,7 +74,7 @@ function readEnvFile() {
   return env;
 }
 
-function checkCommand(command, name) {
+function checkCommand(command, _name) {
   try {
     execSync(`which ${command}`, { stdio: 'ignore' });
     return true;
@@ -91,7 +91,7 @@ function runCommand(command, cwd) {
       encoding: 'utf8',
     });
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

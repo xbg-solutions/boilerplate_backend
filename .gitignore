@@ -29,3 +29,9 @@ npm-debug.log*
 # Build artifacts
 dist/
 build/
+
+# npm auth token — never commit
+.npmrc
+
+# jest coverage output
+coverage/

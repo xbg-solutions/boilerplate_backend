@@ -52,9 +52,13 @@ export function createFirebaseTokenHandler<TCustomClaims = Record<string, any>>(
   };
   database: any; // Firestore instance
 }) {
+  // Resolved lazily inside the factory to keep module load order independent of
+  // which adapter a consumer actually uses.
+  /* eslint-disable @typescript-eslint/no-require-imports */
   const { createTokenHandler } = require('./generic-token-handler');
   const { createFirebaseAuthAdapter } = require('./firebase-adapter');
   const { createFirestoreTokenDatabase } = require('./firestore-database-adapter');
+  /* eslint-enable @typescript-eslint/no-require-imports */
 
   // Create database adapter
   const tokenDatabase = createFirestoreTokenDatabase(

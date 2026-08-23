@@ -98,7 +98,7 @@ export class MondayProvider implements WorkManagementProvider {
     return this.mapMondayItemToTask(data.create_item);
   }
 
-  async updateTask(taskId: string, updates: UpdateTaskRequest): Promise<WorkTask> {
+  async updateTask(taskId: string, _updates: UpdateTaskRequest): Promise<WorkTask> {
     const columnValues = JSON.stringify({});
     const mutation = `mutation ($itemId: ID!, $boardId: ID!, $columnValues: JSON!) { change_multiple_column_values(item_id: $itemId, board_id: $boardId, column_values: $columnValues) { id name } }`;
     const data = await this.query(mutation, { itemId: taskId, boardId: 0, columnValues });

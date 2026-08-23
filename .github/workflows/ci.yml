@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Must be >= 22.12: uuid 14 and jose 6 are ESM-only, and require(ESM)
+          # does not exist before that. Earlier 22.x fails at runtime with
+          # ERR_REQUIRE_ESM.
+          node-version: '22.12'
+          cache: npm
+
+      # Deliberately NOT --legacy-peer-deps. A peer conflict is a real defect:
+      # firebase-functions 6 peer-required firebase-admin ^11-^13 while the repo
+      # declared ^14, and that mismatch reached main because nothing checked it.
+      - name: Install (strict peer resolution)
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      # High and above only. The single outstanding moderate advisory
+      # (uuid <11.1.1, GHSA-w5hq-g745-h8pq) is not reachable — it affects
+      # v3/v5/v6 when passed a buffer, and both consumers call v4() only.
+      # Failing on it permanently would train everyone to ignore this step.
+      - name: Audit
+        run: npm audit --audit-level=high

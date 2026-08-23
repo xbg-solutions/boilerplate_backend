@@ -86,7 +86,7 @@ export class LLMConnector {
       const provider = this.getProvider(providerName);
       const info = provider.getInfo();
       return info.supportedFeatures.includes(feature);
-    } catch (error) {
+    } catch {
       return false;
     }
   }

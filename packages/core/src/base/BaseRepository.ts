@@ -12,10 +12,8 @@ import { getCacheConnector, RepositoryCacheConfig, CacheOptions, CacheProviderTy
 import { CACHE_CONFIG } from '../config/cache.config';
 import {
   QueryOptions,
-  WhereClause,
   PaginationResult,
   TransactionContext,
-  WhereFilterOp,
 } from '../types/repository';
 import { FirestoreTransactionContext } from './FirestoreScopedRepository';
 

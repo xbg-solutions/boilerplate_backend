@@ -33,6 +33,7 @@ export class AuthAdapter {
    */
   private createOnUserCreated(): any {
     // Import here to avoid circular dependency
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { onDocumentCreated } = require('firebase-functions/v2/firestore');
     
     return onDocumentCreated(
@@ -66,6 +67,7 @@ export class AuthAdapter {
    */
   private createOnUserDeleted(): any {
     // Import here to avoid circular dependency
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { onDocumentDeleted } = require('firebase-functions/v2/firestore');
     
     return onDocumentDeleted(

@@ -213,7 +213,7 @@ export class WorkdayProvider implements ERPProvider {
   /**
    * Get time off requests
    */
-  async getTimeOffRequests(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<TimeOffRequest>> {
+  async getTimeOffRequests(employeeId: string, _options?: ERPQueryOptions): Promise<ERPResponse<TimeOffRequest>> {
     try {
       const response = await this.request(`/Absence_Management/v1/workers/${encodeURIComponent(employeeId)}/timeOffEntries`);
 
@@ -246,7 +246,7 @@ export class WorkdayProvider implements ERPProvider {
   /**
    * Get pay stubs
    */
-  async getPayStubs(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<PayStub>> {
+  async getPayStubs(employeeId: string, _options?: ERPQueryOptions): Promise<ERPResponse<PayStub>> {
     try {
       const response = await this.request(`/Payroll/v1/workers/${encodeURIComponent(employeeId)}/payStatements`);
 
@@ -311,7 +311,7 @@ export class WorkdayProvider implements ERPProvider {
   /**
    * Get expense reports
    */
-  async getExpenseReports(employeeId: string, options?: ERPQueryOptions): Promise<ERPResponse<ExpenseReport>> {
+  async getExpenseReports(employeeId: string, _options?: ERPQueryOptions): Promise<ERPResponse<ExpenseReport>> {
     try {
       const response = await this.request(`/Expense/v1/workers/${encodeURIComponent(employeeId)}/expenseReports`);
 
@@ -368,7 +368,7 @@ export class WorkdayProvider implements ERPProvider {
   /**
    * Get departments
    */
-  async getDepartments(options?: ERPQueryOptions): Promise<ERPResponse<Department>> {
+  async getDepartments(_options?: ERPQueryOptions): Promise<ERPResponse<Department>> {
     try {
       const response = await this.request('/Human_Resources/v1/organizations');
 
@@ -402,7 +402,7 @@ export class WorkdayProvider implements ERPProvider {
   /**
    * Get job requisitions
    */
-  async getJobRequisitions(options?: ERPQueryOptions): Promise<ERPResponse<JobRequisition>> {
+  async getJobRequisitions(_options?: ERPQueryOptions): Promise<ERPResponse<JobRequisition>> {
     try {
       const response = await this.request('/Recruiting/v1/jobRequisitions');
 

@@ -127,7 +127,7 @@ export class ClickUpProvider implements WorkManagementProvider {
     return this.mapClickUpTaskToArticle(response.data);
   }
 
-  async getArticles(parentId?: string, options?: WorkQueryOptions): Promise<WorkArticle[]> {
+  async getArticles(parentId?: string, _options?: WorkQueryOptions): Promise<WorkArticle[]> {
     if (!parentId) throw new Error('Parent list ID required for ClickUp');
     const response = await this.request(`/list/${encodeURIComponent(parentId)}/task`);
     return response.data.tasks.map((task: any) => this.mapClickUpTaskToArticle(task));

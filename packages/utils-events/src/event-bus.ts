@@ -49,7 +49,7 @@ class EventBus extends EventEmitter {
           // Regular listener
           (rawListener as (...args: any[]) => void)(payload);
         }
-      } catch (error) {
+      } catch {
         // Silently catch errors from listeners
         // This matches the behavior expected by the tests
         // where one failing listener doesn't stop others

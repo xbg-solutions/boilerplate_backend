@@ -35,7 +35,7 @@ function runCommand(command, description) {
     });
     console.log(`${colors.green}✅ ${description} complete${colors.reset}\n`);
     return true;
-  } catch (error) {
+  } catch {
     console.error(`${colors.red}❌ ${description} failed${colors.reset}\n`);
     return false;
   }
@@ -73,7 +73,7 @@ async function deploy() {
           stdio: 'inherit',
         });
         console.log(`${colors.green}✅ Tests passed${colors.reset}\n`);
-      } catch (error) {
+      } catch {
         console.error(`${colors.red}❌ Tests failed${colors.reset}\n`);
         const proceed = process.argv.includes('--force');
         if (!proceed) {
@@ -103,7 +103,7 @@ ${colors.bright}Next steps:${colors.reset}
 
 ${colors.green}🎉 Your backend is live!${colors.reset}
 `);
-  } catch (error) {
+  } catch {
     console.error(`\n${colors.red}❌ Deployment failed${colors.reset}\n`);
     process.exit(1);
   }

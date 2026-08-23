@@ -156,7 +156,7 @@ export class PandaDocProvider implements DocumentProvider {
     }
   }
 
-  async downloadDocument(documentId: string, options?: DownloadOptions): Promise<Buffer> {
+  async downloadDocument(documentId: string, _options?: DownloadOptions): Promise<Buffer> {
     try {
       const response = await this.request(`/documents/${encodeURIComponent(documentId)}/download`, {
         responseType: 'arraybuffer',

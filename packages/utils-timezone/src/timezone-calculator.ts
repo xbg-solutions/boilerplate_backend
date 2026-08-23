@@ -336,7 +336,11 @@ export function getCountryInfo(countryCode: string) {
 export function calculateTimezoneWithLogger(
   city: string,
   countryCode: string,
-  logger?: { debug?: Function; warn?: Function; info?: Function }
+  logger?: {
+    debug?: (...args: any[]) => void;
+    warn?: (...args: any[]) => void;
+    info?: (...args: any[]) => void;
+  }
 ): TimezoneCalculationResult {
   const normalizedCountryCode = countryCode.toUpperCase().trim();
 

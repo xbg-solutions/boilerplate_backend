@@ -182,7 +182,7 @@ export const SaaSMultiTenantModel: DataModelSpecification = {
           type: 'number',
           default: 0,
         },
-        storageLimit GB: {
+        storageLimitGB: {
           type: 'number',
           default: 5,
         },

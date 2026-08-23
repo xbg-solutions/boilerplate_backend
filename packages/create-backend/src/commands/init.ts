@@ -9,7 +9,7 @@ import * as nativeFs from 'fs';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { execSync } from 'child_process';
-import { getOptionalUtilities, getRequiredUtilities, UtilityDefinition } from '../utils-registry';
+import { getOptionalUtilities, getRequiredUtilities } from '../utils-registry';
 
 interface InitOptions {
   directory: string;
@@ -635,7 +635,7 @@ TOKEN_BLACKLIST_ENABLED=true
 `;
 }
 
-function printSummary(answers: any, features: any, selectedUtils: string[], targetDir: string): void {
+function printSummary(answers: any, features: any, selectedUtils: string[], _targetDir: string): void {
   const enabledFeatures = Object.entries(features)
     .filter(([, v]) => v)
     .map(([k]) => k);

@@ -37,7 +37,7 @@ if (!fs.existsSync(libPath)) {
       stdio: 'inherit',
     });
     console.log(`\n${colors.green}✅ Build complete${colors.reset}\n`);
-  } catch (error) {
+  } catch {
     console.error(`${colors.red}❌ Build failed. Please run 'npm run build' manually.${colors.reset}`);
     process.exit(1);
   }

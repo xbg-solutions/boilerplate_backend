@@ -135,7 +135,7 @@ export class WebSocketProvider implements RealtimeProvider {
           entry.client.channels.push(message.channel);
         }
       }
-    } catch (error) {
+    } catch {
       // Invalid message
     }
   }

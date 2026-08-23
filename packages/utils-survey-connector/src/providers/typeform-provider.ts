@@ -125,13 +125,13 @@ export class TypeformProvider implements SurveyProvider {
     return response.data.items.map((resp: any) => this.mapTypeformResponseToSurveyResponse(resp, surveyId));
   }
 
-  async getResponse(responseId: string): Promise<SurveyResponse> {
+  async getResponse(_responseId: string): Promise<SurveyResponse> {
     // Typeform doesn't have a direct endpoint for single response
     // Need to extract from form responses
     throw new Error('Typeform does not support fetching individual responses by ID');
   }
 
-  async submitResponse(request: SubmitResponseRequest): Promise<SurveyResponse> {
+  async submitResponse(_request: SubmitResponseRequest): Promise<SurveyResponse> {
     // Typeform doesn't support direct API submission - responses come through form submissions
     throw new Error('Typeform does not support API-based response submission. Use form links instead.');
   }
