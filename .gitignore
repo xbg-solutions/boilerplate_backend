@@ -35,3 +35,4 @@ build/
 
 # jest coverage output
 coverage/
+scripts/publish-logs/
