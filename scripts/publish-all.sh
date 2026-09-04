@@ -23,7 +23,10 @@ ORDER="utils-logger utils-cache-connector utils-events utils-firebase-event-brid
 failed=""
 for short in $ORDER; do
   name="@xbg.solutions/$short"
-  version=$(node -p "require('./packages/$short/package.json').version")
+  dir=$(node -e "const fs=require('fs');for(const d of fs.readdirSync('packages')){const f='packages/'+d+'/package.json';if(fs.existsSync(f)&&JSON.parse(fs.readFileSync(f)).name==='$name'){console.log(d);break}}")
+  if [ -z "$dir" ]; then echo "FAILED  $name (no workspace directory carries that name)"; failed="$failed $short"; continue; fi
+  version=$(node -p "require('./packages/$dir/package.json').version")
+  if [ -z "$version" ]; then echo "FAILED  $name (could not read version)"; failed="$failed $short"; continue; fi
   if npm view "$name@$version" version >/dev/null 2>&1; then
     echo "skip    $name@$version (already on the registry)"; continue
   fi
