@@ -458,12 +458,12 @@ function generateFunctionsPackageJson(projectName: string, packages: string[]): 
 
   // Add XBG packages
   for (const pkg of packages) {
-    deps[pkg] = '^2.0.0';
+    deps[pkg] = '^3.0.0';
   }
 
   // Add required non-XBG dependencies
   deps['dotenv'] = '^16.3.1';
-  deps['firebase-admin'] = '^13.7.0';
+  deps['firebase-admin'] = '^14.2.0';
   deps['firebase-functions'] = '^7.2.2';
 
   return {

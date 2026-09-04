@@ -14,13 +14,34 @@
  *
  *   import RedisStore from 'rate-limit-redis';
  *   createRateLimiter({ store: new RedisStore({ sendCommand: (...a) => client.call(...a) }) })
+ *
+ * Named databases: the default store resolves Firestore lazily on first use.
+ * Projects that have no `(default)` database MUST pass either `databaseId`
+ * or a `firestore` instance, otherwise every counter read fails with
+ * NOT_FOUND and, because the limiter is mounted ahead of the router, every
+ * request 500s before authentication:
+ *
+ *   createApp({ rateLimit: { databaseId: 'accounts' } })
  */
 
 import rateLimit, { Store, ClientRateLimitInfo, Options } from 'express-rate-limit';
 import * as crypto from 'crypto';
-import { DocumentReference, getFirestore } from 'firebase-admin/firestore';
+import { getApp } from 'firebase-admin/app';
+import { DocumentReference, Firestore, getFirestore } from 'firebase-admin/firestore';
 import { MIDDLEWARE_CONFIG } from '../config/middleware.config';
 import { logger } from '@xbg.solutions/utils-logger';
+
+/** Constructor options for {@link FirestoreRateLimitStore}. */
+export interface FirestoreRateLimitStoreOptions {
+  /** Collection that holds the counters. Default `rateLimits`. */
+  collection?: string;
+  /** Key prefix, so several limiters can share one collection. Default `rl:`. */
+  prefix?: string;
+  /** Use this Firestore instance. Takes precedence over `databaseId`. */
+  firestore?: Firestore;
+  /** Named Firestore database id (e.g. `accounts`). Omit for `(default)`. */
+  databaseId?: string;
+}
 
 /**
  * A shared, Firestore-backed store for express-rate-limit. Counts are kept in a
@@ -30,11 +51,26 @@ import { logger } from '@xbg.solutions/utils-logger';
 export class FirestoreRateLimitStore implements Store {
   private windowMs = 60_000;
   private collectionName: string;
+  private firestore?: Firestore;
+  private databaseId?: string;
   prefix: string;
 
-  constructor(opts: { collection?: string; prefix?: string } = {}) {
+  constructor(opts: FirestoreRateLimitStoreOptions = {}) {
     this.collectionName = opts.collection ?? 'rateLimits';
     this.prefix = opts.prefix ?? 'rl:';
+    this.firestore = opts.firestore;
+    this.databaseId = opts.databaseId;
+  }
+
+  /**
+   * Resolved lazily so the store can be constructed (typically at module load,
+   * inside `createApp()`) before the consumer has called `initializeApp()`.
+   */
+  private get db(): Firestore {
+    if (!this.firestore) {
+      this.firestore = this.databaseId ? getFirestore(getApp(), this.databaseId) : getFirestore();
+    }
+    return this.firestore;
   }
 
   init(options: Options): void {
@@ -45,13 +81,13 @@ export class FirestoreRateLimitStore implements Store {
     // Hash the key: it may contain characters that are invalid in a Firestore
     // document ID (IPv6 ':' / '/'), and hashing also bounds the length.
     const id = crypto.createHash('sha256').update(this.prefix + key).digest('hex');
-    return getFirestore().collection(this.collectionName).doc(id);
+    return this.db.collection(this.collectionName).doc(id);
   }
 
   async increment(key: string): Promise<ClientRateLimitInfo> {
     const ref = this.docRef(key);
     const nowMs = Date.now();
-    return getFirestore().runTransaction(async (tx) => {
+    return this.db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.data();
       let totalHits: number;
@@ -71,7 +107,7 @@ export class FirestoreRateLimitStore implements Store {
 
   async decrement(key: string): Promise<void> {
     const ref = this.docRef(key);
-    await getFirestore().runTransaction(async (tx) => {
+    await this.db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const data = snap.data();
       if (data && typeof data.totalHits === 'number' && data.totalHits > 0) {
@@ -85,9 +121,23 @@ export class FirestoreRateLimitStore implements Store {
   }
 }
 
-/** Options accepted by the limiter factories (allows swapping the store). */
+/**
+ * Options accepted by the limiter factories. Either swap the store entirely
+ * (`store`), or point the default Firestore store at a specific database
+ * (`databaseId` / `firestore`). `store` wins when both are given.
+ */
 export interface RateLimiterOptions {
   store?: Store;
+  firestore?: Firestore;
+  databaseId?: string;
+}
+
+function defaultStore(options: RateLimiterOptions, prefix?: string): Store {
+  return options.store ?? new FirestoreRateLimitStore({
+    prefix,
+    firestore: options.firestore,
+    databaseId: options.databaseId,
+  });
 }
 
 /**
@@ -101,7 +151,7 @@ export function createRateLimiter(options: RateLimiterOptions = {}) {
     legacyHeaders: false,
     skipSuccessfulRequests: MIDDLEWARE_CONFIG.rateLimit.skipSuccessfulRequests,
     skipFailedRequests: MIDDLEWARE_CONFIG.rateLimit.skipFailedRequests,
-    store: options.store ?? new FirestoreRateLimitStore(),
+    store: defaultStore(options),
     handler: (req, res) => {
       logger.warn('Rate limit exceeded', {
         ip: req.ip,
@@ -128,7 +178,7 @@ export function createStrictRateLimiter(options: RateLimiterOptions = {}) {
     max: 5, // 5 requests per window
     standardHeaders: true,
     legacyHeaders: false,
-    store: options.store ?? new FirestoreRateLimitStore({ prefix: 'rl-strict:' }),
+    store: defaultStore(options, 'rl-strict:'),
     handler: (req, res) => {
       logger.warn('Strict rate limit exceeded', {
         ip: req.ip,
@@ -155,7 +205,7 @@ export function createPerUserRateLimiter(max = 100, windowMs = 15 * 60 * 1000, o
     max,
     standardHeaders: true,
     legacyHeaders: false,
-    store: options.store ?? new FirestoreRateLimitStore({ prefix: 'rl-user:' }),
+    store: defaultStore(options, 'rl-user:'),
     keyGenerator: (req) => {
       const user = (req as any).user;
       return user?.uid || req.ip || 'anonymous';

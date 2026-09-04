@@ -7,7 +7,101 @@ proactively instead of discovering them at deploy time.
 
 ---
 
-## ⚠️ Breaking behavior changes in the security-hardening release
+## 3.0 — firebase-admin 14, peer dependencies, named-database rate limiting
+
+Published 2026-09. Three consumer-facing changes; every one of them is
+visible at `npm install` or `tsc`, none at runtime only.
+
+### 1. `firebase-admin` and `firebase-functions` are now **peerDependencies**
+
+`backend-core` and the utils that touch Firebase (`utils-cache-connector`,
+`utils-firebase-event-bridge`, `utils-firestore-connector`, `utils-logger`,
+`utils-notification-inbox-connector`, `utils-push-notifications-connector`,
+`utils-token-handler`) no longer bundle their own copy. **Your `functions/`
+must list them**:
+
+```json
+"firebase-admin": "^14.2.0",
+"firebase-functions": "^7.0.0"
+```
+
+Why: on 1.x/2.x, npm installed a second `firebase-admin` *inside* each
+boilerplate package whenever the project's own range did not overlap. That
+gave two module instances, two app registries and two `Timestamp` classes
+(`instanceof` fails across them). It happened silently in production. After
+the bump, `find functions/node_modules/@xbg.solutions -maxdepth 3 -name
+firebase-admin` must return nothing.
+
+### 2. `firebase-admin` 14 — the namespaced API is gone
+
+The packages are built against 14 and import only the modular entry points,
+and the peer range requires 14. Your own code must migrate too: see the
+v13 → v14 mapping below (unchanged from the previously deferred section).
+Sweep with:
+
+```
+grep -rn "admin\.\(auth\|firestore\|storage\|messaging\|app\|apps\|credential\|initializeApp\)" functions/src
+```
+
+`firebase-functions` ≥ 6 already exports the v2 API at `firebase-functions/v2`;
+if you still import v1 from the package root, move to `/v1` or `/v2`
+explicitly.
+
+### 3. Rate limiting on a named Firestore database
+
+`createApp()` mounts a global limiter backed by `FirestoreRateLimitStore`. On
+2.x that store always used the `(default)` database; projects with only named
+databases got gRPC `NOT_FOUND` on every request — as a **500, before
+authentication**, because the limiter sits ahead of the router. Every
+consumer carried a local `rate-limit-store.ts` patch. Delete it and pass the
+database instead:
+
+```ts
+createApp({
+  controllers,
+  rateLimit: { databaseId: 'accounts' },   // or { firestore }, or { store }, or false
+});
+```
+
+Resolution is lazy (first request), so `createApp()` may still run before
+`initializeApp()`. `RATE_LIMIT_ENABLED=false` is now honoured; `development`
+never mounts one.
+
+### 1.x → 3.0 in one move (accounts, build, morph)
+
+Nothing in 2.x is worth stopping at; go straight to 3.0:
+
+1. `functions/package.json`: every `@xbg.solutions/*` → `^3.0.0`;
+   `firebase-admin` → `^14.2.0`; `firebase-functions` → `^7.0.0`. `npm install`.
+2. `npx tsc --noEmit` and fix what it flags — almost all of it is the
+   namespaced sweep above.
+3. `createApp({ rateLimit: { databaseId } })`.
+4. **deletedAt backfill.** 1.x and 2.0.1 wrote records through `BaseEntity`
+   without a `deletedAt` field, and `findAll` filters `where('deletedAt','==',
+   null)`, which never matches a *missing* field — so those records were
+   invisible to every list query. 2.0.2 fixed the write; existing documents
+   need a one-off stamp. Template: fediCRM's
+   `functions/src/scripts/backfill-deleted-at.js`. It touches only documents
+   with **no** `deletedAt` field, so it can never resurrect a soft-deleted
+   record, and old code reads the result correctly — it never needs reverting.
+   Dry-run first.
+5. `npx jest`, deploy, then smoke: an unauthenticated call must return **401,
+   not 500** (500 means the rate-limit store is still on `(default)`); a burst
+   must return 429.
+
+### The 2.0 secure-by-default changes, revisited
+
+The three breaks below were checked against every 1.x consumer on
+2026-09-05 and hit **nothing live**: each `BaseService` subclass already
+overrode all three `check*Access` methods, the generated `BaseController`s
+were either wrapped by a project controller that only overrides
+`createContext` or never mounted, and the page cap only applies to
+`BaseController` list routes. Read the section anyway — a *new* model
+generated after the bump gets the defaults.
+
+---
+
+## ⚠️ Breaking behavior changes in the security-hardening release (2.0)
 
 Two secure-by-default changes will affect existing downstream projects the
 moment they bump `@xbg.solutions/backend-core`. Both fail **closed** (they block
@@ -36,9 +130,9 @@ data leak. Re-grant access explicitly:
 
 1. Bump in `functions/package.json`, run `npm install` in `functions/`.
 2. `cd functions && npx tsc --noEmit` — fix any type errors first.
-3. `cd functions && npx jest` — the full suite (currently ~797 tests) is the
-   real regression gate. The `packages/*` workspaces have `__tests__` folders
-   but **no `test` script**, so they do not run in CI.
+3. `cd functions && npx jest` — the full suite (~800 tests) is the real
+   regression gate. `npm test` at the root runs the `packages/*` suites that
+   exist (discovered by `jest.config.js`).
 4. `npm run build` at the repo root tsc-compiles every distributable package.
 5. Review `firestore.rules` and `firestore.indexes.json` if the release notes
    mention query or schema changes.
@@ -50,9 +144,9 @@ data leak. Re-grant access explicitly:
 
 ---
 
-## Deferred: `firebase-admin` 13.x → 14.x (clears 11 moderate audit advisories)
+## Done in 3.0: `firebase-admin` 13.x → 14.x (cleared 11 moderate audit advisories)
 
-**Status:** intentionally deferred. As of this writing `npm audit` reports 11
+**Status:** done for `packages/*` in 3.0.0 (branch `chore/admin14-migration-and-tooling`). The reference app under `functions/` still imports the namespaced API against admin 13; it compiles because 13 supports both, and it is the next thing to sweep. The notes below are kept because they are the migration mapping consumers need. When first written `npm audit` reports 11
 **moderate** advisories, all inside Google's own dependency chain beneath
 `firebase-admin` (`@google-cloud/firestore`, `@google-cloud/storage`,
 `google-gax`, `teeny-request`, `retry-request`, `gaxios`, `uuid`). The only fix

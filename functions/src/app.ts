@@ -5,10 +5,11 @@
 
 import express, { Express, Router } from 'express';
 import helmet from 'helmet';
-import { APP_CONFIG, validateAllConfig } from './config';
+import { APP_CONFIG, MIDDLEWARE_CONFIG, validateAllConfig } from './config';
 import {
   createCorsMiddleware,
   createRateLimiter,
+  RateLimiterOptions,
   requestIdMiddleware,
   requestLoggingMiddleware,
   sanitizeBody,
@@ -20,6 +21,14 @@ import { logger } from './utilities/logger';
 export interface AppOptions {
   tokenHandler?: any;
   controllers?: Array<{ getRouter: () => Router; getBasePath: () => string }>;
+  /**
+   * Global rate limiter. Omit for the default Firestore-backed store on the
+   * `(default)` database; pass `{ databaseId }` (or `{ firestore }` /
+   * `{ store }`) when the project uses named databases; pass `false` to not
+   * mount one. Also honours `RATE_LIMIT_ENABLED=false`. Never mounted in
+   * `development`.
+   */
+  rateLimit?: RateLimiterOptions | false;
 }
 
 /**
@@ -67,8 +76,12 @@ export function createApp(options: AppOptions = {}): Express {
   app.use(sanitizeBody());
 
   // ===== RATE LIMITING =====
-  if (APP_CONFIG.app.environment !== 'development') {
-    app.use(createRateLimiter());
+  if (
+    options.rateLimit !== false &&
+    MIDDLEWARE_CONFIG.rateLimit.enabled &&
+    APP_CONFIG.app.environment !== 'development'
+  ) {
+    app.use(createRateLimiter(options.rateLimit ?? {}));
   }
 
   // ===== HEALTH CHECK =====

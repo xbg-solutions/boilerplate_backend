@@ -96,12 +96,16 @@ describe('BaseEntity', () => {
       expect(data.updatedAt).toBeDefined();
     });
 
-    it('should not include deletedAt if not set', () => {
+    it('always writes deletedAt (null when not deleted), so findAll can match it', () => {
+      // Firestore's `where('deletedAt', '==', null)` matches an explicit null
+      // and never a missing field; omitting it made new records invisible to
+      // every list query (fixed in 2.0.2).
       const entity = new TestEntity('John Doe', 'john@example.com');
 
       const data = entity.toFirestore();
 
-      expect('deletedAt' in data).toBe(false);
+      expect('deletedAt' in data).toBe(true);
+      expect(data.deletedAt).toBeNull();
     });
 
     it('should include deletedAt if set', () => {

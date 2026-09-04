@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-events",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "description": "Event bus for domain events",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -13,7 +13,6 @@
     "clean": "rm -rf lib",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^20.11.0",
     "typescript": "^5.3.3"
