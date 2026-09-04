@@ -2,8 +2,9 @@
 # Publish every workspace package in dependency order.
 #
 #   npm login                      # once; 2FA token lands in ~/.npmrc
-#   scripts/publish-all.sh 123456   # the six-digit code from your authenticator,
-#                                  # or no argument to let npm prompt for it
+#   scripts/publish-all.sh          # npm completes 2FA itself (browser, passkey,
+#                                  # security key, or a code prompt)
+#   scripts/publish-all.sh 123456   # optional: a TOTP code, if that is what you use
 #
 # Already-published versions are skipped, so the script can be re-run with a
 # fresh OTP if the first one expires part-way through. Order matters: a
@@ -39,24 +40,23 @@ done
 if [ -z "$pending" ]; then echo "nothing to publish (log: $LOG)"; exit 0; fi
 
 # Pass 2: build everything pending now, so prepublishOnly's tsc is warm and
-# quick, then take the code and publish immediately.
+# quick, then publish. npm handles the second factor on its own.
 for item in $pending; do
   dir=${item#*:}; dir=${dir%%:*}
   (cd "packages/$dir" && npm run build --if-present >/dev/null 2>&1) || echo "warning: build failed in packages/$dir (publish will retry it)"
 done
 if [ -z "$OTP" ]; then
-  printf 'Enter the six-digit code from your authenticator NOW: '
-  read -r OTP </dev/tty
+  echo "No code given: npm will complete the second factor itself (browser / passkey / security key / prompt)."
 fi
 
 failed=""
 for item in $pending; do
   short=${item%%:*}; rest=${item#*:}; dir=${rest%%:*}; version=${rest#*:}
   name="@xbg.solutions/$short"
-  if npm publish -w "$name" --access public --otp="$OTP"; then
+  if npm publish -w "$name" --access public ${OTP:+--otp="$OTP"} </dev/tty; then
     echo "ok      $name@$version"
   else
-    echo "FAILED  $name@$version (EOTP = code expired, re-run with a new one; E401/E404 = not logged in)"
+    echo "FAILED  $name@$version (EOTP = second factor not completed in time, re-run; E401/E404 = not logged in)"
     failed="$failed $short"
   fi
 done
