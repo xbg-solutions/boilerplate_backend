@@ -2,8 +2,8 @@
  * Generic Firebase configuration and database access utility
  * Clean implementation without legacy compatibility
  */
-import * as admin from 'firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getApp, initializeApp, applicationDefault, deleteApp } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { logger } from '../logger';
 import {
   DatabaseConfig,
@@ -47,7 +47,7 @@ export class FirestoreConnector<TDatabaseNames extends string = string> {
       // Check if already initialized (unless forcing reinitialize)
       if (!this.options.forceReinitialize) {
         try {
-          admin.app();
+          getApp();
           this.connectionState.initialized = true;
           logger.debug('Firebase already initialized');
         } catch {
@@ -60,12 +60,12 @@ export class FirestoreConnector<TDatabaseNames extends string = string> {
         
         if (environment.isFunctionsEnvironment) {
           // Use default initialization for Firebase Functions
-          admin.initializeApp();
+          initializeApp();
         } else {
           const firebaseConfig = getFirebaseConfigFromEnv();
           
-          admin.initializeApp({
-            credential: admin.credential.applicationDefault(),
+          initializeApp({
+            credential: applicationDefault(),
             projectId: firebaseConfig.projectId,
             databaseURL: firebaseConfig.databaseURL,
             storageBucket: firebaseConfig.storageBucket,
@@ -113,7 +113,7 @@ export class FirestoreConnector<TDatabaseNames extends string = string> {
         // Production: Use named databases
         for (const [dbName, dbConfig] of Object.entries(this.config) as Array<[TDatabaseNames, DatabaseConfig<TDatabaseNames>[TDatabaseNames]]>) {
           const firestoreName = dbConfig.firestoreName || dbName;
-          dbInstances[dbName] = getFirestore(admin.app(), firestoreName);
+          dbInstances[dbName] = getFirestore(getApp(), firestoreName);
         }
         
         logger.info(`Initialized ${this.getDatabaseNames().length} named Firestore databases`, {
@@ -188,7 +188,7 @@ export class FirestoreConnector<TDatabaseNames extends string = string> {
       const testCollection = 'connection-test';
       const testDocId = `test-${Date.now()}`;
       const testData: TestDocument = {
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
         test: true,
         database: String(dbName)
       };
@@ -285,7 +285,7 @@ export class FirestoreConnector<TDatabaseNames extends string = string> {
 
     try {
       // Test Firebase admin connectivity
-      const app = admin.app();
+      const app = getApp();
       const firebaseHealthy = !!app;
       
       // Test all database connections
@@ -331,7 +331,7 @@ export class FirestoreConnector<TDatabaseNames extends string = string> {
       }
       
       // Delete the default app to fully clean up
-      await admin.app().delete();
+      await deleteApp(getApp());
       this.connectionState.initialized = false;
       this.connectionState.connected = false;
       logger.info('Firebase connections closed successfully', context);

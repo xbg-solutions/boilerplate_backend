@@ -22,8 +22,7 @@
  */
 
 import * as crypto from 'crypto';
-import * as admin from 'firebase-admin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, getFirestore, Firestore, FieldValue, CollectionReference, Query } from 'firebase-admin/firestore';
 import { BaseCacheProvider } from './base-cache-provider';
 import {
   CacheProviderType,
@@ -45,7 +44,7 @@ interface FirestoreCacheDocument {
 }
 
 export class FirestoreCacheProvider extends BaseCacheProvider {
-  private db: admin.firestore.Firestore;
+  private db: Firestore;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(private config: FirestoreCacheProviderConfig) {
@@ -53,7 +52,7 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
 
     // Get Firestore instance
     // We use the default app's Firestore (configured via CACHE_FIRESTORE_DATABASE)
-    this.db = admin.firestore();
+    this.db = getFirestore();
 
     // Start automatic cleanup if enabled
     if (config.enableCleanup) {
@@ -68,8 +67,8 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
   /**
    * Get collection reference
    */
-  private getCollection(): admin.firestore.CollectionReference<FirestoreCacheDocument> {
-    return this.db.collection(this.config.collection) as admin.firestore.CollectionReference<FirestoreCacheDocument>;
+  private getCollection(): CollectionReference<FirestoreCacheDocument> {
+    return this.db.collection(this.config.collection) as CollectionReference<FirestoreCacheDocument>;
   }
 
   /**
@@ -115,7 +114,7 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
 
       // Update access metadata (fire and forget)
       docRef.update({
-        hitCount: admin.firestore.FieldValue.increment(1),
+        hitCount: FieldValue.increment(1),
         lastAccessedAt: Timestamp.now(),
       }).catch((error) => {
         logger.warn('Failed to update cache access metadata', {
@@ -305,7 +304,7 @@ export class FirestoreCacheProvider extends BaseCacheProvider {
     mode: 'prefix' | 'suffix' | 'contains' = 'prefix'
   ): Promise<number> {
     try {
-      let query: admin.firestore.Query<FirestoreCacheDocument>;
+      let query: Query<FirestoreCacheDocument>;
 
       if (mode === 'prefix') {
         // Use Firestore range query for prefix matching

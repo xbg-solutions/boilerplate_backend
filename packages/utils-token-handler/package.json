@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-token-handler",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "JWT generation, verification, and blacklist management",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@xbg.solutions/utils-logger": "^3.0.0",
-    "uuid": "14.0.1"
+    "uuid": "^14.0.1"
   },
   "peerDependencies": {
     "firebase-admin": "^14.2.0"

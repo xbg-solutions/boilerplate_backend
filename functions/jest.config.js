@@ -8,7 +8,12 @@ module.exports = {
   ],
   transform: {
     '^.+\\.ts$': 'ts-jest',
+    // firebase-admin 14 depends on jose 6 and the utils on uuid 14; both ship
+    // ESM only. Jest runs CommonJS, so those packages are transformed rather
+    // than ignored like the rest of node_modules.
+    '^.+\\.js$': ['ts-jest', { tsconfig: { allowJs: true, module: 'commonjs', esModuleInterop: true }, diagnostics: false }],
   },
+  transformIgnorePatterns: ['^(?!.*/node_modules/(jose|uuid)/).*/node_modules/'],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',

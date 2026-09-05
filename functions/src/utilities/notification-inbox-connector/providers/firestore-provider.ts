@@ -5,8 +5,8 @@
  * realtime delivery via Firestore onSnapshot — no server-side SSE/WebSocket needed.
  */
 
-import * as admin from 'firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getApp } from 'firebase-admin/app';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { NotificationInboxProvider } from '../notification-inbox-connector';
 import {
   WriteNotificationRequest,
@@ -37,7 +37,7 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
 
   constructor(config: FirestoreInboxProviderConfig) {
     this.db = config.databaseId
-      ? getFirestore(admin.app(), config.databaseId)
+      ? getFirestore(getApp(), config.databaseId)
       : getFirestore();
     this.collectionName = config.collection;
     this.retention = config.retention;
@@ -104,11 +104,11 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
     }
 
     if (filters?.since) {
-      query = query.where('createdAt', '>=', admin.firestore.Timestamp.fromDate(filters.since));
+      query = query.where('createdAt', '>=', Timestamp.fromDate(filters.since));
     }
 
     if (filters?.before) {
-      query = query.where('createdAt', '<', admin.firestore.Timestamp.fromDate(filters.before));
+      query = query.where('createdAt', '<', Timestamp.fromDate(filters.before));
     }
 
     // Order
@@ -152,7 +152,7 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
 
       await docRef.update({
         read: true,
-        readAt: admin.firestore.Timestamp.now(),
+        readAt: Timestamp.now(),
       });
 
       return { success: true, modifiedCount: 1 };
@@ -193,7 +193,7 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
         for (const docRef of ownedRefs) {
           batch.update(docRef, {
             read: true,
-            readAt: admin.firestore.Timestamp.now(),
+            readAt: Timestamp.now(),
           });
         }
 
@@ -232,7 +232,7 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
         for (const doc of snapshot.docs) {
           batch.update(doc.ref, {
             read: true,
-            readAt: admin.firestore.Timestamp.now(),
+            readAt: Timestamp.now(),
           });
         }
 
@@ -283,7 +283,7 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
 
       while (hasMore) {
         const snapshot = await this.collection
-          .where('expiresAt', '<', admin.firestore.Timestamp.now())
+          .where('expiresAt', '<', Timestamp.now())
           .limit(BATCH_LIMIT)
           .get();
 
@@ -358,9 +358,9 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
       data: data.data,
       priority: data.priority,
       read: data.read,
-      readAt: data.readAt ? (data.readAt as admin.firestore.Timestamp).toDate() : null,
-      createdAt: (data.createdAt as admin.firestore.Timestamp).toDate(),
-      expiresAt: data.expiresAt ? (data.expiresAt as admin.firestore.Timestamp).toDate() : null,
+      readAt: data.readAt ? (data.readAt as Timestamp).toDate() : null,
+      createdAt: (data.createdAt as Timestamp).toDate(),
+      expiresAt: data.expiresAt ? (data.expiresAt as Timestamp).toDate() : null,
       sourceEvent: data.sourceEvent,
       actionUrl: data.actionUrl,
       imageUrl: data.imageUrl,
@@ -379,9 +379,9 @@ export class FirestoreInboxProvider implements NotificationInboxProvider {
       body: record.body,
       priority: record.priority,
       read: record.read,
-      readAt: record.readAt ? admin.firestore.Timestamp.fromDate(record.readAt) : null,
-      createdAt: admin.firestore.Timestamp.fromDate(record.createdAt),
-      expiresAt: record.expiresAt ? admin.firestore.Timestamp.fromDate(record.expiresAt) : null,
+      readAt: record.readAt ? Timestamp.fromDate(record.readAt) : null,
+      createdAt: Timestamp.fromDate(record.createdAt),
+      expiresAt: record.expiresAt ? Timestamp.fromDate(record.expiresAt) : null,
     };
 
     // Only write optional fields if they have values

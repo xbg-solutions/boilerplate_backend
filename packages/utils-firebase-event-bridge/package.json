@@ -1,6 +1,6 @@
 {
   "name": "@xbg.solutions/utils-firebase-event-bridge",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Firebase triggers to event normalization",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -16,7 +16,7 @@
   "dependencies": {
     "@xbg.solutions/utils-events": "^3.0.0",
     "@xbg.solutions/utils-logger": "^3.0.0",
-    "uuid": "14.0.1"
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

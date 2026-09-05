@@ -11,29 +11,22 @@
 
 import { FirestoreConnector, createSingleDatabaseConnector, createMultiDatabaseConnector } from '../firestore-connector';
 import { DatabaseConfig, FirebaseInitOptions } from '../firebase-types';
-import * as admin from 'firebase-admin';
+import * as adminApp from 'firebase-admin/app';
 
-// Mock firebase-admin
-jest.mock('firebase-admin', () => {
-  const mockApp = {
-    delete: jest.fn().mockResolvedValue(undefined),
-  };
-
+// Mock firebase-admin/app (the connector uses the modular API)
+jest.mock('firebase-admin/app', () => {
+  const mockApp = { name: '[DEFAULT]' };
   return {
     initializeApp: jest.fn(() => mockApp),
-    app: jest.fn(() => mockApp),
-    credential: {
-      applicationDefault: jest.fn(),
-    },
-    firestore: {
-      FieldValue: {
-        serverTimestamp: jest.fn(() => 'server-timestamp'),
-      },
-    },
+    getApp: jest.fn(() => mockApp),
+    getApps: jest.fn(() => []),
+    applicationDefault: jest.fn(),
+    deleteApp: jest.fn().mockResolvedValue(undefined),
   };
 });
 
 jest.mock('firebase-admin/firestore', () => ({
+  FieldValue: { serverTimestamp: jest.fn(() => 'server-timestamp') },
   getFirestore: jest.fn(() => ({
     collection: jest.fn((name: string) => ({
       doc: jest.fn((id: string) => ({
@@ -103,12 +96,12 @@ describe('Firestore Connector', () => {
     // Track initialization state
     let isInitialized = false;
 
-    (admin.initializeApp as jest.Mock).mockImplementation(() => {
+    (adminApp.initializeApp as jest.Mock).mockImplementation(() => {
       isInitialized = true;
       return mockApp;
     });
 
-    (admin.app as jest.Mock).mockImplementation(() => {
+    (adminApp.getApp as jest.Mock).mockImplementation(() => {
       if (!isInitialized) {
         throw new Error('No Firebase app');
       }
@@ -155,27 +148,27 @@ describe('Firestore Connector', () => {
       const connector = new FirestoreConnector(config);
       connector.initializeFirebase();
 
-      expect(admin.initializeApp).toHaveBeenCalled();
+      expect(adminApp.initializeApp).toHaveBeenCalled();
     });
 
     it('does not reinitialize if already initialized', () => {
       // Mock app as already initialized
-      (admin.app as jest.Mock).mockImplementation(() => ({ name: 'default' }));
+      (adminApp.getApp as jest.Mock).mockImplementation(() => ({ name: 'default' }));
 
       const connector = new FirestoreConnector(config);
       connector.initializeFirebase();
 
-      expect(admin.initializeApp).not.toHaveBeenCalled();
+      expect(adminApp.initializeApp).not.toHaveBeenCalled();
     });
 
     it('forces reinitialization when option set', () => {
-      (admin.app as jest.Mock).mockImplementation(() => ({ name: 'default' }));
+      (adminApp.getApp as jest.Mock).mockImplementation(() => ({ name: 'default' }));
 
       const options: FirebaseInitOptions = { forceReinitialize: true };
       const connector = new FirestoreConnector(config, options);
       connector.initializeFirebase();
 
-      expect(admin.initializeApp).toHaveBeenCalled();
+      expect(adminApp.initializeApp).toHaveBeenCalled();
     });
 
     it('initializes in Functions environment without credentials', () => {
@@ -188,8 +181,8 @@ describe('Firestore Connector', () => {
       const connector = new FirestoreConnector(config);
       connector.initializeFirebase();
 
-      expect(admin.initializeApp).toHaveBeenCalledWith();
-      expect(admin.credential.applicationDefault).not.toHaveBeenCalled();
+      expect(adminApp.initializeApp).toHaveBeenCalledWith();
+      expect(adminApp.applicationDefault).not.toHaveBeenCalled();
     });
 
     it('initializes with credentials in non-Functions environment', () => {
@@ -202,8 +195,8 @@ describe('Firestore Connector', () => {
       const connector = new FirestoreConnector(config);
       connector.initializeFirebase();
 
-      expect(admin.credential.applicationDefault).toHaveBeenCalled();
-      expect(admin.initializeApp).toHaveBeenCalledWith(
+      expect(adminApp.applicationDefault).toHaveBeenCalled();
+      expect(adminApp.initializeApp).toHaveBeenCalledWith(
         expect.objectContaining({
           projectId: 'test-project',
         })
@@ -226,7 +219,7 @@ describe('Firestore Connector', () => {
     });
 
     it('handles initialization errors', () => {
-      (admin.initializeApp as jest.Mock).mockImplementationOnce(() => {
+      (adminApp.initializeApp as jest.Mock).mockImplementationOnce(() => {
         throw new Error('Initialization failed');
       });
 
@@ -249,11 +242,11 @@ describe('Firestore Connector', () => {
       const connector = new FirestoreConnector(config);
       connector.getDb();
 
-      expect(admin.initializeApp).toHaveBeenCalled();
+      expect(adminApp.initializeApp).toHaveBeenCalled();
     });
 
     it('throws error if initialization fails', () => {
-      (admin.initializeApp as jest.Mock).mockImplementationOnce(() => {
+      (adminApp.initializeApp as jest.Mock).mockImplementationOnce(() => {
         throw new Error('Init failed');
       });
 
@@ -413,7 +406,7 @@ describe('Firestore Connector', () => {
 
   describe('healthCheck', () => {
     it('performs comprehensive health check', async () => {
-      (admin.app as jest.Mock).mockReturnValue({ name: 'default' });
+      (adminApp.getApp as jest.Mock).mockReturnValue({ name: 'default' });
 
       const connector = new FirestoreConnector(config);
       const result = await connector.healthCheck();
@@ -425,7 +418,7 @@ describe('Firestore Connector', () => {
     });
 
     it('returns health check with timestamp', async () => {
-      (admin.app as jest.Mock).mockReturnValue({ name: 'default' });
+      (adminApp.getApp as jest.Mock).mockReturnValue({ name: 'default' });
 
       const connector = new FirestoreConnector(config);
       const beforeCheck = Date.now();
@@ -440,18 +433,18 @@ describe('Firestore Connector', () => {
   describe('closeConnections', () => {
     it('closes Firebase connections', async () => {
       const mockDelete = jest.fn().mockResolvedValue(undefined);
-      (admin.app as jest.Mock).mockReturnValue({ delete: mockDelete });
+      (adminApp.deleteApp as jest.Mock).mockImplementation(mockDelete);
 
       const connector = new FirestoreConnector(config);
       connector.initializeFirebase();
       await connector.closeConnections();
 
-      expect(mockDelete).toHaveBeenCalled();
+      expect(adminApp.deleteApp).toHaveBeenCalled();
     });
 
     it('clears database instances', async () => {
       const mockDelete = jest.fn().mockResolvedValue(undefined);
-      (admin.app as jest.Mock).mockReturnValue({ delete: mockDelete });
+      (adminApp.deleteApp as jest.Mock).mockImplementation(mockDelete);
 
       const connector = new FirestoreConnector(config);
       connector.initializeFirebase();
