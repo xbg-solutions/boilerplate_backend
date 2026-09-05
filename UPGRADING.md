@@ -145,8 +145,11 @@ irrelevant, because the guard runs inside the router. Read the section.
   varying edge address, so the per-IP counter is spread across edge nodes
   and a burst of 105 unauthenticated requests never reached 429 (seen on
   sf-mapper on 2026-09-05; the direct Cloud Run URL decrements correctly).
-  Not changed in 3.0. Making the hop count an `AppOptions` value is the
-  follow-up; until then treat the limiter as a coarse guard behind Hosting.
+  **Fixed in 3.0.1:** the hop count comes from `TRUST_PROXY` (or
+  `createApp({ trustProxy })`). Put `TRUST_PROXY=2` in `functions/.env` for
+  anything served through Hosting; leave it unset (1) for a bare Cloud Run
+  URL. Verify by watching `ratelimit-remaining` fall across consecutive
+  requests through the public domain.
 - **`utils-notification-inbox-connector`'s markAsRead / markMultipleAsRead /
   deleteNotification take `userId` since 2.0**; pass the caller's id.
 - **Rollback reality on Cloud Functions gen2:** an older Cloud Run revision

@@ -7,6 +7,7 @@ export * from './app.config';
 export * from './database.config';
 export * from './auth.config';
 export * from './middleware.config';
+export * from './trust-proxy';
 export * from './communications.config';
 export * from './cache.config';
 export * from './firestore.config';

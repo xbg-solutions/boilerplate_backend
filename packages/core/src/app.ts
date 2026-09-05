@@ -6,6 +6,7 @@
 import express, { Express, Router } from 'express';
 import helmet from 'helmet';
 import { APP_CONFIG, MIDDLEWARE_CONFIG, validateAllConfig } from './config';
+import { resolveTrustProxy, TrustProxySetting } from './config/trust-proxy';
 import {
   createCorsMiddleware,
   createRateLimiter,
@@ -29,6 +30,12 @@ export interface AppOptions {
    * `development`.
    */
   rateLimit?: RateLimiterOptions | false;
+  /**
+   * Express `trust proxy` setting. Omit to read TRUST_PROXY from the
+   * environment (default 1, which is right for the Cloud Run URL; use 2
+   * behind Firebase Hosting). See config/trust-proxy.ts.
+   */
+  trustProxy?: TrustProxySetting;
 }
 
 /**
@@ -46,9 +53,10 @@ export function createApp(options: AppOptions = {}): Express {
 
   const app = express();
 
-  // Trust one proxy hop (Cloud Functions / Cloud Run behind Google's LB).
-  // Setting to `true` trusts ALL proxies, allowing X-Forwarded-For spoofing.
-  app.set('trust proxy', 1);
+  // Proxy hops between client and process: 1 for the Cloud Run URL, 2 behind
+  // Firebase Hosting. Set TRUST_PROXY per deployment (or pass trustProxy).
+  // `true` trusts ALL proxies, allowing X-Forwarded-For spoofing — avoid it.
+  app.set('trust proxy', options.trustProxy ?? resolveTrustProxy());
 
   // ===== SECURITY MIDDLEWARE =====
   // Helmet for security headers (all environments)
