@@ -11,6 +11,7 @@ import {
   createCorsMiddleware,
   createRateLimiter,
   RateLimiterOptions,
+  noStoreMiddleware,
   requestIdMiddleware,
   requestLoggingMiddleware,
   sanitizeBody,
@@ -64,6 +65,11 @@ export function createApp(options: AppOptions = {}): Express {
     contentSecurityPolicy: false, // Disable CSP for API
     crossOriginEmbedderPolicy: false,
   }));
+
+  // Never let Firebase Hosting's CDN cache an API response by default (it
+  // applies max-age=600 when the function sets nothing). Handlers may still
+  // set their own Cache-Control afterwards.
+  app.use(noStoreMiddleware());
 
   // CORS
   app.use(createCorsMiddleware());

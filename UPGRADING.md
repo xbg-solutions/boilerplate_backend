@@ -150,6 +150,12 @@ irrelevant, because the guard runs inside the router. Read the section.
   anything served through Hosting; leave it unset (1) for a bare Cloud Run
   URL. Verify by watching `ratelimit-remaining` fall across consecutive
   requests through the public domain.
+- **Firebase Hosting caches API responses that set no `Cache-Control`.** It
+  applies `max-age=600` to a rewritten function response with no cache
+  header and will serve it from the CDN to the next caller of that URL
+  (`x-cache: HIT` on API 404s, seen 2026-09-05). Hosting's `headers` config
+  does not apply to rewrites. **Fixed in 3.0.2:** `createApp` sets
+  `Cache-Control: no-store` on every response unless a handler set its own.
 - **`utils-notification-inbox-connector`'s markAsRead / markMultipleAsRead /
   deleteNotification take `userId` since 2.0**; pass the caller's id.
 - **Rollback reality on Cloud Functions gen2:** an older Cloud Run revision
