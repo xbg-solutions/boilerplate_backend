@@ -91,13 +91,61 @@ Nothing in 2.x is worth stopping at; go straight to 3.0:
 
 ### The 2.0 secure-by-default changes, revisited
 
-The three breaks below were checked against every 1.x consumer on
-2026-09-05 and hit **nothing live**: each `BaseService` subclass already
-overrode all three `check*Access` methods, the generated `BaseController`s
-were either wrapped by a project controller that only overrides
-`createContext` or never mounted, and the page cap only applies to
-`BaseController` list routes. Read the section anyway — a *new* model
-generated after the bump gets the defaults.
+Checked against every 1.x consumer on 2026-09-05: break #1 hit nothing
+(each `BaseService` subclass already overrode all three `check*Access`
+methods) and #3 only applies to `BaseController` list routes. **Break #2 hit
+two of three** — see the lessons below; the sizing said "wrapped by a project
+controller that only overrides `createContext`", which was true and
+irrelevant, because the guard runs inside the router. Read the section.
+
+
+### Lessons from the first 1.x → 3.0 migrations (accounts, build, morph, 2026-09-05)
+
+- **`firebase-functions` must be ≥ 7.3.** 7.2's peer range on `firebase-admin`
+  stops at 13, so `npm install` refuses admin 14 until it is bumped.
+- **`firebase-functions-test` blocks admin 14 outright** (its peer range stops
+  at 13 in every published version). None of the five consumers used it;
+  remove it.
+- **Jest cannot parse `jose` 6 or `uuid` 14** (both ESM-only, pulled in by
+  admin 14 and by the utils respectively). Transform them instead of ignoring:
+
+  ```js
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.js$': ['ts-jest', { tsconfig: { allowJs: true, module: 'commonjs', esModuleInterop: true }, diagnostics: false }],
+  },
+  transformIgnorePatterns: ['^(?!.*/node_modules/(jose|uuid)/).*/node_modules/'],
+  ```
+
+  The pattern is anchored so a copy nested under a util is transformed too.
+- **A CommonJS project that imports `uuid` itself must declare its own
+  `uuid` (^11)** — the hoisted copy used to be backend-core's v9; 3.0 pulls
+  v14, which `require` cannot load.
+- **The generated-controller auth guard is NOT inert.** Two consumers had
+  wrapped every generated controller in a project `withAuth()` helper that
+  mounts the platform auth middleware ahead of the router, and still got 401
+  "Authentication is required but not configured" on every generated route,
+  because the base guard runs inside the router regardless of what ran
+  before it. The fix that matches that architecture is a guard that confirms
+  the upstream middleware populated `req.user`, and fails closed otherwise:
+
+  ```ts
+  protected authMiddlewares(): RequestHandler[] {
+    return [(req, res, next) => (req as any).user ? next()
+      : res.status(401).json({ success: false, error: { code: 'UNAUTHENTICATED', message: 'Authentication required' } })];
+  }
+  ```
+- **Any `createRateLimiter()` a project calls itself** (e.g. on a public
+  OAuth router) needs the same `{ databaseId }` as `createApp`, or those
+  routes 500 while the rest of the app works.
+- **`utils-notification-inbox-connector`'s markAsRead / markMultipleAsRead /
+  deleteNotification take `userId` since 2.0**; pass the caller's id.
+- **Rollback reality on Cloud Functions gen2:** an older Cloud Run revision
+  may no longer be routable ("Container import failed" — the image is gone),
+  so traffic rollback cannot be assumed. Redeploying from the pre-bump tag
+  is the dependable path. A failed `update-traffic` also leaves the stale
+  revision in the service spec and blocks the next deploy until
+  `gcloud run services update-traffic <svc> --to-latest` clears it.
 
 ---
 
