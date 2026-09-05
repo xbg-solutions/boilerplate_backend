@@ -53,7 +53,7 @@ failed=""
 for item in $pending; do
   short=${item%%:*}; rest=${item#*:}; dir=${rest%%:*}; version=${rest#*:}
   name="@xbg.solutions/$short"
-  if npm publish -w "$name" --access public ${OTP:+--otp="$OTP"} </dev/tty; then
+  if npm publish -w "$name" --access public --auth-type=web ${OTP:+--otp="$OTP"} </dev/tty; then
     echo "ok      $name@$version"
   else
     echo "FAILED  $name@$version (EOTP = second factor not completed in time, re-run; E401/E404 = not logged in)"
