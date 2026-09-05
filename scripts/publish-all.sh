@@ -14,11 +14,17 @@ set -u
 OTP="${1:-}"
 cd "$(dirname "$0")/.."
 
-# Everything that reaches the console is also appended to a timestamped log
-# under scripts/publish-logs/, so a failure can be read back after the fact.
+# Everything that reaches the console is also captured in a timestamped log
+# under scripts/publish-logs/. It is captured with `script`, not `tee`: a pipe
+# on stdout makes npm think it is non-interactive and it then demands a typed
+# one-time code instead of opening the browser for the second factor.
 mkdir -p scripts/publish-logs
-LOG="scripts/publish-logs/publish-$(date +%Y%m%dT%H%M%S).log"
-exec > >(tee -a "$LOG") 2>&1
+if [ -z "${PUBLISH_LOG:-}" ]; then
+  PUBLISH_LOG="scripts/publish-logs/publish-$(date +%Y%m%dT%H%M%S).log"
+  export PUBLISH_LOG
+  exec script -q "$PUBLISH_LOG" "$0" "$@"
+fi
+LOG="$PUBLISH_LOG"
 echo "publish run $(date -Iseconds) as $(npm whoami 2>/dev/null || echo 'NOT LOGGED IN') -> $LOG"
 ORDER="utils-logger utils-cache-connector utils-events utils-firebase-event-bridge utils-firestore-connector utils-token-handler backend-core create-backend utils-errors utils-address-validation utils-crm-connector utils-document-connector utils-email-connector utils-erp-connector utils-hashing utils-journey-connector utils-llm-connector utils-notification-inbox-connector utils-push-notifications-connector utils-realtime-connector utils-sms-connector utils-survey-connector utils-timezone utils-validation utils-work-mgmt-connector"
 # Pass 1: work out what is still missing, BEFORE asking for a code, so the
