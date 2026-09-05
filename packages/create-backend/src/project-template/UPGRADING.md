@@ -135,6 +135,15 @@ see the lessons below.
 - **Any `createRateLimiter()` a project calls itself** (e.g. on a public
   OAuth router) needs the same `{ databaseId }` as `createApp`, or those
   routes 500 while the rest of the app works.
+- **Rate limiting keys on the wrong hop behind Firebase Hosting.** `createApp`
+  sets `trust proxy` to 1, which is right for a caller hitting the Cloud Run
+  URL directly but one hop short behind Hosting (client → Hosting edge →
+  Cloud Run frontend → container). Through Hosting `req.ip` becomes the
+  varying edge address, so the per-IP counter is spread across edge nodes
+  and a burst of 105 unauthenticated requests never reached 429 (seen on
+  sf-mapper on 2026-09-05; the direct Cloud Run URL decrements correctly).
+  Not changed in 3.0. Making the hop count an `AppOptions` value is the
+  follow-up; until then treat the limiter as a coarse guard behind Hosting.
 - **`utils-notification-inbox-connector`'s markAsRead / markMultipleAsRead /
   deleteNotification take `userId` since 2.0**; pass the caller's id.
 - **Rollback reality on Cloud Functions gen2:** an older Cloud Run revision
