@@ -19,8 +19,22 @@ It ships **one** encryption model, not two. What goes in:
   add-on
 - the record-key layer: mint, wrap, unwrap, rewrap, and the `keyWraps` shape
 - the object envelope (`x-xbg-*`), the field-path grammar and walker
-- the custodian interface, with a local implementation now and an
-  Accounts-backed one later
+- the `KeyCustodian` **interface**, the DEK cache and the grace window
+- the key-lifecycle **rules as pure planners over a `KeyStore` port**
+  (`planRevoke`, `planDestroy`, `planRegenerate`, …), with an in-memory store
+  for tests
+
+**The package knows nothing about Firestore or KMS, and must not learn.** KEK
+operations and any storage shim belong to whoever owns the storage — collab has
+its own until phase C, Accounts writes its own in phase B against different
+paths, a different key name and different auth. A Firestore shim appearing here
+is the tell that the package has reached somewhere it should not.
+
+The distinction that settles it: the local *lifecycle implementation* is
+throwaway and collab already has it; the lifecycle *rules* are needed again by
+Accounts, so those are shared and the implementation is not. `planDoc` in
+collab's `content-walk.ts` is the same pattern one level down — a pure planner
+returning an update the caller executes.
 
 What stays per product and must **not** be generalised: the field registry and
 the traversal. Each consumer supplies those plus a `KeyScope` config
