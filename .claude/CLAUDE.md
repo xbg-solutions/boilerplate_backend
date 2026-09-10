@@ -17,7 +17,12 @@ It ships **one** encryption model, not two. What goes in:
 - **the blob codec** — free-form `Record<string, any>` payloads are the majority
   shape everywhere except collab, so this is the main new mechanism, not an
   add-on
-- the record-key layer: mint, wrap, unwrap, rewrap, and the `keyWraps` shape
+- the record-key layer: mint, wrap, unwrap, rewrap, and the `keyWraps` shape.
+  **All three AAD forms are fixed in the plan (§5a, §3, §6) and must not be
+  invented here** — an AAD freezes the moment the first wrap is written, and
+  changing it afterwards is a re-key walk. The record-key wrap binds
+  `record-key/{productId}/{accountId}/{generation}/{scopePath}`, where
+  `scopePath` is the key holder's full document path, not a bare id.
 - the object envelope (`x-xbg-*`), the field-path grammar and walker
 - the `KeyCustodian` **interface**, the DEK cache and the grace window
 - the key-lifecycle **rules as pure planners over a `KeyStore` port**
