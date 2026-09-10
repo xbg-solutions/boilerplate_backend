@@ -28,6 +28,14 @@ It ships **one** encryption model, not two. What goes in:
 - the key-lifecycle **rules as pure planners over a `KeyStore` port**
   (`planRevoke`, `planDestroy`, `planRegenerate`, …), with an in-memory store
   for tests
+- **one** wrap operation, not a verb per transition: `planWraps(current,
+  desired)`. Grant, un-share, transfer, rotate and erase are all "here is the
+  wrap set I want" — and a transfer expressed as one patch is atomic, where
+  grant-then-remove has a window in which both accounts hold wraps
+
+**Planners return a shared `Patch` type, never an `XPlan`.** `planMove` →
+`MovePlan` stutters and multiplies the surface; the return value should say what
+it is, not what produced it.
 
 **The package knows nothing about Firestore or KMS, and must not learn.** KEK
 operations and any storage shim belong to whoever owns the storage — collab has
