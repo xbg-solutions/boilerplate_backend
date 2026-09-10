@@ -33,6 +33,16 @@ It ships **one** encryption model, not two. What goes in:
   wrap set I want" — and a transfer expressed as one patch is atomic, where
   grant-then-remove has a window in which both accounts hold wraps
 
+**The wrap is written before any byte is encrypted under its record key** —
+invariant, every path that mints a key, and for a walk that means once before the
+walk starts. An orphan wrap is a bug we can find; content whose wrap was never
+written is data we have destroyed. Failures land on the recoverable side.
+
+**Blob ceilings are advisory per path; the 1 MiB document budget is enforced at
+write time** on actual serialised bytes including base64 inflation. Do not sum
+per-path ceilings at construction — that rejects the common multi-blob case on a
+hypothetical.
+
 **Planners return a shared `Patch` type, never an `XPlan`.** `planMove` →
 `MovePlan` stutters and multiplies the surface; the return value should say what
 it is, not what produced it.
