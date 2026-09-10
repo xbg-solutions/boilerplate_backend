@@ -4,6 +4,28 @@ The published `@xbg.solutions/backend-core` + `@xbg.solutions/utils-*` packages 
 xbg backend is built on. Read this before touching anything; then `UPGRADING.md` for the
 consumer-facing history and `RELEASING.md` before publishing.
 
+## Content encryption — the shared package lands here
+
+**Phase A** of the platform's content-encryption programme is a new package,
+`@xbg.solutions/utils-content-crypto`, and everything after it depends on it. The
+plan is `accounts.xbg.solutions/__docs__/01-content-key-custody.md`.
+
+It ships **one** encryption model, not two. What goes in:
+
+- the field codec (`enc:v3:`), strict decode, and legacy readers until collab's
+  migration retires them
+- **the blob codec** — free-form `Record<string, any>` payloads are the majority
+  shape everywhere except collab, so this is the main new mechanism, not an
+  add-on
+- the record-key layer: mint, wrap, unwrap, rewrap, and the `keyWraps` shape
+- the object envelope (`x-xbg-*`), the field-path grammar and walker
+- the custodian interface, with a local implementation now and an
+  Accounts-backed one later
+
+What stays per product and must **not** be generalised: the field registry and
+the traversal. Each consumer supplies those plus a `KeyScope` config
+(record-key granularity and AAD tightness).
+
 ## State (2026-09-05)
 
 | Line | On npm | Notes |
