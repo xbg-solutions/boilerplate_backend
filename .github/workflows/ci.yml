@@ -34,9 +34,32 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # High and above only. The single outstanding moderate advisory
-      # (uuid <11.1.1, GHSA-w5hq-g745-h8pq) is not reachable — it affects
-      # v3/v5/v6 when passed a buffer, and both consumers call v4() only.
-      # Failing on it permanently would train everyone to ignore this step.
+      # High and above only, and the justification is about the CURRENT surface rather
+      # than about one advisory. As at 2026-09-11 this tree reports fourteen moderate
+      # findings and no high one; the fourteen are four advisories and the ten packages
+      # that depend on them:
+      #
+      #   uuid <11.1.1           GHSA-w5hq-g745-h8pq   not reachable — it affects v3/v5/v6
+      #                                                when passed a buffer, and both
+      #                                                consumers call v4() only. Arrives
+      #                                                under firebase-admin.
+      #   qs <=6.15.3            GHSA-x5fp-wj9c-mxmx   under express and body-parser
+      #                          GHSA-4mjr-xmp4-gh2g
+      #   decode-uri-component   GHSA-vcc3-ghjq-m6fr   under query-string
+      #   csv-parse <7.0.2       GHSA-8cw4-87c7-c6xx   under jsforce, an example integration
+      #
+      # Each arrives transitively through a dependency this repo does not choose, and the
+      # only fixes npm offers for them are `--force` majors (firebase-functions@4,
+      # jsforce@1.6). Failing on those permanently would train everyone to widen the
+      # threshold or to stop reading the output, which costs more than the advisories do.
+      #
+      # A HIGH one is a different matter and is not excepted here. js-yaml 3.0.0-3.15.1
+      # (GHSA-2883-xcg3-v3hh), dev-only and transitive under ts-jest's coverage tooling,
+      # was fixed in place on 2026-09-11 by moving it to 3.15.2 INSIDE its existing
+      # `^3.13.1` range — a three-line lockfile change, no manifest edit, no override.
+      # That is the rule this step encodes: a fix available within the declared ranges
+      # gets taken rather than reasoned around. Keep this list current when it changes —
+      # a stale justification is worse than none, because it reads as though somebody
+      # considered the finding and cleared it.
       - name: Audit
         run: npm audit --audit-level=high
