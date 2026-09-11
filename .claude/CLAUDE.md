@@ -9,8 +9,9 @@ consumer-facing history and `RELEASING.md` before publishing.
 **Phase A is BUILT.** `@xbg.solutions/utils-content-crypto` landed 2026-09-12 at
 `0.1.0` — 23 modules, zero dependencies, mirrored into
 `functions/src/utilities/content-crypto/` behind `scripts/check-mirror.js`.
-Unpublished, and consumed by nothing yet. Everything after it depends on it. The
-plan is `accounts.xbg.solutions/__docs__/01-content-key-custody.md`.
+**Published at 0.1.0 on 2026-09-12**, so its exported names are a public
+contract now — a rename costs a coordinated upgrade across every adopting repo.
+Everything after it depends on it. The plan is `accounts.xbg.solutions/__docs__/01-content-key-custody.md`.
 
 It ships **one** encryption model, not two. What goes in:
 
