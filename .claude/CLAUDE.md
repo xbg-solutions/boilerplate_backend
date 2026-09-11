@@ -6,8 +6,10 @@ consumer-facing history and `RELEASING.md` before publishing.
 
 ## Content encryption — the shared package lands here
 
-**Phase A** of the platform's content-encryption programme is a new package,
-`@xbg.solutions/utils-content-crypto`, and everything after it depends on it. The
+**Phase A is BUILT.** `@xbg.solutions/utils-content-crypto` landed 2026-09-12 at
+`0.1.0` — 23 modules, zero dependencies, mirrored into
+`functions/src/utilities/content-crypto/` behind `scripts/check-mirror.js`.
+Unpublished, and consumed by nothing yet. Everything after it depends on it. The
 plan is `accounts.xbg.solutions/__docs__/01-content-key-custody.md`.
 
 It ships **one** encryption model, not two. What goes in:
