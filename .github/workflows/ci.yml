@@ -63,3 +63,53 @@ jobs:
       # considered the finding and cleared it.
       - name: Audit
         run: npm audit --audit-level=high
+
+  functions:
+    # The reference application, and the tree that carries the generated mirror of
+    # utils-content-crypto. It is NOT a workspace — `functions` is absent from the root
+    # `workspaces` array, so root `npm ci` does not install it, root `npm run build` does
+    # not compile it, root `jest` does not discover it, and `eslint.config.js` lists
+    # `functions/**` in `ignores`. It has therefore never been gated here, and the mirror
+    # it holds is today executed by nothing in CI.
+    #
+    # Measured before it was turned on, so the "this will surface a backlog" fear is
+    # answered with a number rather than a guess: 28 suites / 812 tests / 6.45 s, all
+    # passing, and `npm run build` clean (2026-09-10, working tree at d8718c9).
+    #
+    # Its own job rather than a step in `verify`, for two reasons: a red functions run
+    # must not read as "the package build broke", and the two trees carry two different
+    # lockfiles whose caches must not collide.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12'
+          cache: npm
+          # Required. `functions/package-lock.json` is a second, independent lockfile;
+          # without this path both jobs would key the npm cache on the root lockfile and
+          # one of them would restore the wrong node_modules.
+          cache-dependency-path: functions/package-lock.json
+
+      # `npm ci` for the same reason as the root job: the lockfile is the input, and a
+      # peer conflict here is a real defect rather than something to flag past.
+      - name: Install (strict peer resolution)
+        run: npm ci
+
+      # Before the tests, because `functions/tsconfig.json` excludes `**/*.test.ts` —
+      # tsc and ts-jest check disjoint sets of files, so neither subsumes the other.
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # No audit step: this tree carries twilio, jsforce, @hubspot/api-client and
+      # messagebird for the example integrations. That advisory surface belongs to a
+      # reference app nobody publishes, and gating on it would train everyone to ignore
+      # the step. No lint step: `functions/**` is already in eslint's `ignores`, and
+      # changing that is separate work with its own diff.
