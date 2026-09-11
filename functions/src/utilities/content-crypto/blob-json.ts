@@ -445,10 +445,10 @@ function refuse(path: string, constructorName: string, because?: string): Conten
   const where = shownPath(path);
   const message = constructorName === 'Timestamp'
     ? `blob value at "${where}" is a Timestamp; register `
-      + 'firestoreTimestampAdapter(Timestamp) in KeyScope.blobAdapters, or convert it to a '
+      + 'firestoreTimestampAdapter(Timestamp) in ContentKeyScope.blobAdapters, or convert it to a '
       + 'Date or an ISO string.'
     : `blob value at "${where}" is a ${constructorName}${because ? ` — ${because}` : ''}; `
-      + 'it has no encoding. Register a BlobAdapter for it in KeyScope.blobAdapters, or '
+      + 'it has no encoding. Register a BlobAdapter for it in ContentKeyScope.blobAdapters, or '
       + 'convert it to a value the codec carries.';
   return new ContentCryptoError('BLOB_ENCODE_FAILED', message, { path: where, constructorName });
 }

@@ -14,7 +14,7 @@ import type {
   ContentKeyStatus,
   DekHandle,
   DekSource,
-  KeyStatus,
+  ContentKeyState,
   OpenRotation,
   RevokedCause,
   RotationProgress,
@@ -89,8 +89,8 @@ describe('CachedDekSource is the only thing the façade accepts', () => {
 });
 
 describe('the wire status types Accounts serialises in Phase B', () => {
-  it('derives KeyStatus at the boundary and stores none of it', () => {
-    const statuses: readonly KeyStatus[] = ['active', 'revoked', 'destroyed'];
+  it('derives ContentKeyState at the boundary and stores none of it', () => {
+    const statuses: readonly ContentKeyState[] = ['active', 'revoked', 'destroyed'];
     expect(statuses).toHaveLength(3);
     const causes: readonly RevokedCause[] = [
       'sysadmin',

@@ -1,5 +1,5 @@
 /**
- * **The `KeyStore` port** — types and sentinels, and nothing that does anything.
+ * **The `ContentKeyStore` port** — types and sentinels, and nothing that does anything.
  *
  * Accounts and collab implement this against different paths, a different key name and
  * different auth. None of those three appears below, which is what makes it a port rather than
@@ -30,7 +30,7 @@
 
 import { assertNoKeyMaterial, ContentCryptoError } from './errors';
 import type { ContentCryptoCode } from './errors';
-import type { KeyStatus, OpenRotation, RevokedCause } from './custodian';
+import type { ContentKeyState, OpenRotation, RevokedCause } from './custodian';
 
 // ---------------------------------------------------------------------------
 // Patch values and the two sentinels
@@ -45,7 +45,7 @@ import type { KeyStatus, OpenRotation, RevokedCause } from './custodian';
  * writes to its store is then something no test ever saw. Plain JSON is both assertable and
  * loggable, and it deletes a glue line from every consumer.
  */
-export type KeyPatchValue =
+export type ContentKeyPatchValue =
   | string
   | number
   | boolean
@@ -58,8 +58,8 @@ export type KeyPatchValue =
  * consumer's `apply` recognises these by value, not by identity, since a patch may have crossed
  * a JSON boundary (a Cloud Tasks payload, a log, a test fixture) before it arrives.
  */
-export const KEY_PATCH_DELETE: KeyPatchValue = Object.freeze({ op: 'delete' as const });
-export const KEY_PATCH_SERVER_TIME: KeyPatchValue = Object.freeze({ op: 'serverTime' as const });
+export const KEY_PATCH_DELETE: ContentKeyPatchValue = Object.freeze({ op: 'delete' as const });
+export const KEY_PATCH_SERVER_TIME: ContentKeyPatchValue = Object.freeze({ op: 'serverTime' as const });
 
 // ---------------------------------------------------------------------------
 // Rows
@@ -75,7 +75,7 @@ export const KEY_PATCH_SERVER_TIME: KeyPatchValue = Object.freeze({ op: 'serverT
  * between the two is the point rather than an inconsistency: the cause is a fact somebody
  * asserted, the status is arithmetic over two dates.
  */
-export interface KeyRow {
+export interface ContentKeyRow {
   readonly accountId: string;
   readonly productId: string;
   readonly currentGeneration: number;
@@ -108,7 +108,7 @@ export interface GenerationRow {
 
 export interface GenerationPatch {
   readonly n: number;
-  readonly set: Readonly<Record<string, KeyPatchValue>>;
+  readonly set: Readonly<Record<string, ContentKeyPatchValue>>;
   /**
    * Erase the wrapped key material on this generation row, whatever the store calls it. TRUE
    * only where the row currently `hasWrap`, so a re-applied patch writes nothing.
@@ -130,7 +130,7 @@ export interface GenerationPatch {
  * `statusBefore`/`statusAfter` are both DERIVED, by the planner, from the row it was handed and
  * from the row its own `key` will produce; there is no third place where a status is decided.
  */
-export interface KeyAudit {
+export interface ContentKeyAudit {
   readonly action:
     | 'mint'
     | 'revoke'
@@ -145,19 +145,19 @@ export interface KeyAudit {
   readonly accountId: string;
   readonly productId: string;
   readonly generation: number | null;
-  readonly statusBefore: KeyStatus;
-  readonly statusAfter: KeyStatus;
+  readonly statusBefore: ContentKeyState;
+  readonly statusAfter: ContentKeyState;
   readonly cause: RevokedCause | null;
   readonly at: string;
 }
 
-export interface KeyPatch {
+export interface ContentKeyPatch {
   /**
    * Field paths on the key row. The only dotted prefix any planner emits is `rotation.`, because
    * `planRecordProgress` and its siblings must merge into a running rotation without clobbering
    * `startedAt`.
    */
-  readonly key: Readonly<Record<string, KeyPatchValue>>;
+  readonly key: Readonly<Record<string, ContentKeyPatchValue>>;
   readonly generations: readonly GenerationPatch[];
   /**
    * Non-null means: **MINT AND WRAP THIS GENERATION BEFORE APPLYING THE REST.** Ordering is a
@@ -173,7 +173,7 @@ export interface KeyPatch {
    * `set({ 'rotation.error': x }, { merge: true })` silently creates a top-level field called
    * `rotation.error`. This flag lets `apply` choose without inferring.
    *
-   * `assertKeyPatch` holds the invariant that makes it safe to honour: **a patch that may create
+   * `assertContentKeyPatch` holds the invariant that makes it safe to honour: **a patch that may create
    * a row contains no dotted key.** It is deliberately a one-way implication and not the
    * biconditional — `planRestore` writes two undotted keys on a row that must already exist —
    * so "no dotted key" does not on its own mean "create it".
@@ -187,7 +187,7 @@ export interface KeyPatch {
    * `evict === (changed > 0 || mint !== null)`, asserted.
    */
   readonly evict: boolean;
-  readonly audit: KeyAudit;
+  readonly audit: ContentKeyAudit;
   /**
    * How many writes this patch carries: the number of key fields plus the number of generation
    * patches. **0 means nothing to write**, and then `key` and `generations` are both empty —
@@ -232,17 +232,17 @@ export function refusal(code: ContentCryptoCode, message: string): Refusal {
 
 /**
  * Structural, not `instanceof`: a refusal is plain data and may have crossed a JSON boundary.
- * A `KeyPatch` has no `refused` key, so the two never collide.
+ * A `ContentKeyPatch` has no `refused` key, so the two never collide.
  */
 export function isRefusal(v: unknown): v is Refusal {
   return typeof v === 'object' && v !== null && (v as { refused?: unknown }).refused === true;
 }
 
 // ---------------------------------------------------------------------------
-// assertKeyPatch
+// assertContentKeyPatch
 // ---------------------------------------------------------------------------
 
-const AUDIT_ACTIONS: Readonly<Record<KeyAudit['action'], true>> = Object.freeze({
+const AUDIT_ACTIONS: Readonly<Record<ContentKeyAudit['action'], true>> = Object.freeze({
   mint: true,
   revoke: true,
   restore: true,
@@ -255,7 +255,7 @@ const AUDIT_ACTIONS: Readonly<Record<KeyAudit['action'], true>> = Object.freeze(
   drain: true,
 });
 
-const KEY_STATUSES: Readonly<Record<KeyStatus, true>> = Object.freeze({
+const KEY_STATUSES: Readonly<Record<ContentKeyState, true>> = Object.freeze({
   active: true,
   revoked: true,
   destroyed: true,
@@ -274,35 +274,35 @@ const KEY_STATUSES: Readonly<Record<KeyStatus, true>> = Object.freeze({
  *    honour the flag without inference;
  *  - **`changed === 0` implies nothing to write** — the shared contract with `WrapPatch`;
  *  - **`evict === (changed > 0 || mint !== null)`** — footgun 14, as arithmetic;
- *  - **every value is a `KeyPatchValue`** — plain JSON or one of the two sentinels, which is
+ *  - **every value is a `ContentKeyPatchValue`** — plain JSON or one of the two sentinels, which is
  *    what a closure creeping back in would fail;
  *  - **no key material anywhere**, through `assertNoKeyMaterial`. A patch is a loggable object
  *    by design, and that is precisely the property that makes it an egress. Note this is NOT
  *    `assertNoSecrets`: that one asks "is this a legal error-details bag" over a closed key set,
  *    and a patch is not one — its keys are field paths. Different question, different check.
  */
-export function assertKeyPatch(patch: KeyPatch): void {
+export function assertContentKeyPatch(patch: ContentKeyPatch): void {
   if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
-    throw refuse('a KeyPatch must be an object');
+    throw refuse('a ContentKeyPatch must be an object');
   }
 
   const key: unknown = patch.key;
   if (key === null || typeof key !== 'object' || Array.isArray(key)) {
-    throw refuse('KeyPatch.key must be a plain object of field paths');
+    throw refuse('ContentKeyPatch.key must be a plain object of field paths');
   }
   if (!Array.isArray(patch.generations)) {
-    throw refuse('KeyPatch.generations must be an array');
+    throw refuse('ContentKeyPatch.generations must be an array');
   }
-  if (typeof patch.createIfMissing !== 'boolean') throw refuse('KeyPatch.createIfMissing must be a boolean');
-  if (typeof patch.evict !== 'boolean') throw refuse('KeyPatch.evict must be a boolean');
+  if (typeof patch.createIfMissing !== 'boolean') throw refuse('ContentKeyPatch.createIfMissing must be a boolean');
+  if (typeof patch.evict !== 'boolean') throw refuse('ContentKeyPatch.evict must be a boolean');
   if (!Number.isInteger(patch.changed) || patch.changed < 0) {
-    throw refuse('KeyPatch.changed must be a non-negative integer');
+    throw refuse('ContentKeyPatch.changed must be a non-negative integer');
   }
 
   const keyPaths = Object.keys(key as Record<string, unknown>);
   for (const path of keyPaths) {
-    assertFieldPath(path, 'KeyPatch.key');
-    assertPatchValue((key as Record<string, unknown>)[path], `KeyPatch.key['${path}']`);
+    assertFieldPath(path, 'ContentKeyPatch.key');
+    assertPatchValue((key as Record<string, unknown>)[path], `ContentKeyPatch.key['${path}']`);
   }
 
   // The invariant that makes `createIfMissing` safe to honour without inference. One way only:
@@ -313,7 +313,7 @@ export function assertKeyPatch(patch: KeyPatch): void {
     const dotted = keyPaths.find((path) => path.includes('.'));
     if (dotted !== undefined) {
       throw refuse(
-        `KeyPatch.createIfMissing is true and the patch writes the dotted field path \`${dotted}\`. ` +
+        `ContentKeyPatch.createIfMissing is true and the patch writes the dotted field path \`${dotted}\`. ` +
           'A create writes a literal map, under which a dotted key becomes a top-level field with a dot in its name',
       );
     }
@@ -323,7 +323,7 @@ export function assertKeyPatch(patch: KeyPatch): void {
   for (const g of patch.generations) {
     if (g === null || typeof g !== 'object') throw refuse('a GenerationPatch must be an object');
     if (!Number.isInteger(g.n) || g.n < 1) throw refuse('GenerationPatch.n must be a positive integer');
-    if (seen.has(g.n)) throw refuse(`generation ${g.n} is patched twice in one KeyPatch`);
+    if (seen.has(g.n)) throw refuse(`generation ${g.n} is patched twice in one ContentKeyPatch`);
     seen.add(g.n);
     if (typeof g.eraseWrap !== 'boolean') throw refuse('GenerationPatch.eraseWrap must be a boolean');
     if (g.set === null || typeof g.set !== 'object' || Array.isArray(g.set)) {
@@ -337,26 +337,26 @@ export function assertKeyPatch(patch: KeyPatch): void {
 
   if (patch.mint !== null) {
     if (typeof patch.mint !== 'object' || !Number.isInteger(patch.mint.generation) || patch.mint.generation < 1) {
-      throw refuse('KeyPatch.mint must be null or { generation: <positive integer> }');
+      throw refuse('ContentKeyPatch.mint must be null or { generation: <positive integer> }');
     }
   }
 
   const expectedChanged = keyPaths.length + patch.generations.length;
   if (patch.changed !== expectedChanged) {
     throw refuse(
-      `KeyPatch.changed is ${patch.changed} but the patch carries ${keyPaths.length} key field(s) ` +
+      `ContentKeyPatch.changed is ${patch.changed} but the patch carries ${keyPaths.length} key field(s) ` +
         `and ${patch.generations.length} generation patch(es)`,
     );
   }
   if (patch.changed === 0 && (keyPaths.length > 0 || patch.generations.length > 0)) {
-    throw refuse('KeyPatch.changed is 0 but the patch has something to write');
+    throw refuse('ContentKeyPatch.changed is 0 but the patch has something to write');
   }
 
   // Footgun 14, as arithmetic rather than as vigilance.
   const shouldEvict = patch.changed > 0 || patch.mint !== null;
   if (patch.evict !== shouldEvict) {
     throw refuse(
-      `KeyPatch.evict is ${String(patch.evict)} but changed=${patch.changed} and mint=${
+      `ContentKeyPatch.evict is ${String(patch.evict)} but changed=${patch.changed} and mint=${
         patch.mint === null ? 'null' : String(patch.mint.generation)
       }; every mutating operation must evict the account's cached DEKs`,
     );
@@ -365,30 +365,30 @@ export function assertKeyPatch(patch: KeyPatch): void {
   assertAudit(patch.audit);
 
   // The standing guard. A point-in-time leak sweep proves only that the tree was clean on the
-  // day somebody ran it; this runs on every patch, so adding a field to `KeyAudit` is not the
+  // day somebody ran it; this runs on every patch, so adding a field to `ContentKeyAudit` is not the
   // same as adding a leak.
-  assertNoKeyMaterial(patch.key, 'KeyPatch.key');
-  for (const g of patch.generations) assertNoKeyMaterial(g.set, `KeyPatch.generations[${g.n}].set`);
-  assertNoKeyMaterial(patch.audit, 'KeyPatch.audit');
+  assertNoKeyMaterial(patch.key, 'ContentKeyPatch.key');
+  for (const g of patch.generations) assertNoKeyMaterial(g.set, `ContentKeyPatch.generations[${g.n}].set`);
+  assertNoKeyMaterial(patch.audit, 'ContentKeyPatch.audit');
 }
 
-function assertAudit(audit: KeyAudit): void {
-  if (audit === null || typeof audit !== 'object') throw refuse('KeyPatch.audit is required');
+function assertAudit(audit: ContentKeyAudit): void {
+  if (audit === null || typeof audit !== 'object') throw refuse('ContentKeyPatch.audit is required');
   if (!Object.prototype.hasOwnProperty.call(AUDIT_ACTIONS, audit.action)) {
-    throw refuse(`KeyPatch.audit.action \`${String(audit.action)}\` is not one of the ten lifecycle actions`);
+    throw refuse(`ContentKeyPatch.audit.action \`${String(audit.action)}\` is not one of the ten lifecycle actions`);
   }
   for (const field of ['accountId', 'productId', 'at'] as const) {
     if (typeof audit[field] !== 'string' || audit[field].length === 0) {
-      throw refuse(`KeyPatch.audit.${field} must be a non-empty string`);
+      throw refuse(`ContentKeyPatch.audit.${field} must be a non-empty string`);
     }
   }
   for (const field of ['statusBefore', 'statusAfter'] as const) {
     if (!Object.prototype.hasOwnProperty.call(KEY_STATUSES, audit[field])) {
-      throw refuse(`KeyPatch.audit.${field} \`${String(audit[field])}\` is not a KeyStatus`);
+      throw refuse(`ContentKeyPatch.audit.${field} \`${String(audit[field])}\` is not a ContentKeyState`);
     }
   }
   if (audit.generation !== null && (!Number.isInteger(audit.generation) || audit.generation < 1)) {
-    throw refuse('KeyPatch.audit.generation must be null or a positive integer');
+    throw refuse('ContentKeyPatch.audit.generation must be null or a positive integer');
   }
 }
 
@@ -426,14 +426,14 @@ function assertPatchValue(value: unknown, where: string): void {
     if (own.length === 1 && own[0] === 'op' && (op === 'delete' || op === 'serverTime')) return;
   }
   throw refuse(
-    `${where} is not a KeyPatchValue: a patch value is a string, number, boolean, null, ` +
+    `${where} is not a ContentKeyPatchValue: a patch value is a string, number, boolean, null, ` +
       'KEY_PATCH_DELETE or KEY_PATCH_SERVER_TIME, and nothing else — a closure or a store handle here ' +
       'is neither assertable nor loggable',
   );
 }
 
 function refuse(message: string): ContentCryptoError {
-  return new ContentCryptoError('VALIDATION_ERROR', `assertKeyPatch: ${message}`);
+  return new ContentCryptoError('VALIDATION_ERROR', `assertContentKeyPatch: ${message}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -461,10 +461,10 @@ function refuse(message: string): ContentCryptoError {
  *
  * `patch.changed === 0` means steps 2–5 write nothing.
  */
-export interface KeyStore {
-  readKey(accountId: string): Promise<KeyRow | null>;
+export interface ContentKeyStore {
+  readKey(accountId: string): Promise<ContentKeyRow | null>;
   readGeneration(accountId: string, n: number): Promise<GenerationRow | null>;
   listGenerations(accountId: string): Promise<readonly GenerationRow[]>;
   /** Applied atomically where the store can be. The consumer performs `patch.mint` FIRST. */
-  apply(accountId: string, patch: KeyPatch): Promise<void>;
+  apply(accountId: string, patch: ContentKeyPatch): Promise<void>;
 }

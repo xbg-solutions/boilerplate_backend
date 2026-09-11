@@ -4,10 +4,10 @@
  *   1. collab's Phase-C walk completes, AND a census query — not the walk's own counters —
  *      reports zero v1 values, zero v2 values and zero objects whose encryption marker is v1 or
  *      v2.
- *   2. collab drops `legacy` from its KeyScope and flips `reads` to strict. Any survivor now
+ *   2. collab drops `legacy` from its ContentKeyScope and flips `reads` to strict. Any survivor now
  *      fails loudly in staging rather than being read quietly for ever.
  *   3. One release later, delete together: this file, its test, the fenced legacy section of
- *      index.ts, LegacyScope and KeyScope.legacy, the two legacy prefixes and the v1/v2 arms of
+ *      index.ts, LegacyScope and ContentKeyScope.legacy, the two legacy prefixes and the v1/v2 arms of
  *      DecodedValue in field-codec.ts, the account-dek arms of DecodedValue and ObjectEnvelope,
  *      and ContentCrypto.migrateDoc. The union arms are typed, so the compiler enumerates every
  *      call site that must change.
@@ -167,7 +167,7 @@ export function legacyObjectAad(objectPath: string): string {
 
 /** The legacy object envelope, read from custom metadata under a product-supplied prefix. */
 export interface LegacyObjectEnvelope {
-  /** The metadata prefix this envelope was read under, from `KeyScope.legacy.objectMetaPrefix`. */
+  /** The metadata prefix this envelope was read under, from `ContentKeyScope.legacy.objectMetaPrefix`. */
   readonly prefix: string;
   readonly enc: 'v1' | 'v2';
   /** v1 may omit its keygen key, and that absence IS generation 1; v2 MUST carry one. */

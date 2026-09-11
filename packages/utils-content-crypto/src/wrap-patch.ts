@@ -89,7 +89,7 @@ export interface WrapAudit {
 }
 
 /**
- * Everything a `WrapPatch.update` can hold. **Not** `KeyPatchValue`: a wrap patch never emits a
+ * Everything a `WrapPatch.update` can hold. **Not** `ContentKeyPatchValue`: a wrap patch never emits a
  * server timestamp, and a union wider than the truth makes `materialiseWrapPatch` partial for no
  * reason.
  */
@@ -99,7 +99,7 @@ export interface WrapPatch {
   /**
    * Dotted `keyWraps.{accountId}` keys plus `wrapHolders`, and NOTHING else. A removal is the
    * `{ op: 'delete' }` sentinel — plain data, assertable and loggable, the same choice
-   * `KeyPatchValue` makes.
+   * `ContentKeyPatchValue` makes.
    *
    * **DO NOT WRITE THIS YOURSELF.** It must be translated, and since R13 the translator is
    * internal: apply a patch through `applyWrapPatch` (one record) or `runWrapJob` (a set), both in

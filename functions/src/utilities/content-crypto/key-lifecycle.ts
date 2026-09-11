@@ -1,13 +1,13 @@
 /**
- * **The lifecycle rules, as pure planners over the `KeyStore` port.**
+ * **The lifecycle rules, as pure planners over the `ContentKeyStore` port.**
  *
  * The local lifecycle *implementation* is throwaway — collab already has one in production and
  * Accounts will own the real custodian from Phase B — but the lifecycle *rules* are needed again
  * by Accounts, and they are the expensive part to rediscover. So the rules ship and the
- * implementation does not: ten functions that take rows and return a `KeyPatch` or a `Refusal`,
+ * implementation does not: ten functions that take rows and return a `ContentKeyPatch` or a `Refusal`,
  * with no I/O, no store handle, and no `Date.now()` except through an injected `now`.
  *
- * **`KeyStore` is a port the consumer drives; the planners never call it.** That is what lets
+ * **`ContentKeyStore` is a port the consumer drives; the planners never call it.** That is what lets
  * collab's custodian suite port against an in-memory store, where every rule becomes an
  * assertion on a returned patch rather than an assertion about a fake database.
  *
@@ -30,7 +30,7 @@
  *  11  revoke PRESERVES revokedAt, OVERWRITES revokedCause, may create a keyless row `:622`
  *  12  destroy CLOSES an open rotation                                            `:753`
  *  13  destroy records `destroyedThrough = currentGeneration`                     `:738`
- *  14  EVERY mutating operation evicts that account's cache — as `KeyPatch.evict`
+ *  14  EVERY mutating operation evicts that account's cache — as `ContentKeyPatch.evict`
  *
  * ── WHAT THIS FILE DELIBERATELY DOES NOT CARRY ───────────────────────────────────────────
  *
@@ -39,22 +39,22 @@
  *   `causeStillHolds` as a boolean and does no I/O. One behaviour of the poll is worth
  *   remembering when Accounts writes the replacement: **a read failure was treated as
  *   not-deactivated**, because a transient outage must not shred a working account's content.
- * - **The mint-outside-the-transaction dance.** A store concern; `KeyPatch.mint` names the
+ * - **The mint-outside-the-transaction dance.** A store concern; `ContentKeyPatch.mint` names the
  *   ordering and atomicity lives in `apply`.
  * - **The KMS non-primary inline re-wrap.** A KEK concern, so it goes to Accounts' Phase B.
  */
 
 import { assertNoKeyMaterial, ContentCryptoError } from './errors';
 import {
-  assertKeyPatch,
+  assertContentKeyPatch,
   KEY_PATCH_SERVER_TIME,
   refusal,
 } from './key-store';
-import type { GenerationPatch, GenerationRow, KeyAudit, KeyPatch, KeyPatchValue, KeyRow, Refusal } from './key-store';
+import type { GenerationPatch, GenerationRow, ContentKeyAudit, ContentKeyPatch, ContentKeyPatchValue, ContentKeyRow, Refusal } from './key-store';
 import type {
   ContentKeyStatus,
   GenerationStatus,
-  KeyStatus,
+  ContentKeyState,
   OpenRotation,
   RevokedCause,
   RotationProgress,
@@ -73,14 +73,14 @@ import type {
  * lands, and the page then shows a healthy account whose content is gone — which is the failure
  * this whole rule exists to make impossible rather than unlikely.
  */
-export function deriveStatus(row: Pick<KeyRow, 'revokedAt' | 'destroyedAt'>): KeyStatus {
+export function deriveStatus(row: Pick<ContentKeyRow, 'revokedAt' | 'destroyedAt'>): ContentKeyState {
   if (row.destroyedAt !== null && row.destroyedAt !== undefined) return 'destroyed';
   if (row.revokedAt !== null && row.revokedAt !== undefined) return 'revoked';
   return 'active';
 }
 
 /** The row as the wire renders it: every stored field, plus the one derived one. */
-export function toContentKeyStatus(row: KeyRow): ContentKeyStatus {
+export function toContentKeyStatus(row: ContentKeyRow): ContentKeyStatus {
   return Object.freeze({
     accountId: row.accountId,
     productId: row.productId,
@@ -150,15 +150,15 @@ const ROTATION_PROGRESS_FIELDS: Readonly<Record<keyof RotationProgress, true>> =
 // ---------------------------------------------------------------------------
 
 interface Draft {
-  readonly action: KeyAudit['action'];
+  readonly action: ContentKeyAudit['action'];
   readonly accountId: string;
   readonly productId: string;
   readonly generation: number | null;
   readonly cause: RevokedCause | null;
   readonly at: string;
   /** The row as it was, or `null` where the planner may face a missing one. */
-  readonly before: Pick<KeyRow, 'revokedAt' | 'destroyedAt'> | null;
-  readonly key?: Readonly<Record<string, KeyPatchValue>>;
+  readonly before: Pick<ContentKeyRow, 'revokedAt' | 'destroyedAt'> | null;
+  readonly key?: Readonly<Record<string, ContentKeyPatchValue>>;
   readonly generations?: readonly GenerationPatch[];
   readonly mint?: { readonly generation: number } | null;
   readonly createIfMissing?: boolean;
@@ -172,7 +172,7 @@ interface Draft {
  * That is the one assertion which would catch the class of bug where a planner clears
  * `revokedAt` and reports `revoked`, and it is cheaper to make impossible than to test for.
  */
-function build(draft: Draft): KeyPatch {
+function build(draft: Draft): ContentKeyPatch {
   const key = Object.freeze({ ...(draft.key ?? {}) });
   const generations = Object.freeze((draft.generations ?? []).map((g) => Object.freeze({ ...g, set: Object.freeze({ ...g.set }) })));
   const mint = draft.mint ?? null;
@@ -185,7 +185,7 @@ function build(draft: Draft): KeyPatch {
     destroyedAt: project(key, 'destroyedAt', before.destroyedAt),
   });
 
-  const audit: KeyAudit = Object.freeze({
+  const audit: ContentKeyAudit = Object.freeze({
     action: draft.action,
     accountId: draft.accountId,
     productId: draft.productId,
@@ -196,7 +196,7 @@ function build(draft: Draft): KeyPatch {
     at: draft.at,
   });
 
-  const patch: KeyPatch = Object.freeze({
+  const patch: ContentKeyPatch = Object.freeze({
     key,
     generations,
     mint,
@@ -211,13 +211,13 @@ function build(draft: Draft): KeyPatch {
 
   // Every planner leaves through here, so a rule broken inside this package throws at the
   // planner rather than at a store three services away.
-  assertKeyPatch(patch);
+  assertContentKeyPatch(patch);
   return patch;
 }
 
 /** What this patch leaves in one of the two tombstone fields. */
 function project(
-  key: Readonly<Record<string, KeyPatchValue>>,
+  key: Readonly<Record<string, ContentKeyPatchValue>>,
   field: 'revokedAt' | 'destroyedAt',
   current: string | null,
 ): string | null {
@@ -245,17 +245,17 @@ function stamp(now?: () => Date): string {
 /** Open means: there is a rotation and nothing has finished it. A failed rotation is OPEN
  *  (rule 6) — `error` is set and `finishedAt` is not — which is what stops a second rotation
  *  stacking on top of it and stranding a generation. */
-function openRotation(row: KeyRow): OpenRotation | null {
+function openRotation(row: ContentKeyRow): OpenRotation | null {
   const r = row.rotation;
   if (r === null || r === undefined) return null;
   return r.finishedAt === null || r.finishedAt === undefined ? r : null;
 }
 
-function requireRow(row: KeyRow | null | undefined, planner: string): KeyRow {
+function requireRow(row: ContentKeyRow | null | undefined, planner: string): ContentKeyRow {
   if (row === null || row === undefined) {
     throw new ContentCryptoError(
       'VALIDATION_ERROR',
-      `${planner} needs a KeyRow. Only planMint and planRevoke can face a missing row; read the row first, and a 404 is the route's answer`,
+      `${planner} needs a ContentKeyRow. Only planMint and planRevoke can face a missing row; read the row first, and a 404 is the route's answer`,
     );
   }
   return row;
@@ -273,12 +273,12 @@ function requireRow(row: KeyRow | null | undefined, planner: string): KeyRow {
  * generation, so "mint generation 4 because the read of 4 failed" is not expressible.
  */
 export function planMint(args: {
-  row: KeyRow | null;
+  row: ContentKeyRow | null;
   generationRow: GenerationRow | null;
   accountId: string;
   productId: string;
   now?: () => Date;
-}): KeyPatch | Refusal {
+}): ContentKeyPatch | Refusal {
   const { row, generationRow } = args;
   const accountId = requireId(args.accountId, 'accountId');
   const productId = requireId(args.productId, 'productId');
@@ -364,12 +364,12 @@ export function planMint(args: {
  * implemented as written.
  */
 export function planRevoke(args: {
-  row: KeyRow | null;
+  row: ContentKeyRow | null;
   cause: RevokedCause;
   accountId?: string;
   productId?: string;
   now?: () => Date;
-}): KeyPatch {
+}): ContentKeyPatch {
   const { row, cause } = args;
   if (typeof cause !== 'string' || cause.length === 0) {
     throw new ContentCryptoError(
@@ -454,10 +454,10 @@ export function planRevoke(args: {
  * planner does no I/O to answer it — Accounts knows locally.
  */
 export function planRestore(args: {
-  row: KeyRow;
+  row: ContentKeyRow;
   causeStillHolds: boolean;
   now?: () => Date;
-}): KeyPatch | Refusal {
+}): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planRestore');
   const at = stamp(args.now);
 
@@ -512,10 +512,10 @@ export function planRestore(args: {
  * Erase the wrapped key material on every generation and tombstone the row. **Irreversible.**
  */
 export function planDestroy(args: {
-  row: KeyRow;
+  row: ContentKeyRow;
   generations: readonly GenerationRow[];
   now?: () => Date;
-}): KeyPatch | Refusal {
+}): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planDestroy');
   const generations = args.generations ?? [];
   const at = stamp(args.now);
@@ -533,7 +533,7 @@ export function planDestroy(args: {
     );
   }
 
-  const key: Record<string, KeyPatchValue> = {
+  const key: Record<string, ContentKeyPatchValue> = {
     destroyedAt: at,
     // RULE 13 — prevents the page being unable to say which material is gone after a later
     // regenerate. `currentGeneration` moves on; this does not.
@@ -573,7 +573,7 @@ export function planDestroy(args: {
  * Bring a destroyed account back on a fresh generation. Everything sealed under the destroyed
  * generations stays unreadable for ever; this is a new start, not a recovery.
  */
-export function planRegenerate(args: { row: KeyRow; now?: () => Date }): KeyPatch | Refusal {
+export function planRegenerate(args: { row: ContentKeyRow; now?: () => Date }): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planRegenerate');
   const at = stamp(args.now);
 
@@ -619,7 +619,7 @@ export function planRegenerate(args: { row: KeyRow; now?: () => Date }): KeyPatc
  * The wrap on N stays until the product reports the generation drained, because a value sealed
  * under N that the walk has not reached yet still needs N's key to be read.
  */
-export function planBeginRotation(args: { row: KeyRow; now?: () => Date }): KeyPatch | Refusal {
+export function planBeginRotation(args: { row: ContentKeyRow; now?: () => Date }): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planBeginRotation');
   const at = stamp(args.now);
 
@@ -674,10 +674,10 @@ export function planBeginRotation(args: { row: KeyRow; now?: () => Date }): KeyP
  * only one whose refusals are all caller mistakes.
  */
 export function planRecordProgress(args: {
-  row: KeyRow;
+  row: ContentKeyRow;
   progress: Partial<RotationProgress>;
   now?: () => Date;
-}): KeyPatch | Refusal {
+}): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planRecordProgress');
   const at = stamp(args.now);
   const open = openRotation(row);
@@ -690,7 +690,7 @@ export function planRecordProgress(args: {
     return refusal('VALIDATION_ERROR', 'progress must be a partial RotationProgress');
   }
 
-  const key: Record<string, KeyPatchValue> = {};
+  const key: Record<string, ContentKeyPatchValue> = {};
   for (const field of Object.keys(progress)) {
     if (!Object.prototype.hasOwnProperty.call(ROTATION_PROGRESS_FIELDS, field)) {
       return refusal(
@@ -739,10 +739,10 @@ export function planRecordProgress(args: {
  * outright — ciphertext has no business in a status field.
  */
 export function planFailRotation(args: {
-  row: KeyRow;
+  row: ContentKeyRow;
   error: string;
   now?: () => Date;
-}): KeyPatch | Refusal {
+}): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planFailRotation');
   const at = stamp(args.now);
   const open = openRotation(row);
@@ -796,7 +796,7 @@ function capRotationError(error: string): string {
 
 /** Close a rotation, successfully. Clears the error, because a finished rotation that still
  *  shows one is a page nobody trusts. */
-export function planFinishRotation(args: { row: KeyRow; now?: () => Date }): KeyPatch | Refusal {
+export function planFinishRotation(args: { row: ContentKeyRow; now?: () => Date }): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planFinishRotation');
   const at = stamp(args.now);
   const open = openRotation(row);
@@ -834,11 +834,11 @@ export function planFinishRotation(args: { row: KeyRow; now?: () => Date }): Key
  * product using it" coordination to get wrong.
  */
 export function planDrain(args: {
-  row: KeyRow;
+  row: ContentKeyRow;
   generations: readonly GenerationRow[];
   through: number;
   now?: () => Date;
-}): KeyPatch | Refusal {
+}): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planDrain');
   const generations = args.generations ?? [];
   const at = stamp(args.now);

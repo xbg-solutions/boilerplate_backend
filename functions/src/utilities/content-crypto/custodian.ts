@@ -84,12 +84,12 @@ export type RevokedCause = 'sysadmin' | 'account-deactivated' | 'client-request'
 
 /** DERIVED at the wire boundary, never stored. A stored status is a second copy of the truth that
  *  drifts from the timestamps the moment one write lands and the other does not. */
-export type KeyStatus = 'active' | 'revoked' | 'destroyed';
+export type ContentKeyState = 'active' | 'revoked' | 'destroyed';
 
 export interface ContentKeyStatus {
   readonly accountId: string;
   readonly productId: string;
-  readonly status: KeyStatus;
+  readonly status: ContentKeyState;
   readonly currentGeneration: number;
   readonly createdAt: string | null;
   readonly revokedAt: string | null;

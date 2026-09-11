@@ -51,7 +51,7 @@ import { decodeValue, isEncrypted } from '../field-codec';
 import {
   ACCOUNT_RECORD_TYPE, aggregateRecordRef, assertScopePath, assertHead, resolveScope,
 } from '../key-scope';
-import type { KeyScope } from '../key-scope';
+import type { ContentKeyScope } from '../key-scope';
 import { defineRegistry } from '../registry';
 import { mintRecordKey, unwrapRecordKey, wrapRecordKey } from '../record-key';
 import { planWraps } from '../wrap-patch';
@@ -73,7 +73,7 @@ const registry = defineRegistry({
 
 type Collection = 'projects';
 
-const scope: KeyScope<'project'> = {
+const scope: ContentKeyScope<'project'> = {
   productId: PRODUCT,
   records: { project: 'aggregate' },
   accountRecordPath: (accountId) => `accountContentKeys/${accountId}`,
@@ -218,7 +218,7 @@ describe('one scope carries both granularities, so this suite needs ONE ContentC
     expect(
       codeOf(() =>
         resolveScope(
-          { productId: PRODUCT, records: { account: 'account' } } as unknown as KeyScope<'account'>,
+          { productId: PRODUCT, records: { account: 'account' } } as unknown as ContentKeyScope<'account'>,
           registry,
         ),
       ),

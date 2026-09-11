@@ -15,7 +15,7 @@
  * There is no client-held key material, ever. `PII_ENCRYPTION_KEY` (utils-hashing) is a
  * separate system answering a different question and this package must never reference it.
  *
- * A product supplies three things and nothing else: a `KeyScope`, a registry from
+ * A product supplies three things and nothing else: a `ContentKeyScope`, a registry from
  * `defineRegistry`, and its own traversal. See UPGRADING.md.
  *
  * ── WHAT IS HERE, AND WHAT IS NOT ────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@
  *
  * `testing.ts` is the twenty-third and has no section here, deliberately: it is a SEPARATE
  * entrypoint (`./testing`), never part of this surface — `expectNoKeyMaterial`,
- * `registerKeyMaterialFixture`, `memoryKeyStore`, `fixedDekSource`, `checkTraversal` and
+ * `registerKeyMaterialFixture`, `memoryContentKeyStore`, `fixedDekSource`, `checkTraversal` and
  * `checkWrapCommit` all ship from there so that a test helper cannot arrive in a production
  * bundle by accident, and it throws on import inside a deployed function because the mirror
  * has no `exports` map to close the subpath for it. Assertion (7) keeps `checkTraversal` off
@@ -54,7 +54,7 @@ export type { ContentCryptoCode, ErrorDetail, ErrorDetails } from './errors';
 export { isSecret, isDestroyed, KEY_BYTES, MAX_SEALS_PER_KEY } from './secret';
 export type { Secret, AccountDek, RecordKey } from './secret';
 
-// ── KeyScope — the third thing a product supplies ───────────────────────────────────────────
+// ── ContentKeyScope — the third thing a product supplies ───────────────────────────────────────────
 export {
   resolveScope, resolveGraceMs, assertScopePath,
   documentRecordRef, aggregateRecordRef, accountRecordRef, recordRefKey,
@@ -62,7 +62,7 @@ export {
   MIN_DERIVED_SEALED_BYTES,
 } from './key-scope';
 export type {
-  KeyScope, ResolvedScope, RecordGranularity, AadTightness, ReadStrictness, LegacyScope,
+  ContentKeyScope, ResolvedScope, RecordGranularity, AadTightness, ReadStrictness, LegacyScope,
 } from './key-scope';
 
 // ── Registry — the second thing a product supplies (shape only; contents stay per product) ──
@@ -154,7 +154,7 @@ export type { ObjectRef, ObjectMetadata, ObjectEnvelope, UnverifiedStreamAck } f
 // ── Custodian — the READ path. There is no implementation in this package (decision 1). ─────
 export type {
   DekSource, CachedDekSource, DekHandle, CacheStats,
-  ContentKeyStatus, GenerationStatus, RotationProgress, OpenRotation, KeyStatus, RevokedCause,
+  ContentKeyStatus, GenerationStatus, RotationProgress, OpenRotation, ContentKeyState, RevokedCause,
 } from './custodian';
 
 // ── The caching source. The TTL IS the revocation window, and the grace window lives here ──
@@ -166,12 +166,12 @@ export {
 } from './custodian-cache';
 export type { CacheOptions, GraceInfo, GraceReason } from './custodian-cache';
 
-// ── The KeyStore PORT. Row-shaped, never path-shaped: the consumer implements it, and ───────
+// ── The ContentKeyStore PORT. Row-shaped, never path-shaped: the consumer implements it, and ───────
 // ── Accounts' and collab's very different storage are the SAME port. `GenerationRow` says ───
 // ── `hasWrap` and never `wrappedDek`, which is the checkable form of "no local custodian". ──
-export { isRefusal, refusal, assertKeyPatch, KEY_PATCH_DELETE, KEY_PATCH_SERVER_TIME } from './key-store';
+export { isRefusal, refusal, assertContentKeyPatch, KEY_PATCH_DELETE, KEY_PATCH_SERVER_TIME } from './key-store';
 export type {
-  KeyStore, KeyRow, GenerationRow, KeyPatch, KeyPatchValue, GenerationPatch, Refusal, KeyAudit,
+  ContentKeyStore, ContentKeyRow, GenerationRow, ContentKeyPatch, ContentKeyPatchValue, GenerationPatch, Refusal, ContentKeyAudit,
 } from './key-store';
 
 // ── Lifecycle RULES as planners over that port. Pure: no I/O, no store handle, no clock ─────

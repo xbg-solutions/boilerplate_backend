@@ -31,7 +31,7 @@ import { decryptField, encryptField, isEncrypted, isSealedBlobCandidate } from '
 import { parseFieldPath } from '../field-path';
 import { resolveScope } from '../key-scope';
 import { ENC_PREFIX_V1 } from '../legacy-readers';
-import type { KeyScope } from '../key-scope';
+import type { ContentKeyScope } from '../key-scope';
 import { defineRegistry } from '../registry';
 import { KEY_BYTES, recordKeyFromBytes } from '../secret';
 import type { RecordKey } from '../secret';
@@ -82,7 +82,7 @@ const registry = defineRegistry({
   legacyNotes: { strings: ['body'], reads: 'lenient' },
 });
 
-const baseScope: KeyScope<'project'> = {
+const baseScope: ContentKeyScope<'project'> = {
   productId: 'collab',
   records: { project: 'aggregate' },
 };

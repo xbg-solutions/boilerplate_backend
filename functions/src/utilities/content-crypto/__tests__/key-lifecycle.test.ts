@@ -20,12 +20,12 @@
 
 import { assertNoKeyMaterial, isContentCryptoError } from '../errors';
 import {
-  assertKeyPatch,
+  assertContentKeyPatch,
   isRefusal,
   KEY_PATCH_DELETE,
   KEY_PATCH_SERVER_TIME,
 } from '../key-store';
-import type { GenerationRow, KeyPatch, KeyPatchValue, KeyRow, Refusal } from '../key-store';
+import type { GenerationRow, ContentKeyPatch, ContentKeyPatchValue, ContentKeyRow, Refusal } from '../key-store';
 import {
   deriveStatus,
   MAX_ROTATION_ERROR_CHARS,
@@ -55,7 +55,7 @@ const now = () => new Date(AT);
 /** What the store's own server timestamp resolves to, for the row applier below. */
 const SERVER_TIME_RESOLVES_TO = '2026-09-11T09:00:00.500Z';
 
-function row(over: Partial<KeyRow> = {}): KeyRow {
+function row(over: Partial<ContentKeyRow> = {}): ContentKeyRow {
   return {
     accountId: 'acc_1',
     productId: 'collab',
@@ -88,12 +88,12 @@ function openRotation(over: Partial<OpenRotation> = {}): OpenRotation {
 }
 
 /** Narrow, and say which planner disagreed when it does not. */
-function asPatch(result: KeyPatch | Refusal, what = 'the planner'): KeyPatch {
+function asPatch(result: ContentKeyPatch | Refusal, what = 'the planner'): ContentKeyPatch {
   if (isRefusal(result)) throw new Error(`${what} refused unexpectedly: ${result.code} — ${result.message}`);
   return result;
 }
 
-function asRefusal(result: KeyPatch | Refusal, what = 'the planner'): Refusal {
+function asRefusal(result: ContentKeyPatch | Refusal, what = 'the planner'): Refusal {
   if (!isRefusal(result)) throw new Error(`${what} returned a patch where a refusal was expected`);
   return result;
 }
@@ -103,7 +103,7 @@ function asRefusal(result: KeyPatch | Refusal, what = 'the planner'): Refusal {
  * translated. Only what the cross-cutting status assertion needs — the full §12.2 applier lives
  * in `key-store.test.ts`, where it is the subject rather than a tool.
  */
-function applyKey(before: KeyRow | null, patch: KeyPatch): KeyRow {
+function applyKey(before: ContentKeyRow | null, patch: ContentKeyPatch): ContentKeyRow {
   const doc: Record<string, unknown> = before === null ? {} : JSON.parse(JSON.stringify(before));
   for (const [path, value] of Object.entries(patch.key)) {
     const segments = path.split('.');
@@ -114,7 +114,7 @@ function applyKey(before: KeyRow | null, patch: KeyPatch): KeyRow {
       node = node[seg] as Record<string, unknown>;
     }
     const last = segments[segments.length - 1];
-    const v: KeyPatchValue = value;
+    const v: ContentKeyPatchValue = value;
     if (v !== null && typeof v === 'object' && 'op' in v) {
       if (v.op === 'delete') delete node[last];
       else node[last] = SERVER_TIME_RESOLVES_TO;
@@ -122,7 +122,7 @@ function applyKey(before: KeyRow | null, patch: KeyPatch): KeyRow {
       node[last] = v;
     }
   }
-  return doc as unknown as KeyRow;
+  return doc as unknown as ContentKeyRow;
 }
 
 // ---------------------------------------------------------------------------
@@ -701,7 +701,7 @@ describe('planFinishRotation', () => {
 // ---------------------------------------------------------------------------
 
 /** One happy-path patch per planner, with the row it was planned against. */
-function everyPatch(): readonly { name: string; before: KeyRow | null; patch: KeyPatch }[] {
+function everyPatch(): readonly { name: string; before: ContentKeyRow | null; patch: ContentKeyPatch }[] {
   const revoked = row({ revokedAt: EARLIER, revokedCause: 'account-deactivated' });
   const destroyed = row({ currentGeneration: 2, revokedAt: EARLIER, revokedCause: 'incident', destroyedAt: EARLIER, destroyedThrough: 2 });
   const rotating = row({ currentGeneration: 3, rotation: openRotation({ generation: 3 }) });
@@ -772,10 +772,10 @@ describe('every planner, over the whole table', () => {
     }
   });
 
-  it('satisfies assertKeyPatch, which every planner already ran on the way out', () => {
+  it('satisfies assertContentKeyPatch, which every planner already ran on the way out', () => {
     for (const { name, patch } of everyPatch()) {
       try {
-        assertKeyPatch(patch);
+        assertContentKeyPatch(patch);
       } catch (err) {
         throw new Error(`${name}: ${(err as Error).message}`);
       }
@@ -814,9 +814,9 @@ describe('every planner, over the whole table', () => {
     // signature promises one is a programming error, and putting both on one channel is how a
     // route ends up switching on codes to tell them apart.
     for (const call of [
-      () => planRestore({ row: null as unknown as KeyRow, causeStillHolds: false, now }),
-      () => planDestroy({ row: null as unknown as KeyRow, generations: [], now }),
-      () => planBeginRotation({ row: null as unknown as KeyRow, now }),
+      () => planRestore({ row: null as unknown as ContentKeyRow, causeStillHolds: false, now }),
+      () => planDestroy({ row: null as unknown as ContentKeyRow, generations: [], now }),
+      () => planBeginRotation({ row: null as unknown as ContentKeyRow, now }),
     ]) {
       try {
         call();

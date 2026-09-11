@@ -41,7 +41,7 @@ import { dekFromBytes } from '../secret';
 import type { AccountDek } from '../secret';
 import { defineRegistry, EMPTY_REGISTRY } from '../registry';
 import { aggregateRecordRef, documentRecordRef } from '../key-scope';
-import type { KeyScope } from '../key-scope';
+import type { ContentKeyScope } from '../key-scope';
 import { holdersOf, parseKeyWraps, wrapCount } from '../record-key';
 import type { KeyWraps, RecordRef } from '../record-key';
 import { isEncrypted } from '../field-codec';
@@ -60,7 +60,7 @@ const registry = defineRegistry({
 
 type Collection = 'messages' | 'versions' | 'settings';
 
-const scope: KeyScope<'project'> = {
+const scope: ContentKeyScope<'project'> = {
   productId: PRODUCT,
   records: { project: 'aggregate' },
   accountRecordPath: (accountId) => `accountSettings/${accountId}`,

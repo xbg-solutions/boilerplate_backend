@@ -39,7 +39,7 @@ import { ContentCryptoError, isContentCryptoError } from '../errors';
 import {
   ACCOUNT_RECORD_TYPE, accountRecordRef, aggregateRecordRef, documentRecordRef, resolveScope,
 } from '../key-scope';
-import type { KeyScope, ResolvedScope } from '../key-scope';
+import type { ContentKeyScope, ResolvedScope } from '../key-scope';
 import { defineRegistry } from '../registry';
 import {
   KEY_WRAPS_FIELD, WRAP_HOLDERS_FIELD, mintRecordKey, unwrapRecordKey, wrapRecordKey,
@@ -69,7 +69,7 @@ const registry = defineRegistry({
 type Collection = 'projects' | 'messages';
 type RecordType = 'project' | 'messages';
 
-const scope: KeyScope<RecordType> = {
+const scope: ContentKeyScope<RecordType> = {
   productId: PRODUCT,
   records: { project: 'aggregate', messages: 'document' },
   accountRecordPath: (accountId) => `accountContentKeys/${accountId}`,
@@ -297,7 +297,7 @@ describe('assertHead refuses the head whose wrap is in the wrong place', () => {
       scope: resolved,
       record: () => ref('morphObject', 'o_1', 'objects/o_1'),
       owner: 'A',
-      verdict: 'not declared in KeyScope.records',
+      verdict: 'not declared in ContentKeyScope.records',
     },
     {
       name: 'account: the record id IS the owner',

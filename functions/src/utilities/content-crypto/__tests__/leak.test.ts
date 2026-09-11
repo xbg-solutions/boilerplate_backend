@@ -567,7 +567,7 @@ describe('the objects a product actually receives', () => {
  * ── THE STANDING GUARDS, AND WHERE THEY ARE ───────────────────────────────────────────────────
  *
  * Every structured payload this package hands back for logging is guarded at the point it is
- * PRODUCED, not merely swept here: `key-store.ts`'s `assertKeyPatch` runs `assertNoKeyMaterial`
+ * PRODUCED, not merely swept here: `key-store.ts`'s `assertContentKeyPatch` runs `assertNoKeyMaterial`
  * over `patch.key`, every `GenerationPatch.set` and `patch.audit`; `custodian-cache.ts` runs it
  * over every `GraceInfo` before `onGraceServe`; `key-lifecycle.ts` runs it over a rotation error
  * string; and `wrap-patch.ts` runs it over `audit` and `update` before `planWraps` returns.

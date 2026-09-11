@@ -148,7 +148,7 @@ import type { RecordRef, KeyWraps, WrapEntry } from './record-key';
 import { planWraps as planWrapsWithKey } from './wrap-patch';
 import type { WrapPatch, WrapAudit, DesiredWraps, GrantScope } from './wrap-patch';
 import { resolveScope, recordRefKey } from './key-scope';
-import type { KeyScope, ResolvedScope } from './key-scope';
+import type { ContentKeyScope, ResolvedScope } from './key-scope';
 import type { FieldRegistry } from './registry';
 import { createDocCodec } from './doc-codec';
 import type { DocCodec, DocPlanner, SealedUpdate, PlannedAt } from './doc-codec';
@@ -175,7 +175,7 @@ import {
 export interface ContentCryptoOptions<C extends string, RT extends string> {
   /** The product's own scope, unresolved. `createContentCrypto` resolves it against the registry,
    *  which is what runs the two cross-table validations at construction rather than on a write. */
-  readonly scope: KeyScope<RT>;
+  readonly scope: ContentKeyScope<RT>;
   readonly registry: FieldRegistry<C>;
   /**
    * The package's READ PORT, and named for what it is.

@@ -48,12 +48,12 @@ import {
   ContentCryptoError, HTTP_STATUS_FOR_CODE, isContentCryptoError, isKeyUnavailable, isUnreadable,
 } from '../errors';
 import { aggregateRecordRef } from '../key-scope';
-import type { KeyScope } from '../key-scope';
+import type { ContentKeyScope } from '../key-scope';
 import {
   deriveStatus, planDestroy, planMint, planRegenerate, planRestore, planRevoke,
 } from '../key-lifecycle';
 import { KEY_PATCH_DELETE, KEY_PATCH_SERVER_TIME, isRefusal } from '../key-store';
-import type { GenerationRow, KeyPatch, KeyPatchValue, KeyRow, Refusal } from '../key-store';
+import type { GenerationRow, ContentKeyPatch, ContentKeyPatchValue, ContentKeyRow, Refusal } from '../key-store';
 import { defineRegistry } from '../registry';
 import { holdersOf, isUnreachable, parseKeyWraps, wrapCount } from '../record-key';
 import type { KeyWraps, RecordRef } from '../record-key';
@@ -68,7 +68,7 @@ import type { RecordHead, WriteRow, WriteSink } from '../walk';
 const PRODUCT = 'collab';
 
 interface Account {
-  row: KeyRow;
+  row: ContentKeyRow;
   generations: GenerationRow[];
 }
 
@@ -76,8 +76,8 @@ interface LifecycleStore {
   /** The DEK source the façade is built over — lifecycle-aware, so a revoke really bites. */
   readonly source: DekSource;
   /** Apply a planner's patch. Refusals are returned to the caller, never applied. */
-  apply(patch: KeyPatch): void;
-  rowOf(accountId: string): KeyRow;
+  apply(patch: ContentKeyPatch): void;
+  rowOf(accountId: string): ContentKeyRow;
   generationsOf(accountId: string): readonly GenerationRow[];
   /** True while this generation's bytes still exist ANYWHERE in the harness. */
   hasMaterial(accountId: string, generation: number): boolean;
@@ -92,7 +92,7 @@ function memoryLifecycleStore(): LifecycleStore {
   const material = new Map<string, Buffer>();
   const materialKey = (accountId: string, n: number): string => `${accountId}#${n}`;
 
-  const blank = (accountId: string): KeyRow => ({
+  const blank = (accountId: string): ContentKeyRow => ({
     accountId,
     productId: PRODUCT,
     currentGeneration: 1,
@@ -104,18 +104,18 @@ function memoryLifecycleStore(): LifecycleStore {
     rotation: null,
   });
 
-  const resolveValue = (value: KeyPatchValue): unknown =>
+  const resolveValue = (value: ContentKeyPatchValue): unknown =>
     value === KEY_PATCH_SERVER_TIME ||
     (typeof value === 'object' && value !== null && (value as { op?: string }).op === 'serverTime')
       ? at()
       : value;
 
-  const isDelete = (value: KeyPatchValue): boolean =>
+  const isDelete = (value: ContentKeyPatchValue): boolean =>
     value === KEY_PATCH_DELETE ||
     (typeof value === 'object' && value !== null && (value as { op?: string }).op === 'delete');
 
   const applyFields = (
-    target: Record<string, unknown>, set: Readonly<Record<string, KeyPatchValue>>,
+    target: Record<string, unknown>, set: Readonly<Record<string, ContentKeyPatchValue>>,
   ): void => {
     for (const path of Object.keys(set)) {
       const value = set[path];
@@ -140,7 +140,7 @@ function memoryLifecycleStore(): LifecycleStore {
     return made;
   };
 
-  const apply = (patch: KeyPatch): void => {
+  const apply = (patch: ContentKeyPatch): void => {
     const account = accountOf(patch.audit.accountId);
 
     // ORDERING IS A RULE, and the patch's shape carries it: mint and wrap the generation BEFORE
@@ -160,7 +160,7 @@ function memoryLifecycleStore(): LifecycleStore {
 
     const draft = { ...account.row } as unknown as Record<string, unknown>;
     applyFields(draft, patch.key);
-    account.row = draft as unknown as KeyRow;
+    account.row = draft as unknown as ContentKeyRow;
 
     for (const generation of patch.generations) {
       const index = account.generations.findIndex((g) => g.n === generation.n);
@@ -259,7 +259,7 @@ const registry = defineRegistry({
 
 type Collection = 'projects';
 
-const scope: KeyScope<'project'> = {
+const scope: ContentKeyScope<'project'> = {
   productId: PRODUCT,
   records: { project: 'aggregate' },
 };
@@ -272,11 +272,11 @@ interface Harness {
   readonly dekSource: CachedDekSource;
   readonly crypto: ContentCrypto<Collection, 'project'>;
   readonly record: RecordRef;
-  /** The operator actions, each applying its patch and honouring `KeyPatch.evict`. */
-  revoke(accountId: string, cause?: RevokedCause): KeyPatch;
-  restore(accountId: string, causeStillHolds?: boolean): KeyPatch | Refusal;
-  destroy(accountId: string): KeyPatch | Refusal;
-  regenerate(accountId: string): KeyPatch | Refusal;
+  /** The operator actions, each applying its patch and honouring `ContentKeyPatch.evict`. */
+  revoke(accountId: string, cause?: RevokedCause): ContentKeyPatch;
+  restore(accountId: string, causeStillHolds?: boolean): ContentKeyPatch | Refusal;
+  destroy(accountId: string): ContentKeyPatch | Refusal;
+  regenerate(accountId: string): ContentKeyPatch | Refusal;
 }
 
 /**
@@ -323,7 +323,7 @@ function makeHarness(): Harness {
 
   /** Footgun 14, honoured: every mutating patch drops this account's cached DEKs. A consumer that
    *  wires `apply` and forgets is invisible — everything works, and revocations never arrive. */
-  const applyAndEvict = <P extends KeyPatch>(accountId: string, patch: P): P => {
+  const applyAndEvict = <P extends ContentKeyPatch>(accountId: string, patch: P): P => {
     store.apply(patch);
     if (patch.evict) dekSource.evict(accountId);
     return patch;
@@ -335,7 +335,7 @@ function makeHarness(): Harness {
     crypto,
     record: aggregateRecordRef('project', 'p_1', 'projects/p_1'),
 
-    revoke(accountId, cause = 'client-request'): KeyPatch {
+    revoke(accountId, cause = 'client-request'): ContentKeyPatch {
       store.ensure(accountId);
       return applyAndEvict(accountId, planRevoke({
         row: store.rowOf(accountId), cause, now: () => new Date(at()),
@@ -475,7 +475,7 @@ describe('the harness destroys real bytes, so everything below is about erasure 
   });
 
   it('the cache eviction is LOAD-BEARING: without it a revoke does not bite', async () => {
-    // The `KeyPatch.evict` flag exists because forgetting it is invisible — everything works and
+    // The `ContentKeyPatch.evict` flag exists because forgetting it is invisible — everything works and
     // the revocation simply never arrives until the TTL expires. This is that failure, produced on
     // purpose and then repaired, so the flag is proved to be doing something.
     const h = makeHarness();

@@ -17,16 +17,16 @@ import { inspect } from 'node:util';
 
 import {
   assertNotDeployedFunction, checkTraversal, checkWrapCommit, expectNoKeyMaterial, fixedDekSource,
-  isDeployedFunction, memoryKeyStore, registerKeyMaterialFixture,
+  isDeployedFunction, memoryContentKeyStore, registerKeyMaterialFixture,
 } from '../testing';
 import type { WrapCommitHarness } from '../testing';
 import type { WrapCommitRequest, WrapCommitter, WrapReceipt } from '../content-crypto';
 import { ContentCryptoError, isContentCryptoError } from '../errors';
-import type { KeyPatch } from '../key-store';
+import type { ContentKeyPatch } from '../key-store';
 import { KEY_PATCH_DELETE, KEY_PATCH_SERVER_TIME } from '../key-store';
 import { defineRegistry } from '../registry';
 import { aggregateRecordRef, resolveScope } from '../key-scope';
-import type { KeyScope } from '../key-scope';
+import type { ContentKeyScope } from '../key-scope';
 import { mintRecordKey, parseKeyWraps, unwrapRecordKey, wrapRecordKey } from '../record-key';
 import type { KeyWraps, RecordRef, WrapEntry } from '../record-key';
 import type { ForEachRecord, RecordHead } from '../walk';
@@ -179,11 +179,11 @@ describe('expectNoKeyMaterial', () => {
 });
 
 // ---------------------------------------------------------------------------
-// memoryKeyStore
+// memoryContentKeyStore
 // ---------------------------------------------------------------------------
 
-/** The minimum a `KeyPatch` must carry to be legal; every test below overlays what it cares about. */
-function patchOf(overrides: Partial<KeyPatch>): KeyPatch {
+/** The minimum a `ContentKeyPatch` must carry to be legal; every test below overlays what it cares about. */
+function patchOf(overrides: Partial<ContentKeyPatch>): ContentKeyPatch {
   const key = overrides.key ?? {};
   const generations = overrides.generations ?? [];
   const mint = overrides.mint ?? null;
@@ -208,11 +208,11 @@ function patchOf(overrides: Partial<KeyPatch>): KeyPatch {
   };
 }
 
-describe('memoryKeyStore', () => {
+describe('memoryContentKeyStore', () => {
   const at = (): Date => new Date('2026-02-02T02:02:02.000Z');
 
   it('seeds a row and its generations, so a test states its precondition', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     store.seed('A', { currentGeneration: 2, createdAt: '2026-01-01T00:00:00.000Z' }, [
       { n: 1, hasWrap: false, drainedAt: '2026-01-05T00:00:00.000Z' },
       { n: 2, hasWrap: true },
@@ -226,14 +226,14 @@ describe('memoryKeyStore', () => {
   });
 
   it('an unseeded account reads back null rather than an empty row', async () => {
-    const store = memoryKeyStore(PRODUCT);
+    const store = memoryContentKeyStore(PRODUCT);
     expect(await store.readKey('nobody')).toBeNull();
     expect(await store.readGeneration('nobody', 1)).toBeNull();
     expect(await store.listGenerations('nobody')).toEqual([]);
   });
 
   it('applies MINT FIRST: the wrap exists before anything else in the patch is written', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     await store.apply('A', patchOf({
       key: { currentGeneration: 1, createdAt: KEY_PATCH_SERVER_TIME },
       mint: { generation: 1 },
@@ -244,7 +244,7 @@ describe('memoryKeyStore', () => {
   });
 
   it('translates KEY_PATCH_SERVER_TIME through the injected clock, and KEY_PATCH_DELETE as a removal', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     store.seed('A', { currentGeneration: 1, revokedAt: '2026-01-01T00:00:00.000Z', revokedCause: 'incident' });
     await store.apply('A', patchOf({ key: { destroyedAt: KEY_PATCH_SERVER_TIME } }));
     expect((await store.readKey('A'))?.destroyedAt).toBe('2026-02-02T02:02:02.000Z');
@@ -256,15 +256,15 @@ describe('memoryKeyStore', () => {
   });
 
   it('recognises a sentinel that has been through JSON, because a patch may have crossed a queue', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     store.seed('A', { revokedAt: '2026-01-01T00:00:00.000Z' });
-    const posted = JSON.parse(JSON.stringify(patchOf({ key: { revokedAt: KEY_PATCH_DELETE } }))) as KeyPatch;
+    const posted = JSON.parse(JSON.stringify(patchOf({ key: { revokedAt: KEY_PATCH_DELETE } }))) as ContentKeyPatch;
     await store.apply('A', posted);
     expect((await store.readKey('A'))?.revokedAt).toBeNull();
   });
 
   it('applies a dotted key as a FIELD PATH, creating the intermediate map', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     store.seed('A', { currentGeneration: 1 });
     await store.apply('A', patchOf({
       key: { 'rotation.generation': 2, 'rotation.startedAt': '2026-01-02T00:00:00.000Z' },
@@ -281,7 +281,7 @@ describe('memoryKeyStore', () => {
     // absent and the patch does not create one, so step 3 refuses — and the generation patch has
     // already landed. That direction is recoverable by re-running; a row tombstoned over a live
     // wrap is a destroy that lies, and nothing repairs it.
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     expect(await asyncCodeOf(() => store.apply('A', patchOf({
       key: { destroyedAt: KEY_PATCH_SERVER_TIME },
       generations: [{ n: 1, set: { destroyedAt: KEY_PATCH_SERVER_TIME }, eraseWrap: true }],
@@ -292,7 +292,7 @@ describe('memoryKeyStore', () => {
   });
 
   it('MINT comes first, so the wrap exists even when the rest of the patch cannot be applied', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     expect(await asyncCodeOf(() => store.apply('A', patchOf({
       key: { currentGeneration: 2 },
       mint: { generation: 2 },
@@ -301,7 +301,7 @@ describe('memoryKeyStore', () => {
   });
 
   it('a destroy erases the wrap and tombstones the row in one legal patch', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     store.seed('A', { currentGeneration: 1 }, [{ n: 1, hasWrap: true }]);
     await store.apply('A', patchOf({
       key: { destroyedAt: KEY_PATCH_SERVER_TIME, destroyedThrough: 1 },
@@ -313,15 +313,15 @@ describe('memoryKeyStore', () => {
   });
 
   it('creates the row when createIfMissing, and REFUSES a patch against a row that is not there', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     expect(await asyncCodeOf(() => store.apply('A', patchOf({ key: { currentGeneration: 1 } }))))
       .toBe('KEY_STORE_CONFLICT');
     await store.apply('A', patchOf({ key: { currentGeneration: 1 }, createIfMissing: true }));
     expect((await store.readKey('A'))?.currentGeneration).toBe(1);
   });
 
-  it('runs assertKeyPatch, so an illegal patch never reaches the store', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+  it('runs assertContentKeyPatch, so an illegal patch never reaches the store', async () => {
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     // `changed` disagreeing with the patch's own contents — the invariant a consumer's `apply`
     // gets to rely on, re-asserted where the planner's guarantee no longer travels with the value.
     expect(await asyncCodeOf(() => store.apply('A', patchOf({ key: { currentGeneration: 1 }, changed: 7 }))))
@@ -330,7 +330,7 @@ describe('memoryKeyStore', () => {
   });
 
   it('records every patch in order, which is the assertion surface for the fourteen rules', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     await store.apply('A', patchOf({ key: { currentGeneration: 1 }, mint: { generation: 1 }, createIfMissing: true }));
     await store.apply('A', patchOf({ key: { revokedAt: KEY_PATCH_SERVER_TIME } }));
     expect(store.applied.map((e) => e.accountId)).toEqual(['A', 'A']);
@@ -340,7 +340,7 @@ describe('memoryKeyStore', () => {
 
   it('honours patch.evict, which is footgun 14 and the step a consumer forgets invisibly', async () => {
     const evicted: string[] = [];
-    const store = memoryKeyStore(PRODUCT, { now: at, onEvict: (a) => evicted.push(a) });
+    const store = memoryContentKeyStore(PRODUCT, { now: at, onEvict: (a) => evicted.push(a) });
     await store.apply('A', patchOf({ key: { currentGeneration: 1 }, createIfMissing: true }));
     expect(evicted).toEqual(['A']);
 
@@ -350,7 +350,7 @@ describe('memoryKeyStore', () => {
   });
 
   it('holds no key material at all: a GenerationRow carries hasWrap and never a wrap', async () => {
-    const store = memoryKeyStore(PRODUCT, { now: at });
+    const store = memoryContentKeyStore(PRODUCT, { now: at });
     await store.apply('A', patchOf({ key: { currentGeneration: 1 }, mint: { generation: 1 }, createIfMissing: true }));
     const keyRow = await store.readKey('A');
     expect(() => expectNoKeyMaterial({
@@ -466,7 +466,7 @@ describe('fixedDekSource', () => {
 
 describe('checkTraversal', () => {
   const registry = defineRegistry({ messages: { strings: ['body'] } });
-  const scopeSpec: KeyScope<'project'> = {
+  const scopeSpec: ContentKeyScope<'project'> = {
     productId: PRODUCT,
     records: { project: 'aggregate' },
   };
@@ -573,7 +573,7 @@ describe('checkTraversal', () => {
  */
 describe('checkWrapCommit', () => {
   const registry = defineRegistry({ messages: { strings: ['body'] } });
-  const scopeSpec: KeyScope<'project'> = { productId: PRODUCT, records: { project: 'aggregate' } };
+  const scopeSpec: ContentKeyScope<'project'> = { productId: PRODUCT, records: { project: 'aggregate' } };
   const scope = resolveScope(scopeSpec, registry);
   const records = [
     aggregateRecordRef('project', 'p_1', 'projects/p_1'),

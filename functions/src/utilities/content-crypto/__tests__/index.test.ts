@@ -115,13 +115,13 @@ const EXPECTED_EXPORTS: readonly string[] = [
   'GRACE_INELIGIBLE_CODES',
 
   // key-store.ts (5) — the PORT: types, two sentinels, the refusal pair and the patch
-  // assertion. There is no store here and there is no `memoryKeyStore` on this list, which is
+  // assertion. There is no store here and there is no `memoryContentKeyStore` on this list, which is
   // the other half of "the package never sees wrapped key material".
-  'isRefusal', 'refusal', 'assertKeyPatch', 'KEY_PATCH_DELETE', 'KEY_PATCH_SERVER_TIME',
+  'isRefusal', 'refusal', 'assertContentKeyPatch', 'KEY_PATCH_DELETE', 'KEY_PATCH_SERVER_TIME',
 
   // key-lifecycle.ts (14) — the ten planners, the three status derivations and the cap on the
   // one string a product hands this module (§11.6.1, the third leak path). Every planner
-  // returns `KeyPatch | Refusal`; there is no `XPlan` and no verb per transition.
+  // returns `ContentKeyPatch | Refusal`; there is no `XPlan` and no verb per transition.
   'planMint', 'planRevoke', 'planRestore', 'planDestroy', 'planRegenerate',
   'planBeginRotation', 'planRecordProgress', 'planFailRotation', 'planFinishRotation',
   'planDrain',
@@ -203,7 +203,7 @@ describe('the public barrel', () => {
     // depends on staying unreachable — the accessor that turns a key handle back into
     // bytes, the AES call site's raw opener, and the in-memory test store, which lives
     // behind the ./testing subpath so it cannot arrive in a production bundle by accident.
-    for (const name of ['secretBytes', 'openBuffer', 'memoryKeyStore']) {
+    for (const name of ['secretBytes', 'openBuffer', 'memoryContentKeyStore']) {
       expect(Object.keys(barrel)).not.toContain(name);
     }
   });

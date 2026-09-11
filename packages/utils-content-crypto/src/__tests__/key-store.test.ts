@@ -3,22 +3,22 @@
  * two sentinels, a refusal pair, and one assertion that holds every invariant a consumer is
  * allowed to rely on without reading a planner.
  *
- * The in-memory `KeyStore` lives here rather than in a helper file, because
+ * The in-memory `ContentKeyStore` lives here rather than in a helper file, because
  * `scripts/check-mirror.js` assertion (2) closes `src/` to the 23-module manifest and
  * `src/__tests__/` to one suite per module plus the cross-cutting ones — a helper file is
- * not a thing this tree can hold. When `testing.ts` lands (§12.6), `memoryKeyStore` moves there
+ * not a thing this tree can hold. When `testing.ts` lands (§12.6), `memoryContentKeyStore` moves there
  * whole and both suites import it; nothing about it is written for this file in particular.
  *
  * It exists at all because it is **the executable statement of what a consumer's `apply` must
  * do** (§12.2), and a consumer's own adapter test can diff against it. It records the wrap
- * side-effect, which `KeyStore` deliberately cannot express — `GenerationRow` says `hasWrap`
+ * side-effect, which `ContentKeyStore` deliberately cannot express — `GenerationRow` says `hasWrap`
  * and never `wrappedDek`, and that is the checkable form of "this package never sees wrapped
  * key material".
  */
 
 import { ContentCryptoError, isContentCryptoError } from '../errors';
 import {
-  assertKeyPatch,
+  assertContentKeyPatch,
   isRefusal,
   KEY_PATCH_DELETE,
   KEY_PATCH_SERVER_TIME,
@@ -26,11 +26,11 @@ import {
 } from '../key-store';
 import type {
   GenerationRow,
-  KeyAudit,
-  KeyPatch,
-  KeyPatchValue,
-  KeyRow,
-  KeyStore,
+  ContentKeyAudit,
+  ContentKeyPatch,
+  ContentKeyPatchValue,
+  ContentKeyRow,
+  ContentKeyStore,
 } from '../key-store';
 
 // ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ import type {
 
 const AT = '2026-09-11T00:00:00.000Z';
 
-const AUDIT: KeyAudit = {
+const AUDIT: ContentKeyAudit = {
   action: 'revoke',
   accountId: 'acc_1',
   productId: 'collab',
@@ -50,7 +50,7 @@ const AUDIT: KeyAudit = {
   at: AT,
 };
 
-function patch(over: Partial<KeyPatch> = {}): KeyPatch {
+function patch(over: Partial<ContentKeyPatch> = {}): ContentKeyPatch {
   const key = over.key ?? { revokedAt: AT, revokedCause: 'sysadmin' };
   const generations = over.generations ?? [];
   const changed = Object.keys(key).length + generations.length;
@@ -67,7 +67,7 @@ function patch(over: Partial<KeyPatch> = {}): KeyPatch {
   };
 }
 
-function keyRow(over: Partial<KeyRow> = {}): KeyRow {
+function keyRow(over: Partial<ContentKeyRow> = {}): ContentKeyRow {
   return {
     accountId: 'acc_1',
     productId: 'collab',
@@ -89,9 +89,9 @@ function keyRow(over: Partial<KeyRow> = {}): KeyRow {
 /** What this store uses for its own server timestamp, so a translation is observable. */
 const STORE_SERVER_TIME = '<server-time>';
 
-interface MemoryKeyStore extends KeyStore {
-  seed(accountId: string, row: Partial<KeyRow>, generations?: readonly Partial<GenerationRow>[]): void;
-  readonly applied: readonly { accountId: string; patch: KeyPatch }[];
+interface MemoryKeyStore extends ContentKeyStore {
+  seed(accountId: string, row: Partial<ContentKeyRow>, generations?: readonly Partial<GenerationRow>[]): void;
+  readonly applied: readonly { accountId: string; patch: ContentKeyPatch }[];
   /** The order `apply` did its work in, flattened: `['mint', 'generations', 'key']`. */
   readonly steps: readonly string[];
   wraps(accountId: string): readonly number[];
@@ -99,11 +99,11 @@ interface MemoryKeyStore extends KeyStore {
   rawGeneration(accountId: string, n: number): Record<string, unknown> | null;
 }
 
-function memoryKeyStore(productId: string): MemoryKeyStore {
+function memoryContentKeyStore(productId: string): MemoryKeyStore {
   const rows = new Map<string, Record<string, unknown>>();
   const gens = new Map<string, Record<string, unknown>>();
   const wrapped = new Map<string, Set<number>>();
-  const applied: { accountId: string; patch: KeyPatch }[] = [];
+  const applied: { accountId: string; patch: ContentKeyPatch }[] = [];
   const steps: string[] = [];
 
   const gk = (accountId: string, n: number) => `${accountId}/${n}`;
@@ -117,7 +117,7 @@ function memoryKeyStore(productId: string): MemoryKeyStore {
   };
 
   /** Step 4: the sentinels, translated. `undefined` means "delete this field". */
-  const translate = (v: KeyPatchValue): unknown => {
+  const translate = (v: ContentKeyPatchValue): unknown => {
     if (v !== null && typeof v === 'object' && 'op' in v) {
       return v.op === 'delete' ? undefined : STORE_SERVER_TIME;
     }
@@ -126,7 +126,7 @@ function memoryKeyStore(productId: string): MemoryKeyStore {
 
   /** Dotted keys are FIELD PATHS here, which is the half of the trap `createIfMissing` exists
    *  to let `apply` choose about: under a create they would be literal field names. */
-  const setPath = (doc: Record<string, unknown>, path: string, value: KeyPatchValue): void => {
+  const setPath = (doc: Record<string, unknown>, path: string, value: ContentKeyPatchValue): void => {
     const segments = path.split('.');
     let node = doc;
     for (let i = 0; i < segments.length - 1; i += 1) {
@@ -162,7 +162,7 @@ function memoryKeyStore(productId: string): MemoryKeyStore {
 
     async readKey(accountId) {
       const row = rows.get(accountId);
-      return row ? ({ ...row } as unknown as KeyRow) : null;
+      return row ? ({ ...row } as unknown as ContentKeyRow) : null;
     },
 
     async readGeneration(accountId, n) {
@@ -182,7 +182,7 @@ function memoryKeyStore(productId: string): MemoryKeyStore {
     async apply(accountId, p) {
       // A consumer may re-check a patch that arrived over a queue, where the planner's
       // guarantee no longer travels with the value.
-      assertKeyPatch(p);
+      assertContentKeyPatch(p);
       applied.push({ accountId, patch: p });
 
       // (1) MINT FIRST, always. The mint is the consumer's because the KEK is; here it is a
@@ -266,7 +266,7 @@ describe('the sentinels', () => {
   it('are recognised by shape rather than by identity, so a patch may cross a queue', () => {
     const shipped = JSON.parse(JSON.stringify(patch({ key: { rotation: KEY_PATCH_DELETE } })));
     expect(shipped.key.rotation).not.toBe(KEY_PATCH_DELETE);
-    expect(() => assertKeyPatch(shipped)).not.toThrow();
+    expect(() => assertContentKeyPatch(shipped)).not.toThrow();
   });
 });
 
@@ -283,7 +283,7 @@ describe('refusal / isRefusal', () => {
     expect(isRefusal(JSON.parse(JSON.stringify(refusal('ROTATION_IN_PROGRESS', 'busy'))))).toBe(true);
   });
 
-  it('says no to everything that is not a refusal, a KeyPatch included', () => {
+  it('says no to everything that is not a refusal, a ContentKeyPatch included', () => {
     for (const v of [null, undefined, 0, '', 'refused', {}, { refused: false }, [], patch()]) {
       expect(isRefusal(v)).toBe(false);
     }
@@ -294,9 +294,9 @@ describe('refusal / isRefusal', () => {
   });
 });
 
-describe('assertKeyPatch', () => {
+describe('assertContentKeyPatch', () => {
   it('accepts a well-formed patch', () => {
-    expect(() => assertKeyPatch(patch())).not.toThrow();
+    expect(() => assertContentKeyPatch(patch())).not.toThrow();
   });
 
   describe('the dotted-key / createIfMissing invariant', () => {
@@ -304,14 +304,14 @@ describe('assertKeyPatch', () => {
       // Under a create the store writes a literal map, and `{ 'rotation.error': x }` then
       // becomes a TOP-LEVEL field whose name contains a dot. It half-works for ever.
       expect(() =>
-        assertKeyPatch(
+        assertContentKeyPatch(
           patch({ key: { accountId: 'acc_1', 'rotation.error': 'X' }, createIfMissing: true }),
         ),
       ).toThrow(/createIfMissing is true and the patch writes the dotted field path/);
     });
 
     it('accepts a dotted field path on a patch that does not create', () => {
-      expect(() => assertKeyPatch(patch({ key: { 'rotation.error': 'X' } }))).not.toThrow();
+      expect(() => assertContentKeyPatch(patch({ key: { 'rotation.error': 'X' } }))).not.toThrow();
     });
 
     it('is a one-way implication: an undotted patch need not create', () => {
@@ -319,53 +319,53 @@ describe('assertKeyPatch', () => {
       // already exist. Asserting the biconditional would refuse it — which is why the spec's
       // "TRUE exactly when no key is a dotted field path" is not what this asserts.
       expect(() =>
-        assertKeyPatch(patch({ key: { revokedAt: null, revokedCause: null }, createIfMissing: false })),
+        assertContentKeyPatch(patch({ key: { revokedAt: null, revokedCause: null }, createIfMissing: false })),
       ).not.toThrow();
     });
   });
 
   it('refuses a `changed` that disagrees with what the patch carries', () => {
-    expect(() => assertKeyPatch(patch({ changed: 7 }))).toThrow(/KeyPatch.changed is 7/);
+    expect(() => assertContentKeyPatch(patch({ changed: 7 }))).toThrow(/ContentKeyPatch.changed is 7/);
   });
 
   it('refuses `changed: 0` with something to write', () => {
-    expect(() => assertKeyPatch({ ...patch(), changed: 0, evict: false })).toThrow(/KeyPatch.changed is 0/);
+    expect(() => assertContentKeyPatch({ ...patch(), changed: 0, evict: false })).toThrow(/ContentKeyPatch.changed is 0/);
   });
 
   it('holds footgun 14 as arithmetic: evict === (changed > 0 || mint !== null)', () => {
-    expect(() => assertKeyPatch(patch({ evict: false }))).toThrow(/must evict the account's cached DEKs/);
+    expect(() => assertContentKeyPatch(patch({ evict: false }))).toThrow(/must evict the account's cached DEKs/);
     // A pure mint writes nothing to the key row but still evicts.
     expect(() =>
-      assertKeyPatch(patch({ key: {}, mint: { generation: 2 }, changed: 0, evict: true })),
+      assertContentKeyPatch(patch({ key: {}, mint: { generation: 2 }, changed: 0, evict: true })),
     ).not.toThrow();
     expect(() =>
-      assertKeyPatch(patch({ key: {}, mint: { generation: 2 }, changed: 0, evict: false })),
+      assertContentKeyPatch(patch({ key: {}, mint: { generation: 2 }, changed: 0, evict: false })),
     ).toThrow(/must evict/);
   });
 
   it('refuses a value that is not plain JSON — which is what a closure creeping back in fails', () => {
-    const withClosure = patch({ key: { revokedAt: (() => AT) as unknown as KeyPatchValue } });
-    expect(() => assertKeyPatch(withClosure)).toThrow(/is not a KeyPatchValue/);
+    const withClosure = patch({ key: { revokedAt: (() => AT) as unknown as ContentKeyPatchValue } });
+    expect(() => assertContentKeyPatch(withClosure)).toThrow(/is not a ContentKeyPatchValue/);
   });
 
   it('refuses a look-alike sentinel carrying an extra property', () => {
-    const sneaky = { op: 'delete', apply: () => undefined } as unknown as KeyPatchValue;
-    expect(() => assertKeyPatch(patch({ key: { rotation: sneaky } }))).toThrow(/is not a KeyPatchValue/);
+    const sneaky = { op: 'delete', apply: () => undefined } as unknown as ContentKeyPatchValue;
+    expect(() => assertContentKeyPatch(patch({ key: { rotation: sneaky } }))).toThrow(/is not a ContentKeyPatchValue/);
   });
 
   it('refuses a number that does not survive JSON', () => {
-    expect(() => assertKeyPatch(patch({ key: { currentGeneration: NaN } }))).toThrow(/does not survive JSON/);
+    expect(() => assertContentKeyPatch(patch({ key: { currentGeneration: NaN } }))).toThrow(/does not survive JSON/);
   });
 
   it('refuses an empty or whitespace-padded field path', () => {
-    expect(() => assertKeyPatch(patch({ key: { '': AT } }))).toThrow(/empty field path/);
-    expect(() => assertKeyPatch(patch({ key: { 'rotation..error': AT } }))).toThrow(/empty segment/);
-    expect(() => assertKeyPatch(patch({ key: { ' revokedAt': AT } }))).toThrow(/whitespace/);
+    expect(() => assertContentKeyPatch(patch({ key: { '': AT } }))).toThrow(/empty field path/);
+    expect(() => assertContentKeyPatch(patch({ key: { 'rotation..error': AT } }))).toThrow(/empty segment/);
+    expect(() => assertContentKeyPatch(patch({ key: { ' revokedAt': AT } }))).toThrow(/whitespace/);
   });
 
   it('refuses the same generation patched twice in one patch', () => {
     expect(() =>
-      assertKeyPatch(
+      assertContentKeyPatch(
         patch({
           key: {},
           generations: [
@@ -378,23 +378,23 @@ describe('assertKeyPatch', () => {
   });
 
   it('refuses an audit that is not one of the ten lifecycle actions', () => {
-    const bad = patch({ audit: { ...AUDIT, action: 'shred' as KeyAudit['action'] } });
-    expect(() => assertKeyPatch(bad)).toThrow(/is not one of the ten lifecycle actions/);
+    const bad = patch({ audit: { ...AUDIT, action: 'shred' as ContentKeyAudit['action'] } });
+    expect(() => assertContentKeyPatch(bad)).toThrow(/is not one of the ten lifecycle actions/);
   });
 
   it('refuses key material anywhere in the patch, including in the audit', () => {
     // The standing guard, and it is `assertNoKeyMaterial` rather than `assertNoSecrets`: a
     // patch's keys are FIELD PATHS, so the closed detail-key set is the wrong question here.
     const dek = 'a'.repeat(43);
-    expect(() => assertKeyPatch(patch({ key: { revokedAt: dek } }))).toThrow(/assertNoKeyMaterial/);
+    expect(() => assertContentKeyPatch(patch({ key: { revokedAt: dek } }))).toThrow(/assertNoKeyMaterial/);
     expect(() =>
-      assertKeyPatch(patch({ audit: { ...AUDIT, accountId: 'ab'.repeat(32) } })),
+      assertContentKeyPatch(patch({ audit: { ...AUDIT, accountId: 'ab'.repeat(32) } })),
     ).toThrow(/assertNoKeyMaterial/);
   });
 
   it('reports every refusal as VALIDATION_ERROR, which is a caller mistake and not a 409', () => {
     try {
-      assertKeyPatch(patch({ changed: 99 }));
+      assertContentKeyPatch(patch({ changed: 99 }));
       throw new Error('unreachable');
     } catch (err) {
       expect(isContentCryptoError(err, 'VALIDATION_ERROR')).toBe(true);
@@ -402,7 +402,7 @@ describe('assertKeyPatch', () => {
   });
 });
 
-describe('KeyRow at the boundary', () => {
+describe('ContentKeyRow at the boundary', () => {
   it('carries ISO-8601 strings, never a Timestamp class', () => {
     const row = keyRow({ revokedAt: AT });
     expect(typeof row.revokedAt).toBe('string');
@@ -422,7 +422,7 @@ describe('KeyRow at the boundary', () => {
 
 describe('the in-memory store applies a patch in the §12.2 order', () => {
   it('mints first, then the generations, then the key row', async () => {
-    const store = memoryKeyStore('collab');
+    const store = memoryContentKeyStore('collab');
     store.seed('acc_1', { currentGeneration: 1 }, [{ n: 1, hasWrap: true }]);
 
     await store.apply('acc_1', {
@@ -439,7 +439,7 @@ describe('the in-memory store applies a patch in the §12.2 order', () => {
   });
 
   it('writes nothing at all for a `changed: 0` patch', async () => {
-    const store = memoryKeyStore('collab');
+    const store = memoryContentKeyStore('collab');
     store.seed('acc_1', {}, [{ n: 1, hasWrap: true }]);
     const before = JSON.stringify(store.raw('acc_1'));
 
@@ -451,7 +451,7 @@ describe('the in-memory store applies a patch in the §12.2 order', () => {
   });
 
   it('translates both sentinels', async () => {
-    const store = memoryKeyStore('collab');
+    const store = memoryContentKeyStore('collab');
     store.seed('acc_1', { rotation: null });
 
     await store.apply(
@@ -465,7 +465,7 @@ describe('the in-memory store applies a patch in the §12.2 order', () => {
   });
 
   it('applies a dotted key as a field path, merging rather than clobbering', async () => {
-    const store = memoryKeyStore('collab');
+    const store = memoryContentKeyStore('collab');
     store.seed('acc_1', { rotation: { generation: 2, startedAt: AT, finishedAt: null, error: null, progress: {} } });
 
     await store.apply('acc_1', patch({ key: { 'rotation.error': 'ROTATION_TIMEOUT' } }));
@@ -477,7 +477,7 @@ describe('the in-memory store applies a patch in the §12.2 order', () => {
   });
 
   it('erases a wrap only where `eraseWrap` says so, so a re-applied destroy is a no-op', async () => {
-    const store = memoryKeyStore('collab');
+    const store = memoryContentKeyStore('collab');
     store.seed('acc_1', {}, [
       { n: 1, hasWrap: true },
       { n: 2, hasWrap: false },
@@ -503,7 +503,7 @@ describe('the in-memory store applies a patch in the §12.2 order', () => {
   });
 
   it('refuses to write a key row that does not exist unless the patch creates it', async () => {
-    const store = memoryKeyStore('collab');
+    const store = memoryContentKeyStore('collab');
     await expect(store.apply('acc_missing', patch())).rejects.toThrow(/does not exist/);
 
     await store.apply(
@@ -514,7 +514,7 @@ describe('the in-memory store applies a patch in the §12.2 order', () => {
   });
 
   it('never hands back wrapped key material — only whether a wrap is present', async () => {
-    const store = memoryKeyStore('collab');
+    const store = memoryContentKeyStore('collab');
     store.seed('acc_1', {}, [{ n: 1, hasWrap: true }]);
 
     const g = (await store.readGeneration('acc_1', 1)) as GenerationRow;

@@ -38,7 +38,7 @@ import {
   resolveGraceMs,
   resolveScope,
 } from '../key-scope';
-import type { KeyScope, RecordGranularity, ResolvedScope } from '../key-scope';
+import type { ContentKeyScope, RecordGranularity, ResolvedScope } from '../key-scope';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -119,7 +119,7 @@ const stubAdapter = (t: string): BlobAdapter => ({
   decode: (v) => v,
 });
 
-const collabScope: KeyScope<'project'> = {
+const collabScope: ContentKeyScope<'project'> = {
   productId: 'collab',
   records: { project: 'aggregate' },
   accountRecordPath: (accountId) => `accountSettings/${accountId}`,
@@ -133,32 +133,32 @@ const collabScope: KeyScope<'project'> = {
   },
 };
 
-const morphScope: KeyScope<'source' | 'objects' | 'results'> = {
+const morphScope: ContentKeyScope<'source' | 'objects' | 'results'> = {
   productId: 'morph',
   records: { source: 'aggregate', objects: 'document', results: 'document' },
   blobAdapters: [stubAdapter('ts')],
 };
 
-const buildScope: KeyScope<'project'> = {
+const buildScope: ContentKeyScope<'project'> = {
   productId: 'build',
   records: { project: 'aggregate' },
   blobAdapters: [stubAdapter('ts')],
 };
 
-const fediScope: KeyScope<'opportunity' | 'engagement'> = {
+const fediScope: ContentKeyScope<'opportunity' | 'engagement'> = {
   productId: 'fedicrm',
   records: { opportunity: 'aggregate', engagement: 'aggregate' },
   blobAdapters: [stubAdapter('ts')],
 };
 
-const sfmapperScope: KeyScope<'scan'> = {
+const sfmapperScope: ContentKeyScope<'scan'> = {
   productId: 'sfmapper',
   records: { scan: 'aggregate' },
 };
 
 const WORKED: readonly {
   name: string;
-  scope: KeyScope<string>;
+  scope: ContentKeyScope<string>;
   registry: FieldRegistry<string>;
 }[] = [
   { name: 'collab', scope: collabScope, registry: collabRegistry },
@@ -726,7 +726,7 @@ describe('assertRecord — the ONE record assertion', () => {
     expectRefusal(
       () => collabResolved.assertRecord(aggregateRecordRef('topic', 't_1', 'topics/t_1')),
       'topic',
-      'not declared in KeyScope.records',
+      'not declared in ContentKeyScope.records',
     );
   });
 
@@ -891,7 +891,7 @@ describe('assertHead', () => {
     expectRefusal(
       () => assertHead(scope, head(ref('morphObject', 'o_1', 'objects/o_1'), 'A')),
       'morphObject',
-      'not declared in KeyScope.records',
+      'not declared in ContentKeyScope.records',
     );
   });
 
@@ -985,7 +985,7 @@ describe('resolveGraceMs', () => {
 describe('account granularity is aggregate granularity with the dial turned down', () => {
   // §16.6's fixture, verbatim. The four things that had to be true are asserted one by one.
   const registry = defineRegistry({ projects: { strings: ['name', 'description'] } });
-  const scope: KeyScope<'project'> = {
+  const scope: ContentKeyScope<'project'> = {
     productId: 'collab',
     records: { project: 'aggregate' },
     accountRecordPath: (a) => `accountContentKeys/${a}`,

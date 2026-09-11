@@ -2,7 +2,7 @@
  * `testing.ts` — the in-memory fixtures, published at the **`./testing` subpath** (§12.6).
  *
  * These ship from here, and nothing else: `expectNoKeyMaterial` with its fixture register,
- * `memoryKeyStore`, `fixedDekSource`, `checkTraversal` and `checkWrapCommit`. Every one of them is
+ * `memoryContentKeyStore`, `fixedDekSource`, `checkTraversal` and `checkWrapCommit`. Every one of them is
  * a thing a consumer runs in ITS OWN repo's tests, which is the whole reason they live behind a
  * second entrypoint rather than on the production barrel — a test helper that can be imported from
  * `@xbg.solutions/utils-content-crypto` is a test helper that will eventually be imported from a
@@ -32,7 +32,7 @@
  *
  * **`testing.ts` must never import `key-lifecycle`** (assertion 8). A lifecycle-aware in-memory
  * store is the local custodian growing back under another name: it would know when a mint is
- * legal, and knowing that is the whole of being a custodian. `memoryKeyStore` therefore applies
+ * legal, and knowing that is the whole of being a custodian. `memoryContentKeyStore` therefore applies
  * patches and refuses nothing — the RULES are `key-lifecycle.ts`'s, are pure, and are asserted
  * against the patches they return rather than against a store that re-implements them. A suite
  * that needs both composes them itself, in the suite, where the composition is visible.
@@ -46,8 +46,8 @@ import { inspect } from 'node:util';
 
 import { ContentCryptoError, assertNoKeyMaterial } from './errors';
 import { ENC_PREFIX_V3, WRAP_PREFIX, decodeValue } from './field-codec';
-import { assertKeyPatch } from './key-store';
-import type { GenerationRow, KeyPatch, KeyPatchValue, KeyRow, KeyStore } from './key-store';
+import { assertContentKeyPatch } from './key-store';
+import type { GenerationRow, ContentKeyPatch, ContentKeyPatchValue, ContentKeyRow, ContentKeyStore } from './key-store';
 import type { DekHandle, DekSource, RevokedCause, OpenRotation } from './custodian';
 import { KEY_BYTES, dekFromBytes, zeroise } from './secret';
 import type { AccountDek } from './secret';
@@ -275,18 +275,18 @@ function leaked(message: string): ContentCryptoError {
 }
 
 // ---------------------------------------------------------------------------
-// The in-memory KeyStore
+// The in-memory ContentKeyStore
 // ---------------------------------------------------------------------------
 
-export interface MemoryKeyStore extends KeyStore {
+export interface MemoryKeyStore extends ContentKeyStore {
   /**
    * Seed a row and its generations directly, so a test states its precondition rather than
    * arriving at it through ten operations. Merges: seeding twice overlays.
    */
-  seed(accountId: string, row: Partial<KeyRow>, generations?: readonly Partial<GenerationRow>[]): void;
+  seed(accountId: string, row: Partial<ContentKeyRow>, generations?: readonly Partial<GenerationRow>[]): void;
   /** Every patch applied, in order — the assertion surface for the fourteen rules. */
-  readonly applied: readonly { accountId: string; patch: KeyPatch }[];
-  /** Which generations currently have a wrap; the mint side-effect a `KeyStore` cannot express. */
+  readonly applied: readonly { accountId: string; patch: ContentKeyPatch }[];
+  /** Which generations currently have a wrap; the mint side-effect a `ContentKeyStore` cannot express. */
   wraps(accountId: string): readonly number[];
 }
 
@@ -302,7 +302,7 @@ export interface MemoryKeyStoreOptions {
 }
 
 /**
- * An in-memory `KeyStore` that implements `apply` **to the letter of §12.2** — mint first,
+ * An in-memory `ContentKeyStore` that implements `apply` **to the letter of §12.2** — mint first,
  * generations before the key row, sentinels translated, dotted keys applied as field paths — which
  * is what makes it the executable statement of what a consumer's own `apply` has to do, and the
  * thing a consumer's adapter test can diff against.
@@ -315,16 +315,16 @@ export interface MemoryKeyStoreOptions {
  * `hasWrap` and never a wrap, which is property 3 of the port. That is why it registers no fixture
  * — there is nothing here to spell.
  */
-export function memoryKeyStore(productId: string, opts?: MemoryKeyStoreOptions): MemoryKeyStore {
+export function memoryContentKeyStore(productId: string, opts?: MemoryKeyStoreOptions): MemoryKeyStore {
   if (typeof productId !== 'string' || productId.length === 0) {
-    throw new ContentCryptoError('VALIDATION_ERROR', 'memoryKeyStore needs a productId');
+    throw new ContentCryptoError('VALIDATION_ERROR', 'memoryContentKeyStore needs a productId');
   }
   const now = opts?.now ?? ((): Date => new Date());
   const onEvict = opts?.onEvict;
 
   const rows = new Map<string, Record<string, unknown>>();
   const generations = new Map<string, Map<number, Record<string, unknown>>>();
-  const applied: { accountId: string; patch: KeyPatch }[] = [];
+  const applied: { accountId: string; patch: ContentKeyPatch }[] = [];
 
   const generationsOf = (accountId: string): Map<number, Record<string, unknown>> => {
     let table = generations.get(accountId);
@@ -365,7 +365,7 @@ export function memoryKeyStore(productId: string, opts?: MemoryKeyStoreOptions):
       }
     },
 
-    get applied(): readonly { accountId: string; patch: KeyPatch }[] {
+    get applied(): readonly { accountId: string; patch: ContentKeyPatch }[] {
       return applied;
     },
 
@@ -377,7 +377,7 @@ export function memoryKeyStore(productId: string, opts?: MemoryKeyStoreOptions):
       return out.sort((a, b) => a - b);
     },
 
-    async readKey(accountId): Promise<KeyRow | null> {
+    async readKey(accountId): Promise<ContentKeyRow | null> {
       const stored = rows.get(accountId);
       return stored === undefined ? null : toKeyRow(accountId, productId, stored);
     },
@@ -396,10 +396,10 @@ export function memoryKeyStore(productId: string, opts?: MemoryKeyStoreOptions):
     async apply(accountId, patch): Promise<void> {
       // The consumer's guarantee re-asserted at the store, which is exactly where a patch that
       // arrived over a queue has lost the planner's.
-      assertKeyPatch(patch);
+      assertContentKeyPatch(patch);
 
       // 1. MINT FIRST. The mint itself is the consumer's, because the KEK is; what a store can
-      //    record is that the wrap now exists, which is the side effect `KeyStore` cannot express.
+      //    record is that the wrap now exists, which is the side effect `ContentKeyStore` cannot express.
       if (patch.mint !== null) {
         const row = generationRow(accountId, patch.mint.generation);
         row.hasWrap = true;
@@ -425,7 +425,7 @@ export function memoryKeyStore(productId: string, opts?: MemoryKeyStoreOptions):
             { accountId, productId },
           );
         }
-        // A create writes a LITERAL map, which is why `assertKeyPatch` refuses a dotted key
+        // A create writes a LITERAL map, which is why `assertContentKeyPatch` refuses a dotted key
         // alongside `createIfMissing`: under a merging create a dotted key becomes a top-level
         // field with a dot in its name.
         const created: Record<string, unknown> = { accountId, productId };
@@ -451,7 +451,7 @@ function isSentinel(value: unknown, op: 'delete' | 'serverTime'): boolean {
   return own.length === 1 && own[0] === 'op' && (value as { op?: unknown }).op === op;
 }
 
-function materialise(value: KeyPatchValue, now: () => Date): unknown {
+function materialise(value: ContentKeyPatchValue, now: () => Date): unknown {
   if (isSentinel(value, 'serverTime')) return now().toISOString();
   return value;
 }
@@ -460,7 +460,7 @@ function materialise(value: KeyPatchValue, now: () => Date): unknown {
 function applyFieldPath(
   target: Record<string, unknown>,
   path: string,
-  value: KeyPatchValue,
+  value: ContentKeyPatchValue,
   now: () => Date,
 ): void {
   const segments = path.split('.');
@@ -483,7 +483,7 @@ function applyFieldPath(
   node[last] = materialise(value, now);
 }
 
-function toKeyRow(accountId: string, productId: string, stored: Record<string, unknown>): KeyRow {
+function toKeyRow(accountId: string, productId: string, stored: Record<string, unknown>): ContentKeyRow {
   return {
     accountId,
     productId,
@@ -870,7 +870,7 @@ export interface WrapCommitHarness {
  * suite that wires the committer, and run it against an emulator or a real store: it cleans up
  * after itself.
  *
- * It takes the product's resolved `KeyScope` for the same reason `checkTraversal` does — that is
+ * It takes the product's resolved `ContentKeyScope` for the same reason `checkTraversal` does — that is
  * where a record type becomes a granularity, and a granularity is compared in one file — and two
  * of the product's own records to write to.
  *

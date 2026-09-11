@@ -827,8 +827,8 @@ export function deriveCeilings(entry: RegistryEntry, budget: DocumentBudget): Ce
 export function assertDocumentBudget(registry: FieldRegistry<string>, budget: DocumentBudget): void {
   if (budget.maxSealedBytes > budget.maxDocumentSealedBytes) {
     invalid(
-      `KeyScope.maxSealedBytes (${budget.maxSealedBytes}) exceeds ` +
-        `KeyScope.maxDocumentSealedBytes (${budget.maxDocumentSealedBytes}); one value can never ` +
+      `ContentKeyScope.maxSealedBytes (${budget.maxSealedBytes}) exceeds ` +
+        `ContentKeyScope.maxDocumentSealedBytes (${budget.maxDocumentSealedBytes}); one value can never ` +
         'be allowed to be larger than the whole document that holds it',
       { limitBytes: budget.maxDocumentSealedBytes, sealedBytes: budget.maxSealedBytes },
     );
@@ -872,7 +872,7 @@ export function assertDocumentBudget(registry: FieldRegistry<string>, budget: Do
         `registry collection ${q(collection)} registers ${n} paths, which leaves each one ` +
           `${share} sealed bytes of the ${budget.maxDocumentSealedBytes}-byte document budget — ` +
           `below the ${MIN_DERIVED_SEALED_BYTES}-byte floor. Split the collection, or raise ` +
-          'KeyScope.maxDocumentSealedBytes deliberately, in the repo that owns the data.',
+          'ContentKeyScope.maxDocumentSealedBytes deliberately, in the repo that owns the data.',
         { collection, sealedBytes: share, limitBytes: budget.maxDocumentSealedBytes },
       );
     }
@@ -891,7 +891,7 @@ export function assertDocumentBudget(registry: FieldRegistry<string>, budget: Do
       invalid(
         `registry collection ${q(collection)} commits ${sum} sealed bytes across ${n} registered ` +
           `paths — ${declaredClause}; ${derivedClause} — which exceeds ` +
-          `KeyScope.maxDocumentSealedBytes (${budget.maxDocumentSealedBytes}) by ${excess}. ` +
+          `ContentKeyScope.maxDocumentSealedBytes (${budget.maxDocumentSealedBytes}) by ${excess}. ` +
           'Lower the declared ceilings by that much in total, drop a declaration so the path ' +
           'takes the derived share, or raise the document budget deliberately, in the repo that ' +
           'owns the data.',

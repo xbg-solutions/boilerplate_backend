@@ -322,8 +322,8 @@ const ENVELOPE_PREFIXES = ['enc:', 'wrap:', 'dev:'];
  * Throws `VALIDATION_ERROR` — carrying the offending KEY and never the offending VALUE —
  * on any of the five rules of §11.6. Runs at every boundary the package emits through:
  * every `ContentCryptoError` construction, every `GraceInfo` before `onGraceServe`, every
- * `WrapAudit` and `KeyAudit` before the patch carrying it is returned, and every
- * `KeyPatch.key` / `GenerationPatch.set` value.
+ * `WrapAudit` and `ContentKeyAudit` before the patch carrying it is returned, and every
+ * `ContentKeyPatch.key` / `GenerationPatch.set` value.
  */
 export function assertNoSecrets(details: unknown): asserts details is ErrorDetails {
   requirePlainObject(details);

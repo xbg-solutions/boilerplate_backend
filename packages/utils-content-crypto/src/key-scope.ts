@@ -128,7 +128,7 @@ export interface LegacyScope {
  * One of the **three** things a product supplies — with its registry and its traversal, and
  * nothing else.
  */
-export interface KeyScope<RT extends string = string> {
+export interface ContentKeyScope<RT extends string = string> {
   /** Per install, never per customer. The only product string in any AAD. */
   readonly productId: string;
   /**
@@ -280,10 +280,10 @@ function has(object: object, key: string): boolean {
 
 function assertPositiveInteger(value: unknown, key: string): asserts value is number {
   if (typeof value !== 'number') {
-    invalid(`KeyScope.${key} must be a number, received ${typeName(value)}`);
+    invalid(`ContentKeyScope.${key} must be a number, received ${typeName(value)}`);
   }
   if (!Number.isSafeInteger(value) || value <= 0) {
-    invalid(`KeyScope.${key} must be a positive safe integer, received ${String(value)}`);
+    invalid(`ContentKeyScope.${key} must be a positive safe integer, received ${String(value)}`);
   }
 }
 
@@ -420,14 +420,14 @@ function assertRegistryLike(registry: unknown): asserts registry is FieldRegistr
 /** Validation 1. Matches `aad.ts`'s wrap-component rule, because it feeds exactly that. */
 function resolveProductId(productId: unknown): string {
   if (typeof productId !== 'string') {
-    invalid(`KeyScope.productId must be a string, received ${typeName(productId)}`);
+    invalid(`ContentKeyScope.productId must be a string, received ${typeName(productId)}`);
   }
   if (productId.length === 0) {
-    invalid('KeyScope.productId must not be empty');
+    invalid('ContentKeyScope.productId must not be empty');
   }
   if (productId.includes('/')) {
     invalid(
-      `KeyScope.productId must not contain '/': '${productId}' would shift every component after ` +
+      `ContentKeyScope.productId must not contain '/': '${productId}' would shift every component after ` +
         'it and neither wrap AAD would parse to one tuple',
       { productId },
     );
@@ -443,7 +443,7 @@ function resolveRecords(
   registry: FieldRegistry<string>,
 ): Record<string, RecordGranularity> {
   if (!isPlainRecord(records)) {
-    invalid(`KeyScope.records must be a plain object, received ${typeName(records)}`);
+    invalid(`ContentKeyScope.records must be a plain object, received ${typeName(records)}`);
   }
   const resolved: Record<string, RecordGranularity> = Object.create(null) as Record<
     string,
@@ -451,14 +451,14 @@ function resolveRecords(
   >;
   for (const type of Object.keys(records)) {
     if (type.length === 0) {
-      invalid('KeyScope.records has an empty record type');
+      invalid('ContentKeyScope.records has an empty record type');
     }
     // Validation 3 — declaring the reserved type is the fake-record-type mistake arriving as an
     // error. It is injected below, which is what lets a product reach account granularity
     // without a declaration at all.
     if (type === ACCOUNT_RECORD_TYPE) {
       invalid(
-        `KeyScope.records must not declare "${ACCOUNT_RECORD_TYPE}": it is the reserved record ` +
+        `ContentKeyScope.records must not declare "${ACCOUNT_RECORD_TYPE}": it is the reserved record ` +
           'type for account granularity and resolveScope injects it. Declaring it is the fake ' +
           'record type the one-model design exists to remove — call crypto.accountRecord(id)',
         { recordType: type },
@@ -467,7 +467,7 @@ function resolveRecords(
     const granularity = records[type];
     if (typeof granularity !== 'string' || !GRANULARITIES.includes(granularity as RecordGranularity)) {
       invalid(
-        `KeyScope.records["${type}"] must be one of ${GRANULARITIES.join(', ')}, received ` +
+        `ContentKeyScope.records["${type}"] must be one of ${GRANULARITIES.join(', ')}, received ` +
           `${typeName(granularity)}`,
         { recordType: type },
       );
@@ -478,7 +478,7 @@ function resolveRecords(
     // example is not.
     if (granularity === 'document' && !registry.has(type)) {
       invalid(
-        `KeyScope.records declares "${type}" as document-granular, but "${type}" is not a ` +
+        `ContentKeyScope.records declares "${type}" as document-granular, but "${type}" is not a ` +
           `registry collection (the registry has: ${registry.collections.join(', ') || 'none'}). ` +
           'At document granularity the record type IS the registry collection key',
         { recordType: type },
@@ -494,23 +494,23 @@ function resolveRecords(
 function resolveLegacy(legacy: unknown): ResolvedScope<string>['legacy'] {
   if (legacy === undefined) return null;
   if (!isPlainRecord(legacy)) {
-    invalid(`KeyScope.legacy must be a plain object when present, received ${typeName(legacy)}`);
+    invalid(`ContentKeyScope.legacy must be a plain object when present, received ${typeName(legacy)}`);
   }
   const versionsRaw = legacy.readFieldVersions;
   let versions: readonly ('v1' | 'v2')[] = [];
   if (versionsRaw !== undefined) {
     if (!Array.isArray(versionsRaw)) {
       invalid(
-        `KeyScope.legacy.readFieldVersions must be an array, received ${typeName(versionsRaw)}`,
+        `ContentKeyScope.legacy.readFieldVersions must be an array, received ${typeName(versionsRaw)}`,
       );
     }
     const seen = new Set<string>();
     for (const v of versionsRaw) {
       if (v !== 'v1' && v !== 'v2') {
-        invalid(`KeyScope.legacy.readFieldVersions may only contain 'v1' and 'v2', found ${String(v)}`);
+        invalid(`ContentKeyScope.legacy.readFieldVersions may only contain 'v1' and 'v2', found ${String(v)}`);
       }
       if (seen.has(v)) {
-        invalid(`KeyScope.legacy.readFieldVersions lists '${v}' twice`);
+        invalid(`ContentKeyScope.legacy.readFieldVersions lists '${v}' twice`);
       }
       seen.add(v);
     }
@@ -520,11 +520,11 @@ function resolveLegacy(legacy: unknown): ResolvedScope<string>['legacy'] {
   const prefixRaw = legacy.objectMetaPrefix;
   if (prefixRaw !== undefined) {
     if (typeof prefixRaw !== 'string') {
-      invalid(`KeyScope.legacy.objectMetaPrefix must be a string, received ${typeName(prefixRaw)}`);
+      invalid(`ContentKeyScope.legacy.objectMetaPrefix must be a string, received ${typeName(prefixRaw)}`);
     }
     if (prefixRaw.length === 0) {
       invalid(
-        "KeyScope.legacy.objectMetaPrefix must not be empty: omit the key instead. An empty " +
+        "ContentKeyScope.legacy.objectMetaPrefix must not be empty: omit the key instead. An empty " +
           'prefix matches every metadata key, so a legacy reader would claim every object it saw',
       );
     }
@@ -532,7 +532,7 @@ function resolveLegacy(legacy: unknown): ResolvedScope<string>['legacy'] {
 
   const dekWrapAad = legacy.dekWrapAad;
   if (dekWrapAad !== undefined && typeof dekWrapAad !== 'function') {
-    invalid(`KeyScope.legacy.dekWrapAad must be a function, received ${typeName(dekWrapAad)}`);
+    invalid(`ContentKeyScope.legacy.dekWrapAad must be a function, received ${typeName(dekWrapAad)}`);
   }
 
   return Object.freeze({
@@ -548,20 +548,20 @@ function resolveLegacy(legacy: unknown): ResolvedScope<string>['legacy'] {
 function resolveBlobAdapters(adapters: unknown): readonly BlobAdapter[] {
   if (adapters === undefined) return Object.freeze([]);
   if (!Array.isArray(adapters)) {
-    invalid(`KeyScope.blobAdapters must be an array, received ${typeName(adapters)}`);
+    invalid(`ContentKeyScope.blobAdapters must be an array, received ${typeName(adapters)}`);
   }
   const tags = new Set<string>();
   for (const adapter of adapters as readonly unknown[]) {
     if (typeof adapter !== 'object' || adapter === null) {
-      invalid(`KeyScope.blobAdapters contains ${typeName(adapter)}, which is not an adapter`);
+      invalid(`ContentKeyScope.blobAdapters contains ${typeName(adapter)}, which is not an adapter`);
     }
     const candidate = adapter as Partial<BlobAdapter>;
     if (typeof candidate.t !== 'string' || candidate.t.length === 0 || candidate.t.length > 32) {
-      invalid('KeyScope.blobAdapters: every adapter needs a tag `t` of 1–32 characters');
+      invalid('ContentKeyScope.blobAdapters: every adapter needs a tag `t` of 1–32 characters');
     }
     if (candidate.t.includes('$')) {
       invalid(
-        `KeyScope.blobAdapters: adapter tag "${candidate.t}" contains '$', which is reserved for ` +
+        `ContentKeyScope.blobAdapters: adapter tag "${candidate.t}" contains '$', which is reserved for ` +
           'the serialiser\'s own tags',
       );
     }
@@ -571,13 +571,13 @@ function resolveBlobAdapters(adapters: unknown): readonly BlobAdapter[] {
       typeof candidate.decode !== 'function'
     ) {
       invalid(
-        `KeyScope.blobAdapters: adapter "${candidate.t}" must provide match(), encode() and decode()`,
+        `ContentKeyScope.blobAdapters: adapter "${candidate.t}" must provide match(), encode() and decode()`,
       );
     }
     // "Unique across a scope's adapters" is a scope-level rule, and the scope is the only place
     // the whole adapter set exists. Two adapters at one tag decode as whichever came first.
     if (tags.has(candidate.t)) {
-      invalid(`KeyScope.blobAdapters declares the tag "${candidate.t}" twice`);
+      invalid(`ContentKeyScope.blobAdapters declares the tag "${candidate.t}" twice`);
     }
     tags.add(candidate.t);
   }
@@ -622,11 +622,11 @@ function ceilingTable(
  * exists — which is strictly stronger than the same check on the write path.
  */
 export function resolveScope<RT extends string>(
-  scope: KeyScope<RT>,
+  scope: ContentKeyScope<RT>,
   registry: FieldRegistry<string>,
 ): ResolvedScope<RT> {
   if (!isPlainRecord(scope)) {
-    invalid(`resolveScope needs a KeyScope object, received ${typeName(scope)}`);
+    invalid(`resolveScope needs a ContentKeyScope object, received ${typeName(scope)}`);
   }
   assertRegistryLike(registry);
 
@@ -635,16 +635,16 @@ export function resolveScope<RT extends string>(
 
   if (scope.aad !== undefined && scope.aad !== 'tight') {
     invalid(
-      `KeyScope.aad must be 'tight', received ${String(scope.aad)}. It is a one-member union so ` +
+      `ContentKeyScope.aad must be 'tight', received ${String(scope.aad)}. It is a one-member union so ` +
         'that loosening the binding is a visible change and never a configuration accident',
     );
   }
   if (scope.reads !== undefined && scope.reads !== 'strict' && scope.reads !== 'lenient') {
-    invalid(`KeyScope.reads must be 'strict' or 'lenient', received ${String(scope.reads)}`);
+    invalid(`ContentKeyScope.reads must be 'strict' or 'lenient', received ${String(scope.reads)}`);
   }
   if (scope.accountRecordPath !== undefined && typeof scope.accountRecordPath !== 'function') {
     invalid(
-      `KeyScope.accountRecordPath must be a function, received ${typeName(scope.accountRecordPath)}`,
+      `ContentKeyScope.accountRecordPath must be a function, received ${typeName(scope.accountRecordPath)}`,
     );
   }
 
@@ -659,7 +659,7 @@ export function resolveScope<RT extends string>(
   const deflateOver = scope.deflateOver ?? 0;
   if (typeof deflateOver !== 'number' || !Number.isSafeInteger(deflateOver) || deflateOver < 0) {
     invalid(
-      `KeyScope.deflateOver must be a non-negative safe integer (0 means off), received ` +
+      `ContentKeyScope.deflateOver must be a non-negative safe integer (0 means off), received ` +
         `${String(scope.deflateOver)}`,
     );
   }
@@ -672,7 +672,7 @@ export function resolveScope<RT extends string>(
   const granularityOf = (type: string): RecordGranularity => {
     if (typeof type !== 'string' || !has(records, type)) {
       invalid(
-        `record type "${String(type)}" is not declared in KeyScope.records (declared: ` +
+        `record type "${String(type)}" is not declared in ContentKeyScope.records (declared: ` +
           `${Object.keys(records).join(', ')})`,
         typeof type === 'string' ? { recordType: type } : undefined,
       );
@@ -751,7 +751,7 @@ export function resolveScope<RT extends string>(
     accountRecord: (accountId) => {
       if (accountRecordPath === undefined) {
         invalid(
-          'this scope has no KeyScope.accountRecordPath, so it cannot build an account-granular ' +
+          'this scope has no ContentKeyScope.accountRecordPath, so it cannot build an account-granular ' +
             'record. Supply `accountRecordPath: (accountId) => "<your row>/" + accountId` — it ' +
             'must be a row the PRODUCT owns, never Accounts\' own key row',
         );
@@ -762,7 +762,7 @@ export function resolveScope<RT extends string>(
       const path: unknown = accountRecordPath(accountId);
       if (typeof path !== 'string') {
         invalid(
-          `KeyScope.accountRecordPath returned ${typeName(path)} for account "${accountId}"; it ` +
+          `ContentKeyScope.accountRecordPath returned ${typeName(path)} for account "${accountId}"; it ` +
             'must return the full document path of the row that holds the wrap',
           { accountId },
         );

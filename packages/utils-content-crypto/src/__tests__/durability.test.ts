@@ -82,7 +82,7 @@ import { cachingDekSource } from '../custodian-cache';
 import { ContentCryptoError } from '../errors';
 import { defineRegistry } from '../registry';
 import { aggregateRecordRef, resolveScope } from '../key-scope';
-import type { KeyScope } from '../key-scope';
+import type { ContentKeyScope } from '../key-scope';
 import * as recordKeyModule from '../record-key';
 import {
   KEY_WRAPS_FIELD, WRAP_HOLDERS_FIELD, mintRecordKey, parseKeyWraps, wrapCount,
@@ -110,7 +110,7 @@ const registry = defineRegistry({
 });
 type Collection = 'messages';
 
-const scope: KeyScope<'project'> = {
+const scope: ContentKeyScope<'project'> = {
   productId: PRODUCT,
   records: { project: 'aggregate' },
   accountRecordPath: (accountId) => `accountSettings/${accountId}`,
