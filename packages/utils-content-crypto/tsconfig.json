@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    // node16/node16, not utils-hashing's commonjs/node pair. Every consumer of this
+    // package — accounts, collab, morph, sf-mapper, build — is module node16 /
+    // moduleResolution node16 (verified 2026-09-10), and so is functions/tsconfig.json,
+    // which compiles the byte-identical mirror of this exact source. package.json declares
+    // no "type", so node16 still emits CommonJS into lib/ and `main: lib/index.js` is
+    // unaffected.
+    "module": "node16",
+    "moduleResolution": "node16",
+
+    // es2017 in both trees. #private down-levels to a module-scope WeakMap, which is no
+    // more reachable from outside the module than a native private field and is not an own
+    // property of the instance, so every opacity guarantee holds identically at es2017 and
+    // es2022. `lib` is deliberately unset so it follows `target`: Object.hasOwn must stay a
+    // TS2550 here, because it is a TS2550 in the functions tree and in all five consumers.
+    // Use Object.prototype.hasOwnProperty.call(...) instead — collab already does, twice.
+    "target": "es2017",
+
+    "strict": true,
+    "noImplicitReturns": true,
+    // Both ON in functions/tsconfig.json and OFF in every other package's tsconfig. A
+    // byte-identical mirror means this package must be at least as strict, or a file
+    // compiles here and fails there. The package tsconfig is a STRICTNESS SUPERSET of the
+    // functions tsconfig, so a green package build is evidence about both trees.
+    "noUnusedLocals": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "outDir": "lib",
+    "rootDir": "src",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true
+
+    // No `paths`, no `experimentalDecorators`, no `emitDecoratorMetadata`: those are the
+    // application's and have no meaning in a leaf package. Adding them to keep the two
+    // files "the same" would be matching the wrong thing.
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "lib", "**/*.test.ts", "**/*.spec.ts"]
+}

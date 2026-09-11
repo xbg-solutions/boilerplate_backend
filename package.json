@@ -10,7 +10,9 @@
   ],
   "scripts": {
     "build": "node scripts/build.js",
-    "test": "jest",
+    "mirror:sync": "node scripts/sync-mirror.js",
+    "mirror:check": "node scripts/check-mirror.js",
+    "test": "npm run mirror:check && jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --config jest.coverage.config.js --coverage",
     "lint": "eslint .",

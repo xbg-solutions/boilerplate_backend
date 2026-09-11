@@ -26,7 +26,12 @@ if [ -z "${PUBLISH_LOG:-}" ]; then
 fi
 LOG="$PUBLISH_LOG"
 echo "publish run $(date -Iseconds) as $(npm whoami 2>/dev/null || echo 'NOT LOGGED IN') -> $LOG"
-ORDER="utils-logger utils-cache-connector utils-events utils-firebase-event-bridge utils-firestore-connector utils-token-handler backend-core create-backend utils-errors utils-address-validation utils-crm-connector utils-document-connector utils-email-connector utils-erp-connector utils-hashing utils-journey-connector utils-llm-connector utils-notification-inbox-connector utils-push-notifications-connector utils-realtime-connector utils-sms-connector utils-survey-connector utils-timezone utils-validation utils-work-mgmt-connector"
+# utils-content-crypto sits in the dependency-free group's alphabetical slot: it has no
+# @xbg.solutions dependencies, so order does not constrain it — it must simply be PRESENT,
+# because ORDER is hand-maintained and a package absent from it is never published and
+# nothing says so. It is also the one package off the 3.x line (0.1.0, its own line until
+# collab's Phase C), which the version probe above handles without changes.
+ORDER="utils-logger utils-cache-connector utils-events utils-firebase-event-bridge utils-firestore-connector utils-token-handler backend-core create-backend utils-errors utils-address-validation utils-content-crypto utils-crm-connector utils-document-connector utils-email-connector utils-erp-connector utils-hashing utils-journey-connector utils-llm-connector utils-notification-inbox-connector utils-push-notifications-connector utils-realtime-connector utils-sms-connector utils-survey-connector utils-timezone utils-validation utils-work-mgmt-connector"
 # Pass 1: work out what is still missing, BEFORE asking for a code, so the
 # 30-second OTP window is not spent on registry lookups.
 pending=""
