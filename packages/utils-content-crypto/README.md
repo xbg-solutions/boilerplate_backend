@@ -25,7 +25,7 @@ said and what the field now says too.
 
 The manifest is JSON and cannot hold a comment, so the reasons live here.
 
-- **`"version": "0.1.0"`, not `3.0.0`.** Every other package sits on the 3.x line and moved
+- **`"version": "0.1.x"`, not `3.x`.** Every other package sits on the 3.x line and moved
   onto it together, so a major here is a line-wide event: 25 packages republished, five
   consumer repos upgraded in step. Publishing a package with zero consumers and no
   production data on that line means its first real-data correction becomes a 4.0.0 dragging
@@ -34,6 +34,13 @@ The manifest is JSON and cannot hold a comment, so the reasons live here.
   `>=0.1.0 <0.2.0`, so **a minor bump is breaking**, which is the honest contract for a wire
   format that freezes on first write. It joins the 3.x line at the first line-wide publish
   after collab's Phase C is live on real data, and not before.
+
+  **0.1.1** adds `dekHandleFromBase64` and nothing else. It is the door key material comes in
+  through, and it went in because there was no door: a product's `DekSource` has to return a
+  `DekHandle`, and no export on the barrel produced the `AccountDek` inside one. Found in
+  collab's Phase C against the published 0.1.0, which is exactly the correction the 0.x line
+  exists to absorb — under caret semantics a patch is the additive bump and a minor is the
+  breaking one.
 
 - **An `exports` map — the first in this repo.** The reason is the `./testing` subpath, not
   opacity: it keeps the in-memory `KeyStore` out of the barrel's type surface. The plan is

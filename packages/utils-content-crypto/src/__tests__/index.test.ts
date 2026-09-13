@@ -104,13 +104,19 @@ const EXPECTED_EXPORTS: readonly string[] = [
   // custodian.ts (0) — types only. The values §4 puts in this section belong to
   // custodian-cache.ts, below.
 
-  // custodian-cache.ts (6) — `cachingDekSource` is the ONLY producer of a `CachedDekSource`,
+  // custodian-cache.ts (7) — `cachingDekSource` is the ONLY producer of a `CachedDekSource`,
   // which is what makes the cache mandatory: the TTL is the revocation window and the grace
   // window, and a façade handed a bare `DekSource` would silently opt out of both. The
   // classifier that turns an upstream failure into a `GraceReason` is deliberately NOT here —
   // an exported classifier is an invitation to log what it returns next to the error it came
   // from, which puts an upstream string back beside our label.
-  'cachingDekSource', 'quiesceMsFor',
+  // `dekHandleFromBase64` is the seventh, and the one addition since 0.1.0. It is the door key
+  // material comes in through, added because there was none: a product's `DekSource` returns a
+  // `DekHandle` whose `key` is an `AccountDek`, and no export produced one — the bytes→key
+  // constructors are off this surface by assertion (7), the `exports` map closes deep imports,
+  // and the test double lives behind `./testing`. Every product could describe the custodian
+  // conversation and none could hold it.
+  'cachingDekSource', 'dekHandleFromBase64', 'quiesceMsFor',
   'DEFAULT_DEK_TTL_MS', 'DEFAULT_POINTER_TTL_MS', 'DEFAULT_QUIESCE_MS',
   'GRACE_INELIGIBLE_CODES',
 
@@ -170,7 +176,7 @@ describe('the public barrel', () => {
     expect(new Set(EXPECTED_EXPORTS).size).toBe(EXPECTED_EXPORTS.length);
   });
 
-  it('carries 135 values, which is the number a reviewer signs off', () => {
+  it('carries 136 values, which is the number a reviewer signs off', () => {
     // Written down so that growing the surface is a decision, not a diff nobody read.
     //
     // R10a added a port, two payload types, `createRecords` and `withNewRecord`, and removed
@@ -195,7 +201,13 @@ describe('the public barrel', () => {
     // are TYPES. Neither can move this number, for the reason stated at the top of this file: a
     // type export erases and `Object.keys` never sees it. Recorded so that "135 again" is read as
     // a check that held rather than as a pass in which nothing was looked at.
-    expect(EXPECTED_EXPORTS.length).toBe(135);
+    //
+    // 135 → 136: `dekHandleFromBase64`, the first addition after 0.1.0 published. Not a design
+    // change — a gap. `DekSource` is the product's to implement and always was, but implementing
+    // it means returning an `AccountDek`, and nothing on this surface made one. The number moved
+    // up for the first time here, and the direction is the expensive one: an export added after
+    // publish can never come back off without a breaking version.
+    expect(EXPECTED_EXPORTS.length).toBe(136);
   });
 
   it('exports no value the package keeps internal', () => {

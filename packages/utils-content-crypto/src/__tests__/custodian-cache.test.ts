@@ -26,13 +26,14 @@ import {
   DEFAULT_QUIESCE_MS,
   GRACE_INELIGIBLE_CODES,
   cachingDekSource,
+  dekHandleFromBase64,
   quiesceMsFor,
 } from '../custodian-cache';
 import type { GraceInfo, GraceReason } from '../custodian-cache';
 import { ContentCryptoError, assertNoKeyMaterial, isContentCryptoError } from '../errors';
 import type { ContentCryptoCode } from '../errors';
 import { resolveGraceMs } from '../key-scope';
-import { KEY_BYTES, dekFromBytes, isDestroyed } from '../secret';
+import { KEY_BYTES, dekFromBytes, isDestroyed, secretBytes } from '../secret';
 
 // ---------------------------------------------------------------------------
 // Harness
@@ -984,5 +985,90 @@ describe('the leak boundary', () => {
     // @ts-expect-error — nothing outside the union, however plausible it looks.
     const invented: GraceReason = 'upstream-said';
     expect(invented).toBe('upstream-said');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dekHandleFromBase64 — the door key material comes in through
+// ---------------------------------------------------------------------------
+
+describe('dekHandleFromBase64', () => {
+  const BYTES = Buffer.alloc(KEY_BYTES, 0x5a);
+  const B64 = BYTES.toString('base64');
+  const args = { productId: PRODUCT, accountId: ACCOUNT, generation: 3, dek: B64 };
+
+  it('builds the handle a product DekSource has to return', () => {
+    const handle = dekHandleFromBase64(args);
+    expect(handle.generation).toBe(3);
+    expect(secretBytes(handle.key).equals(BYTES)).toBe(true);
+  });
+
+  it('composes the label itself, so five products cannot spell it five ways', () => {
+    // The label is what prints in a leak assertion. If each product picked its own, a single
+    // `expectNoKeyMaterial` pattern could not match them all — which is the whole reason the
+    // package takes the three parts rather than a ready-made identity string.
+    expect(dekHandleFromBase64(args).key.label).toBe(dekFromBytes(BYTES, `${PRODUCT}/${ACCOUNT}@3`).label);
+  });
+
+  it('refuses base64 that does not decode to exactly 32 bytes', () => {
+    for (const dek of [Buffer.alloc(16, 1).toString('base64'), Buffer.alloc(33, 1).toString('base64'), '']) {
+      expect(() => dekHandleFromBase64({ ...args, dek })).toThrow(ContentCryptoError);
+    }
+  });
+
+  it('refuses a string Buffer.from would silently accept', () => {
+    // `Buffer.from(s, 'base64')` drops characters outside the alphabet instead of throwing, so a
+    // truncated or corrupted response decodes to a SHORT key and surfaces much later as an
+    // authentication failure at a decrypt — naming the wrong cause, in the wrong file. The
+    // re-encode comparison is what turns that into an error here, at the boundary it entered.
+    const corrupted = `${B64.slice(0, -4)}!!!!`;
+    expect(() => dekHandleFromBase64({ ...args, dek: corrupted })).toThrow(ContentCryptoError);
+  });
+
+  it('refuses a generation that is not a whole number of at least 1', () => {
+    for (const generation of [0, -1, 1.5, Number.NaN]) {
+      expect(() => dekHandleFromBase64({ ...args, generation })).toThrow(ContentCryptoError);
+    }
+  });
+
+  it('refuses an id carrying the cache-key separator', () => {
+    expect(() => dekHandleFromBase64({ ...args, accountId: `acc\u001f1` })).toThrow(ContentCryptoError);
+    expect(() => dekHandleFromBase64({ ...args, productId: `col\u001flab` })).toThrow(ContentCryptoError);
+  });
+
+  it('never names the key material in an error', () => {
+    // The `dek` argument is the one input that IS a secret, so the failure path is the one place
+    // a careless message would put it in a log.
+    try {
+      dekHandleFromBase64({ ...args, dek: Buffer.alloc(16, 0x5a).toString('base64') });
+      throw new Error('expected a throw');
+    } catch (err) {
+      expect(isContentCryptoError(err)).toBe(true);
+      assertNoKeyMaterial(err);
+      expect(JSON.stringify(err)).not.toContain(B64.slice(0, 12));
+    }
+  });
+
+  it('copies: mutating the decode buffer afterwards cannot reach the handle', () => {
+    // The caller's base64 STRING cannot be zeroised — strings are immutable and may be interned —
+    // so the copy is what makes the handle independent of anything the caller still holds.
+    const handle = dekHandleFromBase64(args);
+    expect(secretBytes(handle.key).equals(BYTES)).toBe(true);
+    expect(isDestroyed(handle.key)).toBe(false);
+  });
+
+  it('feeds cachingDekSource without any other construction step', () => {
+    // The point of the whole export: a product's DekSource is now writable end to end against
+    // the published barrel, with no deep import and no test helper.
+    const source = cachingDekSource(
+      {
+        getCurrentDek: async (accountId) => dekHandleFromBase64({ ...args, accountId }),
+        getDek: async (accountId, generation) => dekHandleFromBase64({ ...args, accountId, generation }),
+        currentGeneration: async () => 3,
+        evict: () => {},
+      },
+      { productId: PRODUCT, onGraceServe: () => {} },
+    );
+    return expect(source.getCurrentDek(ACCOUNT).then((h) => h.generation)).resolves.toBe(3);
   });
 });

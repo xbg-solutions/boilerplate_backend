@@ -92,6 +92,7 @@ import {
 } from './errors';
 import type { ContentCryptoCode } from './errors';
 import { resolveGraceMs } from './key-scope';
+import { KEY_BYTES, dekFromBytes } from './secret';
 
 // ---------------------------------------------------------------------------
 // The closed vocabulary
@@ -368,6 +369,71 @@ function assertKeyComponent(value: unknown, what: string): asserts value is stri
 function assertGenerationNumber(value: unknown, accountId: string): asserts value is number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
     invalid('generation must be a whole number of at least 1', { accountId });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The door key material comes in through
+// ---------------------------------------------------------------------------
+
+/**
+ * Turn one Accounts `GET /content-keys/{productId}/{accountId}` answer into a `DekHandle`.
+ *
+ * **This is the only way key material enters the package, and it exists because there was no
+ * way at all.** `custodian.ts` says a `DekSource` implementation is the product's and never
+ * this package's, and that is still right — but a product's implementation has to return a
+ * `DekHandle`, whose `key` is an `AccountDek`, and nothing on the barrel produced one. The
+ * bytes→key constructors are deliberately off it (assertion 7), the `exports` map closes deep
+ * imports, and `fixedDekSource` ships from `./testing` and throws inside a deployed function.
+ * So every product could describe the conversation and none could hold it. Found in collab's
+ * Phase C, against the published 0.1.0.
+ *
+ * It takes **base64, not a Buffer**, on purpose. Base64 is the wire form — it is what the
+ * Accounts response carries — so the product never handles a buffer of key material, never
+ * decides its length, and never picks the label. Handing over `dekFromBytes` would have moved
+ * all three decisions out to five products, and the label is the one that matters: it is what
+ * prints in a leak assertion, so five spellings of it is five ways for `expectNoKeyMaterial`
+ * to miss.
+ *
+ * The caller's base64 string cannot be zeroised — strings are immutable in V8 and may be
+ * interned — so the DEK is a copy the caller cannot reach and the decode buffer is wiped
+ * before return. The string itself stays the caller's problem, which is why the response body
+ * must never be logged. Nothing here retains the input.
+ */
+export function dekHandleFromBase64(args: {
+  readonly productId: string;
+  readonly accountId: string;
+  readonly generation: number;
+  /** The `dek` field of the Accounts response: 32 bytes, base64. */
+  readonly dek: string;
+}): DekHandle {
+  if (args === null || typeof args !== 'object') {
+    invalid('dekHandleFromBase64 needs the productId, accountId, generation and dek together');
+  }
+  assertKeyComponent(args.productId, 'productId');
+  assertKeyComponent(args.accountId, 'accountId');
+  assertGenerationNumber(args.generation, args.accountId);
+  if (typeof args.dek !== 'string' || args.dek.length === 0) {
+    // Never the value: this is the one argument that IS key material.
+    invalid('dek must be a non-empty base64 string', { accountId: args.accountId });
+  }
+
+  // `Buffer.from(s, 'base64')` is famously lenient — it ignores anything outside the alphabet
+  // rather than throwing — so a truncated or corrupted response would otherwise arrive as a
+  // short key and fail much later, at a decrypt, with an authentication error naming the wrong
+  // cause. Re-encoding and comparing is the check that catches it here.
+  const bytes = Buffer.from(args.dek, 'base64');
+  if (bytes.length !== KEY_BYTES || bytes.toString('base64') !== args.dek) {
+    bytes.fill(0);
+    invalid(`dek must decode from base64 to exactly ${KEY_BYTES} bytes`, { accountId: args.accountId });
+  }
+  try {
+    return {
+      generation: args.generation,
+      key: dekFromBytes(bytes, `${args.productId}/${args.accountId}@${args.generation}`),
+    };
+  } finally {
+    bytes.fill(0);
   }
 }
 

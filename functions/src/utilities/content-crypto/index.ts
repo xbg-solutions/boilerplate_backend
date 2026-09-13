@@ -160,8 +160,12 @@ export type {
 // ── The caching source. The TTL IS the revocation window, and the grace window lives here ──
 // ── and nowhere else. `cachingDekSource` is the only producer of a `CachedDekSource`, which ─
 // ── is what makes caching mandatory rather than advisory. ───────────────────────────────────
+// `dekHandleFromBase64` is the one door key material comes in through, and it is here because
+// there was no door at all: a product's `DekSource` must return a `DekHandle`, and nothing on
+// this surface produced one. It takes the wire form, so no product handles key bytes or picks
+// the handle's label. Found against the published 0.1.0, in collab's Phase C.
 export {
-  cachingDekSource, quiesceMsFor,
+  cachingDekSource, dekHandleFromBase64, quiesceMsFor,
   DEFAULT_DEK_TTL_MS, DEFAULT_POINTER_TTL_MS, DEFAULT_QUIESCE_MS, GRACE_INELIGIBLE_CODES,
 } from './custodian-cache';
 export type { CacheOptions, GraceInfo, GraceReason } from './custodian-cache';
