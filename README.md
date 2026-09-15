@@ -43,6 +43,7 @@ boilerplate_backend/
 │   ├── utils-llm-connector/     → @xbg.solutions/utils-llm-connector
 │   ├── utils-token-handler/     → @xbg.solutions/utils-token-handler
 │   ├── utils-hashing/           → @xbg.solutions/utils-hashing
+│   ├── utils-content-crypto/    → @xbg.solutions/utils-content-crypto
 │   ├── ... (20+ utility packages)
 │   │
 │   └── create-backend/          → @xbg.solutions/create-backend (CLI scaffolding tool)
@@ -188,10 +189,65 @@ Each utility is a standalone package. Install only what you need:
 | `@xbg.solutions/utils-work-mgmt-connector` | Work management with Notion and Asana |
 | `@xbg.solutions/utils-document-connector` | Document processing |
 | `@xbg.solutions/utils-token-handler` | JWT generation, verification, and blacklist management |
-| `@xbg.solutions/utils-hashing` | PII encryption with AES-256-GCM (transparent and guarded modes) |
+| `@xbg.solutions/utils-hashing` | **Identity** encryption with AES-256-GCM, under one install-wide key (transparent and guarded modes) |
+| `@xbg.solutions/utils-content-crypto` | **Content** encryption under per-record keys, with Accounts as custodian. Not the same system as `utils-hashing` — see below |
 | `@xbg.solutions/utils-validation` | Input validation with Joi and express-validator |
 | `@xbg.solutions/utils-timezone` | Timezone conversion helper |
 | `@xbg.solutions/utils-address-validation` | Google Maps address validation |
+
+### Two encryption packages, and they are not alternatives
+
+`utils-hashing` and `utils-content-crypto` answer different questions, and
+conflating them is the mistake the platform most wants to avoid. **The word
+"key" is ambiguous across these repos; say which kind you mean.**
+
+| | `utils-hashing` | `utils-content-crypto` |
+|---|---|---|
+| Protects | **Identity and commercial records** — names, emails, credentials | **Client content** — the material a customer creates in a product |
+| Keyed on | one install-wide `PII_ENCRYPTION_KEY` | a **per-record key**, wrapped under a per-account data key |
+| Custodian | the product, in its own environment | **Accounts**, over its API. The product holds no key material |
+| On erasure | **survives** — identity outlives content, deliberately | destroyed, which is what makes erasure reach backups |
+| Use it for | a field a regulator expects you to hold | a field a client would call theirs |
+
+A product uses **both**. Neither folds into the other, and
+`PII_ENCRYPTION_KEY` must never wrap content.
+
+### @xbg.solutions/utils-content-crypto — status
+
+Published at **0.1.1**, on the `0.x` line deliberately: under caret semantics a
+minor is breaking, which is the honest contract for a wire format that freezes
+on first write. It joins the `3.x` line at the first line-wide publish after it
+has run on real data in more than one product.
+
+Rollout, tracked in `accounts.xbg.solutions/__docs__/01-content-key-custody.md`:
+
+| | |
+|---|---|
+| **Phase A** — the package | ✅ published 2026-09-12, `0.1.1` on 2026-09-13 |
+| **Phase B** — Accounts as custodian | ✅ deployed 2026-09-13 |
+| **Phase C** — collab | ✅ complete 2026-09-14. 280 values and 5 objects converted; collab's own custodian, KMS key and legacy wires deleted |
+| **Phase D** — sf-mapper, then Morph | in progress |
+| **Phase E** — build, then fedi-CRM | not started |
+
+**What a product supplies is exactly three things**: a field **registry**, a
+**traversal**, and a **`ContentKeyScope`**. Everything else — the cipher, the
+record keys, the wrap set, batching — is the package's and must not be restated
+in a product.
+
+**Two conformance suites are required, not advisory.** `checkWrapCommit` and
+`checkTraversal` ship from the `./testing` subpath and a product runs them in
+its own CI against its own ports. The package can prove a wrap was made durable;
+only the product's tests can prove its committer was called at all, that its
+writes are create-only, and that its traversal walks what it claims to.
+
+Two things learned in the rollout that are cheaper to read than to rediscover:
+
+- **`dekHandleFromBase64` is the only door key material comes in through.** The
+  bytes→key constructors are deliberately off the barrel.
+- **Never seal a value that is also a document id.** It protects nothing — the
+  id is readable to anyone who can read the collection — and it costs a query,
+  because an encrypted field cannot be filtered on. A `where` against ciphertext
+  is a valid query that silently matches nothing.
 
 ### @xbg.solutions/create-backend
 
