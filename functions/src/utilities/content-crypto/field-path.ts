@@ -63,8 +63,39 @@ export function formatFieldPath(segments: readonly PathSegment[], from = 0): str
  * returns them by reference rather than reaching inside and rebuilding them as bare data.
  * Widening this predicate is how a sentinel silently becomes `{}` on its way to a write.
  */
+/**
+ * A plain data object — one safe to walk into looking for registered fields.
+ *
+ * **The prototype DEPTH, not the constructor identity**, and the difference is a
+ * bug that stored plaintext. `constructor === Object` is false for three things
+ * that are plain data by any reasonable reading:
+ *
+ *   - an object from another JavaScript realm — a `vm` context, and therefore
+ *     `structuredClone` under Jest — whose `Object` is a different function
+ *   - `Object.create(null)`, which has no `constructor` at all
+ *   - (and, correctly but confusingly, a class instance)
+ *
+ * Each was skipped silently by every walker in this package: `encryptDoc` would
+ * traverse nothing, find nothing, return the document unchanged, and the caller
+ * would store it **in plaintext, in strict mode, with no error**. Reported from
+ * a consumer's test double on 2026-09-16 and reproduced here three ways.
+ *
+ * The depth test accepts a plain object from any realm and one with a null
+ * prototype, while still rejecting everything this package must NOT walk into —
+ * `Date`, `Buffer`, a Firestore `Timestamp`, and above all a `FieldValue`
+ * sentinel, which survives a walk precisely because nothing descends into it.
+ *
+ * A class instance stays false, deliberately: descending into one would mean
+ * descending into sentinels too, since those are class instances. The document
+ * ROOT is where a class instance has to be refused instead — see
+ * `assertWalkableDocument` in `doc-codec.ts`, which is the loud half of this
+ * fix. Quietly widening the walk would have traded a silent plaintext write for
+ * a silently mangled sentinel.
+ */
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value) && (value as object).constructor === Object;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value) as object | null;
+  return proto === null || Object.getPrototypeOf(proto) === null;
 }
 
 /**

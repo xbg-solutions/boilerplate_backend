@@ -214,16 +214,27 @@ A product uses **both**. Neither folds into the other, and
 
 ### @xbg.solutions/utils-content-crypto — status
 
-Published at **0.1.1**, on the `0.x` line deliberately: under caret semantics a
-minor is breaking, which is the honest contract for a wire format that freezes
-on first write. It joins the `3.x` line at the first line-wide publish after it
-has run on real data in more than one product.
+Published at **0.1.1**; **0.1.2 is cut and green, awaiting publish**. On the `0.x`
+line deliberately: under caret semantics a minor is breaking, which is the honest
+contract for a wire format that freezes on first write. It joins the `3.x` line at
+the first line-wide publish after it has run on real data in more than one product.
+
+**0.1.2 fixes a silent-plaintext bug** and should be taken by every consumer. Every
+plainness test asked `constructor === Object`, which is false for a plain object from
+another realm (`structuredClone` under Jest) and for a null-prototype object — both
+documents, both SKIPPED by the walk, so `encryptDoc` returned the document unchanged,
+reported success, and the caller stored plaintext in strict mode with no error. Those
+are now walked; a class instance is now REFUSED rather than skipped, because walking one
+would mangle a Firestore sentinel, which is what the original strictness protected.
+Neither live consumer was affected — collab and sf-mapper pass object literals and
+`snap.data()`, both plain — but a test double is exactly how it was found, and a product
+that adds a mapper layer would hit it for real. Reasoning in the package README.
 
 Rollout, tracked in `accounts.xbg.solutions/__docs__/01-content-key-custody.md`:
 
 | | |
 |---|---|
-| **Phase A** — the package | ✅ published 2026-09-12, `0.1.1` on 2026-09-13 |
+| **Phase A** — the package | ✅ published 2026-09-12, `0.1.1` on 2026-09-13; `0.1.2` cut 2026-09-16 |
 | **Phase B** — Accounts as custodian | ✅ deployed 2026-09-13 |
 | **Phase C** — collab | ✅ complete 2026-09-14. 280 values and 5 objects converted; collab's own custodian, KMS key and legacy wires deleted |
 | **Phase D** — sf-mapper, then Morph | in progress |

@@ -460,15 +460,22 @@ function refuse(path: string, constructorName: string, because?: string): Conten
  * sentinels to protect and a null-prototype map is a legitimate free-form map.
  */
 function isBlobPlainObject(value: object): boolean {
-  const proto = Object.getPrototypeOf(value) as unknown;
+  const proto = Object.getPrototypeOf(value) as object | null;
   // The prototype clauses come FIRST and the `constructor` clause last, which is not the
   // order the rule is usually written in. It matters: these are free-form client payloads,
   // and a map holding its own `constructor` key — ordinary in JSON-Schema-shaped data —
   // shadows the inherited one, so `value.constructor === Object` is false for an object
-  // that plainly is one. Asking the prototype directly cannot be shadowed by a key. The
-  // third clause is kept because it accepts a chain of plain objects, which the first two
-  // do not, and refusing one of those would be a new refusal on data that already exists.
-  return proto === Object.prototype || proto === null || value.constructor === Object;
+  // that plainly is one. Asking the prototype directly cannot be shadowed by a key.
+  if (proto === null || proto === Object.prototype) return true;
+  // The third clause accepts a CHAIN of plain objects, which the first two do not, and
+  // refusing one of those would be a new refusal on data that already exists. It is asked
+  // of the PROTOTYPE rather than of `value` — same answer for a chain, and it does not
+  // depend on which realm built the object. `Object.prototype` above is this realm's;
+  // another realm's plain object (`structuredClone` under Jest, a `vm` context) has its
+  // own, so the identity test misses it and the object was being REFUSED as unencodable.
+  // A class instance still fails here, in any realm, and is still named in the error.
+  const ctor = (proto as { constructor?: { name?: unknown } }).constructor;
+  return ctor?.name === 'Object';
 }
 
 /**

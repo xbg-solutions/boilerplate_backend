@@ -590,9 +590,63 @@ interface WalkedDoc {
  * `data === undefined` — a deleted row — yields an empty plan. In collab that works by luck of
  * `mapPath`'s type guards; here it is pinned by a test.
  */
+/**
+ * A document must be walkable, or the walk is a silent no-op.
+ *
+ * Every walker in this package descends only into plain objects, which is right
+ * — descending into a class instance would mean descending into a Firestore
+ * `FieldValue` sentinel, and a mangled sentinel is worse than an unsealed one.
+ * But a document that is ITSELF not a plain object then produces no visits, no
+ * changes and no error: `encryptDoc` hands back exactly what it was given, and
+ * the caller stores **plaintext, in strict mode, having been told nothing.**
+ *
+ * That is the failure this whole package exists to prevent, so it is refused at
+ * the door. `isPlainObject` was widened in the same change to accept an object
+ * from another realm or with a null prototype, which are plain data and were
+ * being skipped for the same reason; what remains here is the class instance,
+ * which cannot be walked and must therefore be reported.
+ *
+ * Reported by a consumer on 2026-09-16, found through a test double — the
+ * cross-realm case arises under Jest, where `structuredClone` can return an
+ * object whose `Object` is a different function.
+ */
+function assertWalkableDocument<C extends string>(data: unknown, collection: C, docId: string): void {
+  // `undefined` and `null` are a DELETED ROW and yield an empty plan, which is
+  // the documented contract and has its own test. Absence is not the bug here;
+  // an object that cannot be walked is.
+  if (data === null || data === undefined) return;
+  if (typeof data !== 'object') {
+    throw new ContentCryptoError(
+      'VALIDATION_ERROR',
+      `${collection}/${docId} is a ${typeof data}, not a document`,
+      compact({ collection, docId }),
+    );
+  }
+  if (Array.isArray(data) || isPlainObject(data)) return;
+  throw new ContentCryptoError(
+    'VALIDATION_ERROR',
+    `${collection}/${docId} is a ${safeConstructorName(data)}, and only a plain object can be walked for `
+      + 'registered fields. Walking a class instance would mean walking a FieldValue sentinel, so this is '
+      + 'refused rather than skipped — skipping it silently stored plaintext. Convert it first '
+      + '(`{ ...instance }`).',
+    compact({ collection, docId, constructorName: safeConstructorName(data) }),
+  );
+}
+
+/** The class name, defensively: a hostile or exotic object must not throw from an error path. */
+function safeConstructorName(value: unknown): string {
+  try {
+    const name = (value as { constructor?: { name?: unknown } })?.constructor?.name;
+    return typeof name === 'string' && name.length > 0 ? name : 'non-plain object';
+  } catch {
+    return 'non-plain object';
+  }
+}
+
 function walkDoc<C extends string>(
   table: PreparedCollection, collection: C, docId: string, data: unknown, transform: NodeTransform,
 ): WalkedDoc {
+  assertWalkableDocument(data, collection, docId);
   const update: Record<string, unknown> = {};
   let changed = 0;
   let visited = 0;

@@ -42,6 +42,32 @@ The manifest is JSON and cannot hold a comment, so the reasons live here.
   exists to absorb — under caret semantics a patch is the additive bump and a minor is the
   breaking one.
 
+  **0.1.2** fixes a silent-plaintext bug, and it is the one this package exists to not have.
+  Every plainness test asked `constructor === Object`, which is false for three unrelated
+  things: a plain object from **another realm** (`structuredClone` under Jest, a `vm`
+  context — its `Object` is a different function), a **null-prototype** object, and a **class
+  instance**. The first two are documents. `walkDoc` skipped all three, so `encryptDoc`
+  returned the document UNCHANGED and reported success, and the caller stored the plaintext
+  it was holding — in STRICT mode, with no error. Reported by a consumer who found it through
+  a test double and guarded on their own side; the guard belongs here.
+
+  The fix is not "widen the test", because the three cases are not one case. The first two are
+  now walked. The third is now **refused** with a `VALIDATION_ERROR` naming the class, because
+  a Firestore `FieldValue` is a class instance and walking one would mangle a sentinel — which
+  is what the original strictness was protecting, and it still is. Silence was never the third
+  option. Leniency does not forgive it either: `reads: 'lenient'` forgives plaintext at a
+  registered path, not a document that cannot be walked.
+
+  The same realm-sensitive test sat at a blob root and inside a blob (`blob-codec.ts`,
+  `blob-json.ts`). Those failed LOUDLY — `BLOB_ENCODE_FAILED`, never stored plaintext — so that
+  half was a wrong refusal rather than a leak, and both now ask the PROTOTYPE whose constructor
+  is named `Object` instead of testing identity against this realm's. A class instance inside a
+  blob is still refused and still named.
+
+  A patch, not a minor: no wire format moved, nothing already sealed reads differently, and
+  every call that worked still works. What changed is that two calls which silently did
+  nothing now do their job, and one which silently did nothing now throws.
+
 - **An `exports` map — the first in this repo.** The reason is the `./testing` subpath, not
   opacity: it keeps the in-memory `KeyStore` out of the barrel's type surface. The plan is
   right that a subpath export is not a security boundary, so `testing.ts`'s real boundary is

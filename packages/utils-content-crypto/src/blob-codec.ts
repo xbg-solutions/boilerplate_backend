@@ -835,17 +835,21 @@ function refuseAtBlobPath(node: unknown, site: BlobSite): never {
 }
 
 /**
- * The plain-object test at a blob ROOT: `constructor === Object` or a null prototype.
+ * The plain-object test at a blob ROOT: a null prototype, or a prototype whose constructor
+ * is named `Object` — which is the same question `blob-json.ts` asks INSIDE a blob, and that
+ * is the point, because a blob root is inside the blob.
  *
- * One notch looser than `field-path.ts`'s `isPlainObject`, and identical to the test
- * `blob-json.ts` uses INSIDE a blob — which is the point, because a blob root is inside the blob.
- * There are no sentinels to protect within a payload and a null-prototype map is a legitimate
- * free-form map. `isPlainObject` stays strict where it is, because that strictness is what keeps
- * Firestore sentinels intact during a `mapPath`.
+ * Looser than `field-path.ts`'s `isPlainObject`, which admits only depth 0 or 1: there are no
+ * sentinels to protect within a payload, a null-prototype map is a legitimate free-form map,
+ * and a chain of plain objects is data that already exists. Both tests are now asked of the
+ * PROTOTYPE, so neither depends on which realm built the object.
  */
 function isBlobRootObject(value: unknown): boolean {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
-  return (value as object).constructor === Object || Object.getPrototypeOf(value) === null;
+  const proto = Object.getPrototypeOf(value) as object | null;
+  if (proto === null) return true;
+  const ctor = (proto as { constructor?: { name?: unknown } }).constructor;
+  return ctor?.name === 'Object';
 }
 
 /** Names a shape, NEVER a value: these strings reach error messages. */

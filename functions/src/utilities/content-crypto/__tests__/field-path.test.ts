@@ -103,20 +103,48 @@ describe('parseFieldPath / formatFieldPath', () => {
 });
 
 describe('isPlainObject', () => {
-  it('is strict on purpose: only a `constructor === Object` object is plain', () => {
-    expect(isPlainObject({})).toBe(true);
-    expect(isPlainObject({ a: 1 })).toBe(true);
+  it('keeps every SENTINEL out of the walk — the reason this test is strict', () => {
+    // The original rule was `constructor === Object`, written to keep these
+    // out. That part was right and is unchanged: walking a class instance means
+    // walking a Firestore `FieldValue`, and a mangled sentinel is worse than an
+    // unsealed one.
+    class Sentinel {
+      readonly op = 'delete';
+    }
+    expect(isPlainObject(new Sentinel())).toBe(false);
+    expect(isPlainObject(new Date())).toBe(false);
+    expect(isPlainObject(Buffer.from('x'))).toBe(false);
+    expect(isPlainObject(new Map())).toBe(false);
     expect(isPlainObject([])).toBe(false);
     expect(isPlainObject(null)).toBe(false);
     expect(isPlainObject(undefined)).toBe(false);
     expect(isPlainObject('s')).toBe(false);
     expect(isPlainObject(5)).toBe(false);
-    expect(isPlainObject(new Date())).toBe(false);
-    expect(isPlainObject(Object.create(null))).toBe(false);
-    class Sentinel {
-      readonly op = 'delete';
-    }
-    expect(isPlainObject(new Sentinel())).toBe(false);
+  });
+
+  it('accepts a plain object from ANOTHER REALM, and one with a null prototype', () => {
+    // Changed 2026-09-16, and it was a deliberate decision being reversed rather
+    // than an oversight being corrected — so: `constructor === Object` is false
+    // for a plain object created in another JavaScript realm, because that realm
+    // has a different `Object`. Under Jest that includes `structuredClone`.
+    // It is also false for `Object.create(null)`, which has no constructor.
+    //
+    // Both are plain data, and both were being SKIPPED SILENTLY by every walker
+    // — `encryptDoc` returned the document unchanged and the caller stored
+    // PLAINTEXT, in strict mode, with no error. Reported by a consumer who hit
+    // it through a test double.
+    //
+    // The test is now prototype DEPTH rather than constructor identity, which
+    // admits these two and still excludes everything above.
+    expect(isPlainObject({})).toBe(true);
+    expect(isPlainObject({ a: 1 })).toBe(true);
+    expect(isPlainObject(Object.create(null))).toBe(true);
+    // `structuredClone` really is cross-realm under Jest, which is how the consumer hit
+    // it. The precondition is asserted so that if a future environment stops being so,
+    // this FAILS rather than quietly becoming a duplicate of the line above it.
+    const cloned = structuredClone({ a: 1 });
+    expect(cloned.constructor).not.toBe(Object);
+    expect(isPlainObject(cloned)).toBe(true);
   });
 });
 
@@ -186,10 +214,22 @@ describe('mapPath', () => {
     expect(out.attachments[2]).toBe(doc.attachments[2]); // no registered key: by reference
   });
 
-  it('does not descend into a null-prototype object', () => {
+  it('DOES descend into a null-prototype object, which is plain data', () => {
+    // Was "does not". Skipping it meant a registered field under such an object
+    // was never sealed and never reported — see the isPlainObject tests.
     const inner = Object.create(null) as Record<string, unknown>;
     inner.b = 'x';
     const doc = { a: inner };
+    const out = mapPath(doc, parseFieldPath('a.b'), up) as typeof doc;
+    expect(out).not.toBe(doc);
+    expect((out.a as Record<string, unknown>).b).toBe('X');
+  });
+
+  it('still does not descend into a class instance — sentinels survive the walk', () => {
+    class Sentinel {
+      b = 'x';
+    }
+    const doc = { a: new Sentinel() };
     expect(mapPath(doc, parseFieldPath('a.b'), up)).toBe(doc);
   });
 });

@@ -80,13 +80,20 @@ const MODULES = [
 ];
 
 /**
- * The seven cross-cutting suites of §16.2. They are nobody's module, by design.
+ * The cross-cutting suites of §16.2. They are nobody's module, by design.
  *
- * A CLOSED SET OF NAMES, not a count: nothing anywhere hard-codes seven, and adding one is a
+ * A CLOSED SET OF NAMES, not a count: nothing anywhere hard-codes how many, and adding one is a
  * deliberate edit to this list — which is the review the manifest exists to force. `durability.ts`
- * is the newest (R10a) and is genuinely cross-cutting: the kill-between property exercises
+ * was the newest (R10a) and is genuinely cross-cutting: the kill-between property exercises
  * `content-crypto` + `record-key` + `doc-codec` + `object-envelope` together, over a store, and
  * belongs to none of them.
+ *
+ * `non-plain-document.test.ts` (0.1.2) is the newest and earned its place the same way. One
+ * cause — a plainness test written as `constructor === Object`, which another realm's `Object`
+ * fails — surfaced in FOUR modules at two different severities: silent plaintext through
+ * `field-path` + `doc-codec`, and a wrong refusal through `blob-codec` + `blob-json`. Split
+ * across the four module suites, nothing would state the shared cause, and the next plainness
+ * test written anywhere in the package would reintroduce it.
  */
 const CROSS_CUTTING_SUITES = [
   'aad-injectivity.test.ts',
@@ -96,6 +103,7 @@ const CROSS_CUTTING_SUITES = [
   'aggregate-root.test.ts',
   'leak.test.ts',
   'durability.test.ts',
+  'non-plain-document.test.ts',
 ];
 
 /** The only non-relative specifiers permitted anywhere in the tree (§3, R3). */
@@ -444,7 +452,7 @@ function assertManifest() {
     }
     if (parts.length === 2 && parts[0] === '__tests__') {
       if (!permittedTests.has(parts[1])) {
-        fail(2, rel(join(PKG_SRC, f)), 'test file matching no module and none of the seven cross-cutting suites');
+        fail(2, rel(join(PKG_SRC, f)), 'test file matching no module and none of the cross-cutting suites');
       }
       continue;
     }
