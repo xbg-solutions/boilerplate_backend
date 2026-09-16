@@ -756,6 +756,26 @@ function prepareCollection<C extends string, RT extends string>(
  * A non-string is returned untouched, which cannot arise through `mapPath` and can through
  * `mapUpdateValue` against a hand-built update; either way the walker's own rule holds — a
  * registered string path holding something else is left alone rather than coerced.
+ *
+ * ── WHY THIS DOES NOT REFUSE AN ALREADY-SEALED VALUE, WHERE `sealBlobNode` DOES ──
+ *
+ * The asymmetry is deliberate, and it is worth stating because it looks like an oversight and
+ * cost a consumer 181 client values on 2026-09-17 before anybody read this far.
+ *
+ * A double-sealed BLOB is UNOPENABLE: the outer decode yields a string that is not a serialised
+ * payload, and nothing can recover the original. So `sealBlobNode` refuses.
+ *
+ * A double-sealed STRING is merely wrong. `E(E(value))` opens to `E(value)`, which is the value
+ * correctly sealed — recoverable in one pass, by writing back what a single open returns. And
+ * refusing here would break §8.4, which pins that a string round-trips "including one that looks
+ * like a ciphertext": a comment quoting an error message, a field holding an `enc:v3:` literal
+ * for any reason at all. This layer CANNOT tell a plaintext that looks sealed from a value that
+ * is sealed — they are the same bytes. Only the caller knows which it is holding.
+ *
+ * Which makes it a MIGRATION's obligation, exactly as it is for blobs: a walk seals the paths
+ * that are still plaintext and withholds the rest, checking `isEncrypted` per path the way a
+ * blob migration checks `isSealedBlobCandidate`. There is no `idempotent` flag on either side,
+ * for the same reason — a flag would let the caller stop knowing.
  */
 function sealStringValue(key: RecordKey, aad: string, node: unknown): unknown {
   return typeof node === 'string' ? encryptField(key, aad, node) : node;

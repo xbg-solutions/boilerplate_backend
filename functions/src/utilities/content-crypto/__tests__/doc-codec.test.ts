@@ -455,6 +455,34 @@ describe('encryptDoc / decryptDoc', () => {
     expect(codec.decryptDoc(key, 'messages', 'm1', doubled).body).toBe(looksSealed);
   });
 
+  it('the string/blob asymmetry is deliberate, and a migration is what closes it', () => {
+    // These two behaviours sit side by side above and below this line, and the
+    // difference reads as an oversight until you need it. It is not one.
+    //
+    // A double-sealed STRING is recoverable: E(E(v)) opens to E(v), which is v
+    // correctly sealed. A double-sealed BLOB is not: the outer decode yields
+    // something that is not a serialised payload and the value is gone. So one
+    // refuses and one cannot, because refusing the string would break §8.4 —
+    // this layer cannot tell a plaintext that LOOKS sealed from one that is.
+    //
+    // A consumer's second migration re-sealed 181 live values on 2026-09-17 and
+    // was caught only because the documents carrying blobs refused first. The
+    // obligation is the migration's on BOTH sides: seal the paths that are
+    // still plaintext, and check before you write.
+    const sealed = codec.encryptDoc(key, 'messages', 'm1', { body: 'b' }).body;
+    expect(isEncrypted(sealed)).toBe(true);
+
+    // What a migration must do instead of re-sealing blindly:
+    const pending = isEncrypted(sealed) ? {} : { body: sealed };
+    expect(pending).toEqual({});
+
+    // …and if it does not, this is the shape of what it stores. One pass back.
+    const doubled = codec.encryptDoc(key, 'messages', 'm1', { body: sealed }).body;
+    const onceOpened = codec.decryptDoc(key, 'messages', 'm1', { body: doubled }).body;
+    expect(onceOpened).toBe(sealed);
+    expect(codec.decryptDoc(key, 'messages', 'm1', { body: onceOpened }).body).toBe('b');
+  });
+
   it('refuses a re-seal at a BLOB path, where a double envelope would be unopenable', () => {
     const sealed = codec.encryptDoc(key, 'checkpoints', 'c1', { payload: { a: 1 } });
     expect(thrown(() => codec.encryptDoc(key, 'checkpoints', 'c1', sealed)).code)
