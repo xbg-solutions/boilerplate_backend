@@ -6,10 +6,12 @@ export * from './types';
 export * from './sms-connector';
 export * from './providers/twilio-provider';
 export * from './providers/messagebird-provider';
+export * from './providers/sentdm-provider';
 
 import { SMSConnector } from './sms-connector';
 import { TwilioProvider } from './providers/twilio-provider';
 import { MessageBirdProvider } from './providers/messagebird-provider';
+import { SentDmProvider } from './providers/sentdm-provider';
 
 // Config is provided via initializeSMSConnector() at app startup
 let connectorConfig: any = null;
@@ -61,6 +63,21 @@ export function createSMSConnector(): SMSConnector | null {
     });
 
     return new SMSConnector(messagebirdProvider);
+  }
+
+  if (provider === 'sentdm') {
+    const sentdmConfig = connectorConfig.sms.providers.sentdm;
+    if (!sentdmConfig) {
+      throw new Error('Sent configuration not found');
+    }
+
+    const sentdmProvider = new SentDmProvider({
+      apiKey: sentdmConfig.apiKey,
+      baseURL: sentdmConfig.baseURL,
+      sandbox: sentdmConfig.sandbox,
+    });
+
+    return new SMSConnector(sentdmProvider);
   }
 
   throw new Error(`Unsupported SMS provider: ${provider}`);

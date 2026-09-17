@@ -2,6 +2,30 @@
 
 Consumer-facing detail and migration steps live in `UPGRADING.md`.
 
+## Unreleased
+
+### `utils-sms-connector` — Sent (sent.dm) provider
+- Third `SMSProvider` beside Twilio and MessageBird, selected with `SMS_PROVIDER=sentdm`
+  and configured by `SENTDM_API_KEY` (optionally `SENTDM_BASE_URL`, `SENTDM_SANDBOX`).
+  No new dependency: it calls the v3 REST API over `fetch`, as the PandaDoc, Ortto and
+  ClickUp providers already do. Sent assigns the outbound number, so there is no
+  from-number to configure and `SMSRequest.from` is ignored, as are `mediaUrls`,
+  `validityPeriod` and `tags`, which v3 has no equivalent for.
+- Every send pins `channel: ['sms']`. Sent also carries WhatsApp and RCS; reaching them
+  needs an interface wider than `SMSProvider`, so they stay out of this connector.
+- `sendBulk` batches. Sent takes up to 1,000 recipients per request, so requests sharing
+  a body become one call per 1,000 rather than the sequential loop the other two
+  providers run — a 1,000-recipient send is 1 round trip here against 1,000 elsewhere.
+  A chunk succeeds or fails as a unit, and ids are matched back by phone number.
+- **A send is never retried on a 5xx or a timeout.** v3 has no idempotency key, so
+  replaying a `POST /v3/messages` the server had already accepted would send the message
+  twice. Only 429 is retried on a send, being a rejection; reads retry on 5xx too.
+- Free-form `text` is only accepted by Sent inside an open conversation or within 7 days
+  of an approved template send, so a cold send needs a template. `SMSRequest` has no
+  field for one — pass `metadata.template = { id, parameters }`, the escape hatch the
+  Twilio provider already uses for `metadata.statusCallback`.
+- `cost`/`totalCost` are left undefined: v3 returns no price on send.
+
 ## backend-core 3.0.2 — 2026-09-05
 - `createApp` sets `Cache-Control: no-store` on every response unless a handler set its
   own. Firebase Hosting was caching API responses that carried no cache header.

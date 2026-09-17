@@ -40,7 +40,7 @@ export interface EmailConfig {
 
 export interface SMSConfig {
   enabled: boolean;
-  provider: 'twilio' | 'messagebird';
+  provider: 'twilio' | 'messagebird' | 'sentdm';
   providers: {
     twilio?: {
       accountSid: string;
@@ -51,6 +51,12 @@ export interface SMSConfig {
       apiKey: string;
       originator: string;
       fromNumber: string;
+    };
+    // Sent assigns the outbound number itself, so there is no fromNumber to configure.
+    sentdm?: {
+      apiKey: string;
+      baseURL?: string;
+      sandbox?: boolean;
     };
   };
   defaults: {
@@ -204,7 +210,7 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
 
   sms: {
     enabled: process.env.SMS_ENABLED === 'true',
-    provider: (process.env.SMS_PROVIDER as 'twilio' | 'messagebird') || 'twilio',
+    provider: (process.env.SMS_PROVIDER as 'twilio' | 'messagebird' | 'sentdm') || 'twilio',
     providers: {
       twilio: {
         accountSid: process.env.TWILIO_ACCOUNT_SID || '',
@@ -215,6 +221,11 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
         apiKey: process.env.MESSAGEBIRD_API_KEY || '',
         originator: process.env.MESSAGEBIRD_ORIGINATOR || '',
         fromNumber: process.env.MESSAGEBIRD_FROM_NUMBER || '',
+      },
+      sentdm: {
+        apiKey: process.env.SENTDM_API_KEY || '',
+        baseURL: process.env.SENTDM_BASE_URL || undefined,
+        sandbox: process.env.SENTDM_SANDBOX === 'true',
       },
     },
     defaults: {
@@ -365,6 +376,9 @@ export function validateCommunicationsConfig(): void {
     const providerConfig = COMMUNICATIONS_CONFIG.sms.providers[provider];
     if (!providerConfig) {
       errors.push(`${provider.toUpperCase()} configuration is required when SMS is enabled`);
+    }
+    if (provider === 'sentdm' && !COMMUNICATIONS_CONFIG.sms.providers.sentdm?.apiKey) {
+      errors.push('SENTDM_API_KEY is required when SMS is enabled with the sentdm provider');
     }
   }
 
