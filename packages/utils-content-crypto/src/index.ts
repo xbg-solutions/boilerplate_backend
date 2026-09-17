@@ -10,10 +10,18 @@
  * ISO strings. It declares zero dependencies and zero peerDependencies, and imports nothing
  * but four `node:` builtins and its own files.
  *
- * Custody is deliberate and custodial: Accounts returns the PLAINTEXT DEK over TLS, the
- * product holds it in memory only, and it never reaches a log, an error or an event payload.
- * There is no client-held key material, ever. `PII_ENCRYPTION_KEY` (utils-hashing) is a
- * separate system answering a different question and this package must never reference it.
+ * **This package contains no custodian and no network code.** It defines the `DekSource` port
+ * and ships no implementation of it, permanently. Who holds the key is the consumer's
+ * decision — a service, a cloud KMS, a secrets manager. Where a docblock in this package says
+ * "Accounts", read "the custodian": these files were written alongside XBG's own service and
+ * the prose kept its name. A consumer outside that install went looking for a service it did
+ * not need (2026-09-17); the architecture was already right, the language was not.
+ *
+ * Custody is deliberate and custodial: the custodian returns the PLAINTEXT DEK over its
+ * transport, the product holds it in memory only, and it never reaches a log, an error or an
+ * event payload. There is no client-held key material, ever. `PII_ENCRYPTION_KEY`
+ * (utils-hashing) is a separate system answering a different question and this package must
+ * never reference it.
  *
  * A product supplies three things and nothing else: a `ContentKeyScope`, a registry from
  * `defineRegistry`, and its own traversal. See UPGRADING.md.

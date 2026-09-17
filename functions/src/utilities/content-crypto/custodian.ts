@@ -3,7 +3,8 @@
  *
  * ── TWO THINGS, TWO NAMES (R16) ──
  *
- * `KeyCustodian` is **Accounts' service**, built in Phase B, and it is not in this repo. The
+ * `KeyCustodian` is **the custodian SERVICE** — in XBG's install that is Accounts, built in
+ * Phase B and not in this repo; in another install it is whatever that install nominates. The
  * package's read-side port is **`DekSource`**, with **`CachedDekSource`** the branded decorator
  * `cachingDekSource` produces and the only thing `createContentCrypto` accepts. An early draft of
  * the plan used the one name for both and the plan now says so explicitly (`01` Phase A); nothing
@@ -13,11 +14,21 @@
  * `CachedDekSource`. The file is named for the conversation, not for the port. `KeyCustodian.ts` cited in `key-lifecycle.ts` is collab's production service,
  * from which Accounts' is shaped.
  *
- * There is no implementation of a `DekSource` in this package and there never will be. Accounts is
- * the platform's key custodian; a product asks it for a plaintext DEK over TLS, holds it in memory
- * for the length of a request, and does its own crypto. What lives here is the shape of that
- * conversation, so the Phase-C swap from a local test double to the Accounts HTTP client changes
- * one construction site and no call site.
+ * There is no implementation of a `DekSource` in this package and there never will be — that is
+ * the point of it being a port. A product asks ITS OWN NOMINATED CUSTODIAN for a plaintext DEK,
+ * holds it in memory for the length of a request, and does its own crypto. What lives here is the
+ * shape of that conversation, so swapping a local test double for a real client changes one
+ * construction site and no call site.
+ *
+ * **`accountId` is whatever the consuming product calls the key-holder** — an account, a tenant,
+ * an organisation, an installation. The package treats it as an opaque string and binds it into
+ * the AAD. It does not mean XBG's Accounts service, and a consumer with no such concept loses
+ * nothing by having one.
+ *
+ * XBG's install nominates its Accounts service, which is why much of the prose in this package
+ * says "Accounts" where it means "the custodian". That is a per-install detail that leaked into
+ * general documentation, and it sent a consumer looking for a service it had no access to
+ * (2026-09-17). The implementation is roughly 200 lines and lives in each consuming product.
  *
  * `productId` is bound when the cache is constructed and appears in **no signature below**, which
  * is what makes a call site identical before and after that swap and what stops anyone passing the

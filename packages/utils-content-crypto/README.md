@@ -1,7 +1,54 @@
 # `@xbg.solutions/utils-content-crypto`
 
-Phase A of the platform's content-encryption programme: the shared crypto every product does
-its own encryption with, over a data key fetched from Accounts. The plan is
+The shared crypto a product does its own content encryption with, over a data key it fetches
+from **a custodian it nominates**.
+
+## Who holds the key? You do — this package does not care
+
+**This package contains no network code and no custodian.** It defines a four-method port,
+`DekSource`, and ships no implementation of it, deliberately and permanently. What sits
+behind that port is the consumer's decision: an HTTP service, a cloud KMS, a secrets
+manager, a file in development. The package never learns which.
+
+That is worth saying at the top because the prose below it used to assume the answer. This
+package was written alongside XBG's own custody service and its docblocks say "Accounts"
+where they mean "the custodian" — accurate for the install it was written in, and misleading
+for every other. **A consumer went looking for a service it did not need and could not
+reach** (reported 2026-09-17). Where you still see "Accounts" in a docblock, read "whatever
+you put behind `DekSource`"; XBG's happens to be a service called Accounts.
+
+### Implementing a `DekSource`
+
+Four methods, and the contract matters more than the transport:
+
+```ts
+interface DekSource {
+  getCurrentDek(accountId: string): Promise<DekHandle>;   // the WRITE path; MAY mint generation 1
+  getDek(accountId: string, generation: number): Promise<DekHandle>;  // NEVER mints
+  currentGeneration(accountId: string): Promise<number>;
+  evict(accountId: string): void;                          // in-process, synchronous
+}
+```
+
+- `accountId` is **whatever your product calls the key-holder** — an account, a tenant, an
+  organisation, an installation. The package treats it as an opaque string and binds it into
+  the AAD; it does not mean XBG's Accounts.
+- **`getDek` must never mint.** A custodian that mints on a read silently makes every value
+  under the missing generation permanently unreadable while reporting success.
+- Build the handle with `dekHandleFromBase64`, which exists so a product can implement this
+  port without reaching inside the package.
+- Wrap it in `cachingDekSource` — `createContentCrypto` accepts only the branded
+  `CachedDekSource`, because **the TTL is the revocation window**.
+- Classify your failures. Grace covers UNAVAILABILITY and never REFUSAL: a custodian that is
+  down may be waited out, a key that was destroyed may not.
+
+XBG's own implementation of this port is roughly 200 lines in each consuming product. It is
+not in this package and never will be.
+
+---
+
+Phase A of XBG's content-encryption programme. The plan, which describes that install's
+custody arrangements specifically, is
 `accounts.xbg.solutions/__docs__/01-content-key-custody.md`.
 
 All twenty-three modules exist and the barrel is **135 values**, asserted as an equality
@@ -14,7 +61,8 @@ Each product supplies three things and nothing else: its **field registry**, its
 generalised into this package.
 
 **Names, because an early draft of the plan used one for two things.** `KeyCustodian` is
-**Accounts' service**, built in Phase B and living in that repo. This package's read-side
+**the custodian service** — in XBG's install that is Accounts, built in Phase B and living in
+that repo; in yours it is whatever you nominate. This package's read-side
 port is **`DekSource`**, and **`CachedDekSource`** is the branded decorator
 `cachingDekSource` returns — the only thing `createContentCrypto` accepts, because the TTL
 *is* the revocation window. Nothing here calls the port a custodian: the façade option and
