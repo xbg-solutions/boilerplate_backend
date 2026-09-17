@@ -66,18 +66,27 @@ What stays per product and must **not** be generalised: the field registry and
 the traversal. Each consumer supplies those plus a `KeyScope` config
 (record-key granularity and AAD tightness).
 
-## State (2026-09-05)
+## State (2026-09-17)
 
 | Line | On npm | Notes |
 |---|---|---|
 | `backend-core` | **3.0.2** | `createApp({ rateLimit, trustProxy })`, `no-store` by default |
-| `utils-*` (24) | 3.0.0 / **3.0.1** | six with a uuid dep are 3.0.1 (caret range); the rest 3.0.0 |
+| `create-backend` | 3.0.0 | |
+| `utils-*` (23 on the 3.x line) | 3.0.0 / 3.0.1 / **3.1.0** | six with a uuid dep are 3.0.1 (caret range); `utils-sms-connector` is **3.1.0** (the Sent provider, 2026-09-17); the rest 3.0.0 |
+| `utils-content-crypto` | **0.1.2** | its own 0.1.x line, not 3.x. The repo is at 0.1.3 — committed, not yet published |
 | 2.x | 2.0.3 | dead line — nothing further will be published |
 | 1.x | 1.3.6 | dead line |
 
+**This table is a snapshot and goes stale silently; the registry is the truth.** To
+re-derive it, compare each `packages/*/package.json` version against that package's
+`dist-tags.latest` — a local version ahead of npm is unpublished work, and one behind is
+a lockfile or a tree that has drifted.
+
 Every consumer is on 3.0.2: **accounts, build, morph, fediCRM, sf-mapper**. `input` and the
-marketing site use no bpbe packages. Git tags mark what each publish contained
-(`backend-core@3.0.2`, `bpbe-utils@3.0.1`, …); create one on every publish.
+marketing site use no bpbe packages. Git tags mark what each publish contained —
+`backend-core@3.0.2` for core, `bpbe-utils@3.0.1` for a bulk utils release, and
+`utils-sms-connector@3.1.0` when a single package goes out on its own version. Create one
+on every publish.
 
 ## Two source trees — change both
 
