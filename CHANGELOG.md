@@ -2,9 +2,9 @@
 
 Consumer-facing detail and migration steps live in `UPGRADING.md`.
 
-## Unreleased
+## utils-sms-connector 3.1.0 — 2026-09-17
 
-### `utils-sms-connector` — Sent (sent.dm) provider
+### Sent (sent.dm) provider
 - Third `SMSProvider` beside Twilio and MessageBird, selected with `SMS_PROVIDER=sentdm`
   and configured by `SENTDM_API_KEY` (optionally `SENTDM_BASE_URL`, `SENTDM_SANDBOX`).
   No new dependency: it calls the v3 REST API over `fetch`, as the PandaDoc, Ortto and
