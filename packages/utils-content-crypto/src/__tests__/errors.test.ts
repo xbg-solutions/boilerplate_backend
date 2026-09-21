@@ -616,6 +616,55 @@ describe('compact — because rule 3 is strict on purpose', () => {
 });
 
 describe('assertNoKeyMaterial — a different question, over a different threat model', () => {
+  describe('a RecordRef carries IDENTIFIERS, not key material', () => {
+    // Found by Morph's rehearsal, and it refused correct work rather than
+    // merely logging noise: a lens result is content-addressed, so its
+    // document id is the sha256 of the render's inputs — 64 hexadecimal
+    // characters, which is exactly the 32-byte hex shape. The ref reaches
+    // this guard inside `WrapAudit.record`, so the product could not commit
+    // a wrap for such a record AT ALL.
+    const contentHash = 'a'.repeat(64);
+
+    it('permits a content-addressed id, which is 32 bytes of hex exactly', () => {
+      const audit = {
+        record: { type: 'result', id: contentHash, path: `tenants/t1/results/${contentHash}` },
+        accountId: 'acct-1',
+      };
+      expect(() => assertNoKeyMaterial(audit, 'audit')).not.toThrow();
+    });
+
+    it('permits it at the top level too, not only nested in an audit', () => {
+      const ref = { type: 'result', id: contentHash, path: `tenants/t1/results/${contentHash}` };
+      expect(() => assertNoKeyMaterial(ref, 'record')).not.toThrow();
+    });
+
+    it('STILL refuses key material on any other field of the same ref', () => {
+      // The exemption is two fields on a ref shape, not an amnesty for the
+      // object that carries them.
+      const ref = {
+        type: 'result',
+        id: contentHash,
+        path: 'tenants/t1/results/x',
+        dek: Buffer.alloc(32),
+      };
+      expect(() => assertNoKeyMaterial(ref, 'record')).toThrow(/dek/);
+    });
+
+    it('STILL refuses a 32-byte hex value at a field that is NOT an identifier', () => {
+      const audit = {
+        record: { type: 'result', id: 'r1', path: 'tenants/t1/results/r1' },
+        wrapped: contentHash,
+      };
+      expect(() => assertNoKeyMaterial(audit, 'audit')).toThrow(/wrapped/);
+    });
+
+    it('does not exempt `id` on an object that is NOT ref-shaped', () => {
+      // No `path`, so not a ref — the shape rule applies as it always did.
+      expect(() => assertNoKeyMaterial({ type: 'result', id: contentHash }, 'thing'))
+        .toThrow(/id/);
+    });
+  });
+
   /** A `WrapAudit`-shaped payload: structured, nested, and entirely legitimate. */
   const audit = {
     productId: 'collab',
