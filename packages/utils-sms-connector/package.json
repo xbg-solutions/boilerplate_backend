@@ -1,7 +1,7 @@
 {
   "name": "@xbg.solutions/utils-sms-connector",
-  "version": "3.1.0",
-  "description": "SMS sending with Twilio, MessageBird and Sent providers",
+  "version": "3.2.0",
+  "description": "SMS sending with Twilio, MessageBird, Sent and Kudosity providers",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [

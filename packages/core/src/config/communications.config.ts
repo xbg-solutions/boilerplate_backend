@@ -40,7 +40,7 @@ export interface EmailConfig {
 
 export interface SMSConfig {
   enabled: boolean;
-  provider: 'twilio' | 'messagebird' | 'sentdm';
+  provider: 'twilio' | 'messagebird' | 'sentdm' | 'kudosity';
   providers: {
     twilio?: {
       accountSid: string;
@@ -57,6 +57,13 @@ export interface SMSConfig {
       apiKey: string;
       baseURL?: string;
       sandbox?: boolean;
+    };
+    // The sender must be registered to the Kudosity account for the destination country.
+    kudosity?: {
+      apiKey: string;
+      fromNumber: string;
+      baseURL?: string;
+      trackLinks?: boolean;
     };
   };
   defaults: {
@@ -210,7 +217,7 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
 
   sms: {
     enabled: process.env.SMS_ENABLED === 'true',
-    provider: (process.env.SMS_PROVIDER as 'twilio' | 'messagebird' | 'sentdm') || 'twilio',
+    provider: (process.env.SMS_PROVIDER as 'twilio' | 'messagebird' | 'sentdm' | 'kudosity') || 'twilio',
     providers: {
       twilio: {
         accountSid: process.env.TWILIO_ACCOUNT_SID || '',
@@ -226,6 +233,12 @@ export const COMMUNICATIONS_CONFIG: CommunicationsConfig = {
         apiKey: process.env.SENTDM_API_KEY || '',
         baseURL: process.env.SENTDM_BASE_URL || undefined,
         sandbox: process.env.SENTDM_SANDBOX === 'true',
+      },
+      kudosity: {
+        apiKey: process.env.KUDOSITY_API_KEY || '',
+        fromNumber: process.env.KUDOSITY_FROM_NUMBER || '',
+        baseURL: process.env.KUDOSITY_BASE_URL || undefined,
+        trackLinks: process.env.KUDOSITY_TRACK_LINKS === 'true',
       },
     },
     defaults: {
@@ -379,6 +392,14 @@ export function validateCommunicationsConfig(): void {
     }
     if (provider === 'sentdm' && !COMMUNICATIONS_CONFIG.sms.providers.sentdm?.apiKey) {
       errors.push('SENTDM_API_KEY is required when SMS is enabled with the sentdm provider');
+    }
+    if (provider === 'kudosity') {
+      if (!COMMUNICATIONS_CONFIG.sms.providers.kudosity?.apiKey) {
+        errors.push('KUDOSITY_API_KEY is required when SMS is enabled with the kudosity provider');
+      }
+      if (!COMMUNICATIONS_CONFIG.sms.providers.kudosity?.fromNumber) {
+        errors.push('KUDOSITY_FROM_NUMBER is required when SMS is enabled with the kudosity provider');
+      }
     }
   }
 

@@ -7,11 +7,13 @@ export * from './sms-connector';
 export * from './providers/twilio-provider';
 export * from './providers/messagebird-provider';
 export * from './providers/sentdm-provider';
+export * from './providers/kudosity-provider';
 
 import { SMSConnector } from './sms-connector';
 import { TwilioProvider } from './providers/twilio-provider';
 import { MessageBirdProvider } from './providers/messagebird-provider';
 import { SentDmProvider } from './providers/sentdm-provider';
+import { KudosityProvider } from './providers/kudosity-provider';
 
 // Config is provided via initializeSMSConnector() at app startup
 let connectorConfig: any = null;
@@ -78,6 +80,22 @@ export function createSMSConnector(): SMSConnector | null {
     });
 
     return new SMSConnector(sentdmProvider);
+  }
+
+  if (provider === 'kudosity') {
+    const kudosityConfig = connectorConfig.sms.providers.kudosity;
+    if (!kudosityConfig) {
+      throw new Error('Kudosity configuration not found');
+    }
+
+    const kudosityProvider = new KudosityProvider({
+      apiKey: kudosityConfig.apiKey,
+      fromNumber: kudosityConfig.fromNumber,
+      baseURL: kudosityConfig.baseURL,
+      trackLinks: kudosityConfig.trackLinks,
+    });
+
+    return new SMSConnector(kudosityProvider);
   }
 
   throw new Error(`Unsupported SMS provider: ${provider}`);

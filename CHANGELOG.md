@@ -2,6 +2,29 @@
 
 Consumer-facing detail and migration steps live in `UPGRADING.md`.
 
+## utils-sms-connector 3.2.0 — 2026-09-23
+
+### Kudosity provider
+- Fourth `SMSProvider`, selected with `SMS_PROVIDER=kudosity` and configured by
+  `KUDOSITY_API_KEY` and `KUDOSITY_FROM_NUMBER` (optionally `KUDOSITY_BASE_URL`,
+  `KUDOSITY_TRACK_LINKS`). No new dependency: it calls Kudosity's v2 (TransmitMessage)
+  REST API over `fetch`, the API Kudosity recommends for new builds, not the classic v1.
+- A sender is required on every send and must be registered to the account for the
+  destination country; `SMSRequest.from` overrides the configured one, and alphanumeric
+  ids work. Numbers are sent without a leading `+`, as Kudosity's examples show them.
+- `metadata.messageRef` becomes `message_ref`, which Kudosity echoes on every webhook;
+  `metadata.trackLinks` overrides the configured link tracking for one send.
+  `mediaUrls`, `validityPeriod` and `tags` are ignored — MMS is a separate v2 endpoint.
+- `sendBulk` loops. v2 takes one recipient per request; only v1 takes many, and that
+  would mean a second credential pair for one method.
+- **A send is never retried on a 5xx or a timeout**, for the same reason as Sent: v2
+  documents no idempotency key. Only 429 is retried on a send; reads retry on 5xx too.
+- A 200 whose message is already `REJECTED`, `FAILED` or `HARD_BOUNCE` is reported as a
+  failed send, with the message id kept.
+- `SOFT_BOUNCE` and `REJECTED` map to `undelivered`, and `HARD_BOUNCE` to `failed`.
+  Status is matched case-insensitively because the API returns it in both cases.
+- `cost`/`totalCost` are left undefined: v2 returns a part count, not a price.
+
 ## utils-sms-connector 3.1.0 — 2026-09-17
 
 ### Sent (sent.dm) provider

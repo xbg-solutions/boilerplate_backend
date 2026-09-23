@@ -69,9 +69,9 @@ export const UTILITY_REGISTRY: UtilityDefinition[] = [
   {
     name: 'SMS Connector',
     package: '@xbg.solutions/utils-sms-connector',
-    description: 'SMS sending with Twilio, MessageBird and Sent providers',
+    description: 'SMS sending with Twilio, MessageBird, Sent and Kudosity providers',
     category: 'communication',
-    envVars: ['SMS_ENABLED', 'SMS_PROVIDER', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'SENTDM_API_KEY'],
+    envVars: ['SMS_ENABLED', 'SMS_PROVIDER', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'SENTDM_API_KEY', 'KUDOSITY_API_KEY'],
   },
   {
     name: 'Push Notifications',
