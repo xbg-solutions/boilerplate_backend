@@ -564,6 +564,36 @@ export function assertNoKeyMaterial(value: unknown, label = 'value'): void {
   walkForKeyMaterial(value, label, 0, new Set<object>());
 }
 
+/**
+ * A `RecordRef` — `{type, id, path}`, all three IDENTIFIERS by this package's own contract.
+ *
+ * Recognised structurally rather than by `instanceof`, because a ref crosses a port boundary
+ * as a plain object and may come from another realm.
+ */
+function isRecordRefShape(node: object): boolean {
+  const r = node as { type?: unknown; id?: unknown; path?: unknown };
+  return typeof r.type === 'string' && typeof r.id === 'string' && typeof r.path === 'string';
+}
+
+/**
+ * The exemption the base64url diagnosis already tells callers they will need.
+ *
+ * A `RecordRef.id` is a DOCUMENT ID chosen by the product, and a product is entitled to
+ * content-address its documents: Morph keys a lens result by the sha256 of its inputs, so
+ * `record.id` is legitimately 64 hexadecimal characters and trips the 32-byte shape rule
+ * exactly. It reached this guard through `WrapAudit.record`, which meant a product could not
+ * commit a wrap for such a record at all — a false positive that refuses correct work rather
+ * than one that merely logs noise.
+ *
+ * Narrow on purpose. Only `id` and `path`, only on something already shaped like a ref, and
+ * only where they are strings; every other field of the payload is still walked, and a ref
+ * with a `wrapped` or a `dek` hung off it is still refused. The judgement being made is that
+ * these two fields are identifiers BY CONTRACT — `path` is required to be a document path and
+ * `id` its last meaningful component — so a key appearing in either would be a product
+ * putting key material into its own document ids, which this guard could not fix.
+ */
+const IDENTIFIER_FIELDS: ReadonlySet<string> = new Set(['id', 'path']);
+
 function walkForKeyMaterial(node: unknown, path: string, depth: number, seen: Set<object>): void {
   if (typeof node === 'string') {
     const diagnosis = keyMaterialSpelling(node);
@@ -627,7 +657,10 @@ function walkForKeyMaterial(node: unknown, path: string, depth: number, seen: Se
   // `JSON.stringify` and very visible to `util.inspect`, and a non-enumerable one is read by
   // anything walking descriptors. Prototype getters are NOT walked — a look-alike key handle
   // hides its state there, and `isKeyMaterialShaped` above is what reads those.
+  const refShaped = isRecordRefShape(node);
   for (const rawKey of Reflect.ownKeys(node)) {
+    // See `IDENTIFIER_FIELDS`: a content-addressed document id is not key material.
+    if (refShaped && typeof rawKey === 'string' && IDENTIFIER_FIELDS.has(rawKey)) continue;
     let child: unknown;
     try {
       child = (node as Record<string | symbol, unknown>)[rawKey as string];
