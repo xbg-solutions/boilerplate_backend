@@ -178,7 +178,7 @@ Each utility is a standalone package. Install only what you need:
 | `@xbg.solutions/utils-firestore-connector` | Multi-database Firestore access and Firebase Admin SDK init |
 | `@xbg.solutions/utils-firebase-event-bridge` | Firebase triggers to domain event normalization |
 | `@xbg.solutions/utils-email-connector` | Email sending with Mailjet and Ortto providers |
-| `@xbg.solutions/utils-sms-connector` | SMS sending with Twilio and MessageBird providers |
+| `@xbg.solutions/utils-sms-connector` | SMS sending with Twilio, MessageBird, Sent and Kudosity providers |
 | `@xbg.solutions/utils-push-notifications-connector` | Push notifications via FCM |
 | `@xbg.solutions/utils-realtime-connector` | SSE and WebSocket providers |
 | `@xbg.solutions/utils-crm-connector` | CRM integration with HubSpot and Salesforce |
@@ -214,7 +214,7 @@ A product uses **both**. Neither folds into the other, and
 
 ### @xbg.solutions/utils-content-crypto — status
 
-Published at **0.1.1**; **0.1.2 is cut and green, awaiting publish**. On the `0.x`
+Published at **0.1.4** (2026-09-23). On the `0.x`
 line deliberately: under caret semantics a minor is breaking, which is the honest
 contract for a wire format that freezes on first write. It joins the `3.x` line at
 the first line-wide publish after it has run on real data in more than one product.
@@ -230,14 +230,20 @@ Neither live consumer was affected — collab and sf-mapper pass object literals
 `snap.data()`, both plain — but a test double is exactly how it was found, and a product
 that adds a mapper layer would hit it for real. Reasoning in the package README.
 
+**0.1.4 exempts a `RecordRef` from the key-material guard.** A record id is a document
+id the product chooses, and Morph content-addresses lens results by sha256, so a
+64-hex-character id tripped the 32-byte shape rule and a wrap for that record could
+not be committed at all. 0.1.3 changed prose only.
+
 Rollout, tracked in `accounts.xbg.solutions/__docs__/01-content-key-custody.md`:
 
 | | |
 |---|---|
-| **Phase A** — the package | ✅ published 2026-09-12, `0.1.1` on 2026-09-13; `0.1.2` cut 2026-09-16 |
+| **Phase A** — the package | ✅ published 2026-09-12; `0.1.4` current, 2026-09-23 |
 | **Phase B** — Accounts as custodian | ✅ deployed 2026-09-13 |
 | **Phase C** — collab | ✅ complete 2026-09-14. 280 values and 5 objects converted; collab's own custodian, KMS key and legacy wires deleted |
-| **Phase D** — sf-mapper, then Morph | in progress |
+| **Phase D** — sf-mapper, then Morph | ✅ sf-mapper complete 2026-09-17; Morph's Firestore content sealed 2026-09-23, still `reads: 'lenient'` |
+| **Phase F** — Morph's lake (Cloud Storage) | next; Morph's `strict` flip waits on it |
 | **Phase E** — build, then fedi-CRM | not started |
 
 **What a product supplies is exactly three things**: a field **registry**, a
