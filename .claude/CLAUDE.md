@@ -72,7 +72,7 @@ the traversal. Each consumer supplies those plus a `KeyScope` config
 |---|---|---|
 | `backend-core` | **3.0.2** | `createApp({ rateLimit, trustProxy })`, `no-store` by default |
 | `create-backend` | 3.0.0 | |
-| `utils-*` (23 on the 3.x line) | 3.0.0 / 3.0.1 / **3.1.0** | six with a uuid dep are 3.0.1 (caret range); `utils-sms-connector` is **3.1.0** (the Sent provider, 2026-09-17) — the repo is at **3.2.0** (Kudosity), committed and tagged, not yet published; the rest 3.0.0 |
+| `utils-*` (23 on the 3.x line) | 3.0.0 / 3.0.1 / **3.2.0** | six with a uuid dep are 3.0.1 (caret range); `utils-sms-connector` is **3.2.0** (Sent at 3.1.0, 2026-09-17; Kudosity at 3.2.0, 2026-09-23); the rest 3.0.0 |
 | `utils-content-crypto` | **0.1.4** | its own 0.1.x line, not 3.x. 0.1.4 (2026-09-23) exempts a `RecordRef` from the key-material guard |
 | 2.x | 2.0.3 | dead line — nothing further will be published |
 | 1.x | 1.3.6 | dead line |
@@ -85,7 +85,7 @@ a lockfile or a tree that has drifted.
 Every consumer is on 3.0.2: **accounts, build, morph, fediCRM, sf-mapper**. `input` and the
 marketing site use no bpbe packages. Git tags mark what each publish contained —
 `backend-core@3.0.2` for core, `bpbe-utils@3.0.1` for a bulk utils release, and
-`utils-sms-connector@3.1.0` when a single package goes out on its own version. Create one
+`utils-sms-connector@3.2.0` when a single package goes out on its own version. Create one
 on every publish.
 
 ## Two source trees — change both
