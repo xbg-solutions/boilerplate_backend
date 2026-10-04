@@ -13,7 +13,10 @@ const common = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   transform: {
-    '^.+\\.[tj]s$': ['ts-jest', { tsconfig: { allowJs: true, module: 'commonjs' } }],
+    '^.+\\.[tj]s$': [
+      'ts-jest',
+      { tsconfig: { allowJs: true, module: 'commonjs', types: ['jest', 'node'] } },
+    ],
   },
   transformIgnorePatterns: [`/node_modules/(?!(${ESM_ONLY_DEPS.join('|')})/)`],
   testPathIgnorePatterns: ['/node_modules/', '/lib/'],
