@@ -49,7 +49,7 @@ import { blobKeyRelation, mapPathNode, parseFieldPath } from '../field-path';
 // The v1/v2 prefixes are IMPORTED, never typed. Every wire prefix is declared in field-codec.ts
 // and re-exported here; a hand-typed copy is a second declaration that Phase G's deletion would
 // not find. A test may reach legacy-readers; a production module may not.
-import { ENC_PREFIX_V1, ENC_PREFIX_V2 } from '../legacy-readers';
+import { ENC_PREFIX_V1, ENC_PREFIX_V2 } from '../field-codec'; // the prefixes are DECLARED here; legacy-readers only re-exported them (deleted at phase G)
 import { KEY_BYTES, dekFromBytes, recordKeyFromBytes } from '../secret';
 import type { RecordKey } from '../secret';
 

@@ -35,8 +35,6 @@ import type {
 import { cachingDekSource } from '../custodian-cache';
 import type { DekHandle, DekSource } from '../custodian';
 import { ContentCryptoError, assertNoKeyMaterial, isContentCryptoError } from '../errors';
-import { ENC_PREFIX_V1 } from '../legacy-readers';
-import { sealParts } from '../cipher';
 import { dekFromBytes } from '../secret';
 import type { AccountDek } from '../secret';
 import { defineRegistry, EMPTY_REGISTRY } from '../registry';
@@ -230,15 +228,6 @@ function makeCrypto(opts?: { registry?: typeof registry; wrapCommitter?: WrapCom
   return { crypto, source, dekSource, graceServes, committer };
 }
 
-/** THE FIXTURE WRITER for the legacy wire, five lines, inside `__tests__/`. No writer for a
- *  superseded wire ships from any entrypoint, and `index.test.ts` asserts that by importing the
- *  barrel; this builds what collab's store actually holds. */
-function legacyFixture(dek: AccountDek, aad: string, plaintext: string): string {
-  const { iv, tag, ciphertext } = sealParts(dek, aad, Buffer.from(plaintext, 'utf8'));
-  return `${ENC_PREFIX_V1}${[
-    iv.toString('base64'), ciphertext.toString('base64'), tag.toString('base64'),
-  ].join(':')}`;
-}
 
 function codeOf(fn: () => unknown): string {
   try {
@@ -1191,105 +1180,6 @@ describe('session.planWraps', () => {
     } finally {
       session.close();
     }
-  });
-});
-
-describe('migrateDoc — the one walk where the two worlds meet', () => {
-  it('converts a legacy field to v3 under the SAME AAD, and leaves the rest alone', async () => {
-    const made = makeCrypto();
-    const created = await made.crypto.createRecord({ record: projectRecord('p_1'), owner: 'A' });
-    const session = created.session;
-    try {
-      const aad = registry.aadFor('messages', 'm_1', 'body');
-      const stored = {
-        body: legacyFixture(made.source.dekFor('A', 1), aad, 'the old body'),
-        untouched: 'plaintext, and the migration script\'s job rather than this one\'s',
-      };
-
-      const out = await made.crypto.migrateDoc(session, 'messages', 'm_1', stored);
-      expect(out.changed).toBe(1);
-      expect(Object.keys(out.update)).toEqual(['body']);
-
-      const next = out.data as typeof stored;
-      expect(isEncrypted(next.body)).toBe(true);
-      expect(next.untouched).toBe(stored.untouched);
-      // The v1→v3 hop is AAD-preserving by construction: the registry built the same string for
-      // the read and the write, which is what makes the migration a re-seal and not a re-label.
-      expect(session.decryptDoc('messages', 'm_1', next)).toEqual({
-        body: 'the old body', untouched: stored.untouched,
-      });
-    } finally {
-      session.close();
-    }
-  });
-
-  it('is idempotent: a second pass changes nothing and returns the row by reference', async () => {
-    const made = makeCrypto();
-    const created = await made.crypto.createRecord({ record: projectRecord('p_1'), owner: 'A' });
-    const session = created.session;
-    try {
-      const aad = registry.aadFor('messages', 'm_1', 'body');
-      const stored = { body: legacyFixture(made.source.dekFor('A', 1), aad, 'once') };
-      const first = await made.crypto.migrateDoc(session, 'messages', 'm_1', stored);
-      const second = await made.crypto.migrateDoc(session, 'messages', 'm_1', first.data);
-
-      // `changed === 0` ⟹ the row is not written. A v3 value is "return what you were given",
-      // which is the planner's only skip mechanism.
-      expect(second.changed).toBe(0);
-      expect(second.update).toEqual({});
-      expect(second.data).toBe(first.data);
-    } finally {
-      session.close();
-    }
-  });
-
-  it('fetches every legacy generation UP FRONT, before it transforms anything', async () => {
-    const made = makeCrypto();
-    const created = await made.crypto.createRecord({ record: projectRecord('p_1'), owner: 'A' });
-    const session = created.session;
-    try {
-      const aad = registry.aadFor('messages', 'm_1', 'body');
-      const stored = { body: legacyFixture(made.source.dekFor('A', 1), aad, 'x') };
-      // The DEK for generation 1 has been drained, so its wrap is gone and its values are
-      // unrecoverable. Throwing is the point: skipping would strand the value permanently the
-      // moment the wrap is erased, which is what the whole drain protocol exists to prevent.
-      made.source.drain('A', 1);
-      made.dekSource.clear();
-      expect(await asyncCodeOf(() => made.crypto.migrateDoc(session, 'messages', 'm_1', stored)))
-        .toBe('ACCOUNT_KEY_DESTROYED');
-    } finally {
-      session.close();
-    }
-  });
-
-  it('REFUSES a legacy string at a registered blob path rather than guessing', async () => {
-    const made = makeCrypto();
-    const created = await made.crypto.createRecord({ record: projectRecord('p_1'), owner: 'A' });
-    const session = created.session;
-    try {
-      const aad = registry.aadFor('messages', 'm_1', 'payload');
-      const stored = { payload: legacyFixture(made.source.dekFor('A', 1), aad, '{"a":1}') };
-      // Nothing here can know whether the plaintext is a serialised map, and a wrong guess writes
-      // a payload that opens once and then fails, unopenably. Do not guess.
-      expect(await asyncCodeOf(() => made.crypto.migrateDoc(session, 'messages', 'm_1', stored)))
-        .toBe('WRONG_KEY_LAYER');
-    } finally {
-      session.close();
-    }
-  });
-
-  it('refuses a closed session, and a session this façade did not open', async () => {
-    const made = makeCrypto();
-    const created = await made.crypto.createRecord({ record: projectRecord('p_1'), owner: 'A' });
-    const session = created.session;
-    session.close();
-    expect(await asyncCodeOf(() => made.crypto.migrateDoc(session, 'messages', 'm_1', {})))
-      .toBe('KEY_MATERIAL_DESTROYED');
-
-    const impostor = { closed: false, as: 'A', ownerAccountId: 'A' };
-    expect(await asyncCodeOf(() =>
-      made.crypto.migrateDoc(impostor as unknown as RecordSession<Collection>, 'messages', 'm', {})))
-      .toBe('VALIDATION_ERROR');
   });
 });
 

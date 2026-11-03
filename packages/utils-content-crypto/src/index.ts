@@ -28,11 +28,11 @@
  *
  * ── WHAT IS HERE, AND WHAT IS NOT ────────────────────────────────────────────────────────
  *
- * All twenty-three modules of §3 now exist. This barrel is the surface of TWENTY-TWO of
- * them: errors, secret, aad, field-path, registry, key-scope, cipher (internal — never
- * re-exported here), field-codec, blob-json, blob-codec, record-key, wrap-patch,
- * object-envelope, custodian (types only), custodian-cache, key-store, key-lifecycle,
- * doc-codec, content-crypto, walk and legacy-readers.
+ * TWENTY-TWO modules of §3 exist; §3 named twenty-three, and `legacy-readers.ts` was deleted
+ * at phase G (0.2.0, 2026-11-04). This barrel is the surface of TWENTY-ONE of them: errors,
+ * secret, aad, field-path, registry, key-scope, cipher (internal — never re-exported here),
+ * field-codec, blob-json, blob-codec, record-key, wrap-patch, object-envelope, custodian
+ * (types only), custodian-cache, key-store, key-lifecycle, doc-codec, content-crypto and walk.
  *
  * `testing.ts` is the twenty-third and has no section here, deliberately: it is a SEPARATE
  * entrypoint (`./testing`), never part of this surface — `expectNoKeyMaterial`,
@@ -70,7 +70,7 @@ export {
   MIN_DERIVED_SEALED_BYTES,
 } from './key-scope';
 export type {
-  ContentKeyScope, ResolvedScope, RecordGranularity, AadTightness, ReadStrictness, LegacyScope,
+  ContentKeyScope, ResolvedScope, RecordGranularity, AadTightness, ReadStrictness,
 } from './key-scope';
 
 // ── Registry — the second thing a product supplies (shape only; contents stay per product) ──
@@ -92,7 +92,11 @@ export {
   aadForContent, aadForRecordKeyWrap, aadForDek, aadForObject, assertAad, AAD_OBJECT_DOMAIN,
 } from './aad';
 
-// ── Field codec (v3). Writes v3 only; reading the older wires lives in legacy-readers.ts. ───
+// ── Field codec (v3). Writes v3 only, and since phase G READS only v3 under a record key. ───
+// `decodeValue` still RECOGNISES the v1/v2 wires, deliberately: recognition is the parser, not
+// the reader. A stray legacy value therefore fails as WRONG_KEY_LAYER — precise — rather than
+// as "an ordinary string at a registered path". Removing recognition would also flip
+// `isEncrypted()` for such a value, which is a subtler change than deleting a function.
 // IV_BYTES and TAG_BYTES are declared in cipher.ts — they are AES-GCM parameters (R6/R9) — and
 // re-exported by field-codec.ts, which is where §4 publishes them and where the wire is owned.
 export {
@@ -218,7 +222,7 @@ export type {
 export { createContentCrypto } from './content-crypto';
 export type {
   ContentCrypto, ContentCryptoOptions, OpenAs, RecordInput,
-  RecordSession, CreatedRecord, MigratedDoc,
+  RecordSession, CreatedRecord,
   WrapCommitter, WrapCommitRequest, WrapReceipt,
 } from './content-crypto';
 
@@ -242,13 +246,20 @@ export type {
   Precondition, PreconditionToken,
 } from './walk';
 
-// ── Legacy readers — DELETE THIS SECTION AND ./legacy-readers.ts AT PHASE G. ────────────────
-// The two older wires exist only until collab's Phase-C walk converts 182 + 60 values. No
-// writer for either ships from any entrypoint, and a test asserts that by importing this
-// barrel.
-export {
-  ENC_PREFIX_V1, ENC_PREFIX_V2, LEGACY_GENERATION, isLegacyValue, legacyVersionOf,
-  legacyGenerationOf, decryptLegacyField, legacyGenerationsIn,
-  legacyObjectAad, readLegacyObjectEnvelope, openLegacyObject, assertGeneration,
-} from './legacy-readers';
-export type { LegacyObjectEnvelope } from './legacy-readers';
+// ── The legacy surface is GONE (phase G, 0.2.0, 2026-11-04). ───────────────────────────────
+//
+// `./legacy-readers.ts` (305 lines, reaching into 17 modules), `migrateDoc` and the `lenient`
+// read mode existed for collab's 279 v1/v2 values and nothing else. They are deleted rather
+// than kept for symmetry, and that is the phase-G milestone itself: while the mode exists,
+// nothing can assert a store is fully encrypted, so the deletion turns "we do not use it"
+// into "it is not there".
+//
+// The precondition was CHECKED, not assumed, on 2026-11-03: zero `enc:v1:`/`enc:v2:` values
+// across collab's 685 documents in both owned databases, zero legacy `x-collab-*` object
+// envelopes (all five objects carry `x-xbg-*`), every field-mode product resolving
+// `reads: 'strict'` with no `legacy` block, and no repo in the workspace — `__scripts__` and
+// frontends included — referencing a single legacy export.
+//
+// Do not reintroduce a reader for an older wire here. Nothing in this platform writes one, so
+// a reader would be a reader for data that cannot exist, and `ReadStrictness` would have to
+// grow a second value back to make it reachable.

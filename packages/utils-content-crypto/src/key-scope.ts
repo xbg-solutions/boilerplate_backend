@@ -113,16 +113,16 @@ export interface RecordHeadLike {
 // What a product writes
 // ---------------------------------------------------------------------------
 
-export interface LegacyScope {
-  /** `['v1','v2']` for collab, absent for every other product. */
-  readonly readFieldVersions?: readonly ('v1' | 'v2')[];
-  /** `'x-collab-'` — read only, and only until Phase G. */
-  readonly objectMetaPrefix?: string;
-  /** collab's frozen pre-custody DEK wrap AAD, e.g. `(a) => `accountKeys/${a}``. */
-  readonly dekWrapAad?: (accountId: string) => string;
-  // v1's `aad?: 'bare'` is DELETED. The plan's content AAD *is* the bare form, so there is no
-  // legacy content AAD to switch to. Only the OBJECT AAD changes across the v1→v3 hop.
-}
+// `LegacyScope` is GONE (phase G, 0.2.0, 2026-11-04).
+//
+// It declared `readFieldVersions`, `objectMetaPrefix: 'x-collab-'` and collab's frozen
+// pre-custody `dekWrapAad`. Its only consumers were `legacy-readers.ts` and `migrateDoc`, both
+// deleted in the same release — so what remained was config that VALIDATED on construction and
+// resolved into a field nothing read. Dead config is worse than no config: it is read as
+// evidence that something uses it.
+//
+// No product ever declared one in production. Verified 2026-11-03: every field-mode product
+// resolves `legacy=absent`.
 
 /**
  * One of the **three** things a product supplies — with its registry and its traversal, and
@@ -161,8 +161,6 @@ export interface ContentKeyScope<RT extends string = string> {
   /** Deflate blob plaintext over this many bytes. DEFAULT 0 = OFF (§8.7). */
   readonly deflateOver?: number;
   readonly blobAdapters?: readonly BlobAdapter[];
-  /** Absent for every product but collab; absent means no legacy path is reachable at all. */
-  readonly legacy?: LegacyScope;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,9 +177,6 @@ export interface ResolvedScope<RT extends string> {
   readonly maxDocumentSealedBytes: number;
   readonly deflateOver: number;
   readonly blobAdapters: readonly BlobAdapter[];
-  readonly legacy:
-    | (Required<Omit<LegacyScope, 'dekWrapAad'>> & { dekWrapAad: ((a: string) => string) | null })
-    | null;
 
   granularityOf(type: RT | typeof ACCOUNT_RECORD_TYPE): RecordGranularity;
 
@@ -491,59 +486,6 @@ function resolveRecords(
   return resolved;
 }
 
-function resolveLegacy(legacy: unknown): ResolvedScope<string>['legacy'] {
-  if (legacy === undefined) return null;
-  if (!isPlainRecord(legacy)) {
-    invalid(`ContentKeyScope.legacy must be a plain object when present, received ${typeName(legacy)}`);
-  }
-  const versionsRaw = legacy.readFieldVersions;
-  let versions: readonly ('v1' | 'v2')[] = [];
-  if (versionsRaw !== undefined) {
-    if (!Array.isArray(versionsRaw)) {
-      invalid(
-        `ContentKeyScope.legacy.readFieldVersions must be an array, received ${typeName(versionsRaw)}`,
-      );
-    }
-    const seen = new Set<string>();
-    for (const v of versionsRaw) {
-      if (v !== 'v1' && v !== 'v2') {
-        invalid(`ContentKeyScope.legacy.readFieldVersions may only contain 'v1' and 'v2', found ${String(v)}`);
-      }
-      if (seen.has(v)) {
-        invalid(`ContentKeyScope.legacy.readFieldVersions lists '${v}' twice`);
-      }
-      seen.add(v);
-    }
-    versions = Object.freeze([...(versionsRaw as readonly ('v1' | 'v2')[])]);
-  }
-
-  const prefixRaw = legacy.objectMetaPrefix;
-  if (prefixRaw !== undefined) {
-    if (typeof prefixRaw !== 'string') {
-      invalid(`ContentKeyScope.legacy.objectMetaPrefix must be a string, received ${typeName(prefixRaw)}`);
-    }
-    if (prefixRaw.length === 0) {
-      invalid(
-        "ContentKeyScope.legacy.objectMetaPrefix must not be empty: omit the key instead. An empty " +
-          'prefix matches every metadata key, so a legacy reader would claim every object it saw',
-      );
-    }
-  }
-
-  const dekWrapAad = legacy.dekWrapAad;
-  if (dekWrapAad !== undefined && typeof dekWrapAad !== 'function') {
-    invalid(`ContentKeyScope.legacy.dekWrapAad must be a function, received ${typeName(dekWrapAad)}`);
-  }
-
-  return Object.freeze({
-    readFieldVersions: versions,
-    // The EMPTY STRING means "no legacy object envelope is reachable", and a reader must test for
-    // it rather than calling `startsWith('')`, which is true of everything. It is the resolved
-    // form of an omitted key, and the omitted key is refused above so the two cannot be confused.
-    objectMetaPrefix: prefixRaw === undefined ? '' : prefixRaw,
-    dekWrapAad: (dekWrapAad as ((a: string) => string) | undefined) ?? null,
-  });
-}
 
 function resolveBlobAdapters(adapters: unknown): readonly BlobAdapter[] {
   if (adapters === undefined) return Object.freeze([]);
@@ -665,7 +607,6 @@ export function resolveScope<RT extends string>(
   }
 
   const blobAdapters = resolveBlobAdapters(scope.blobAdapters);
-  const legacy = resolveLegacy(scope.legacy);
   const ceilings = ceilingTable(registry, { maxSealedBytes, maxDocumentSealedBytes });
   const accountRecordPath = scope.accountRecordPath;
 
@@ -732,7 +673,6 @@ export function resolveScope<RT extends string>(
     maxDocumentSealedBytes,
     deflateOver,
     blobAdapters,
-    legacy,
 
     granularityOf: (type) => granularityOf(type),
 

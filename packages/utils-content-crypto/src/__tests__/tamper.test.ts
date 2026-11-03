@@ -38,7 +38,7 @@
 import { ContentCryptoError, isContentCryptoError } from '../errors';
 import { fixedDekSource } from '../testing';
 import { PAYLOAD_KIND, decryptField, encryptField } from '../field-codec';
-import { ENC_PREFIX_V1, ENC_PREFIX_V2 } from '../legacy-readers';
+import { ENC_PREFIX_V1, ENC_PREFIX_V2 } from '../field-codec'; // the prefixes are DECLARED here; legacy-readers only re-exported them (deleted at phase G)
 import { openBuffer, openParts, sealBuffer, sealParts } from '../cipher';
 import { decryptBlob, encryptBlob } from '../blob-codec';
 import { aadForContent } from '../aad';

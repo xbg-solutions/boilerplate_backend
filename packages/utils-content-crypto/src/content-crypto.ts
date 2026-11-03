@@ -151,12 +151,13 @@ import { resolveScope, recordRefKey } from './key-scope';
 import type { ContentKeyScope, ResolvedScope } from './key-scope';
 import type { FieldRegistry } from './registry';
 import { createDocCodec } from './doc-codec';
-import type { DocCodec, DocPlanner, SealedUpdate, PlannedAt } from './doc-codec';
+import type { DocCodec, DocPlanner, SealedUpdate } from './doc-codec';
 import type { BlobPatchOp, BlobResealRequest, EncryptedBlob } from './blob-codec';
 import type { CachedDekSource, DekHandle } from './custodian';
-import { encryptField } from './field-codec';
 import type { EncryptedField } from './field-codec';
-import { parseFieldPath, mapPathNode } from './field-path';
+// `encryptField`, `PlannedAt`, `parseFieldPath` and `mapPathNode` were imported here for
+// `migrateDoc` alone — it walked the registered paths itself to re-encrypt each legacy value.
+// They left with it (phase G). The codec paths this module still uses go through `DocCodec`.
 import {
   sealObject as sealObjectWithKey,
   openObject as openObjectWithKey,
@@ -164,9 +165,6 @@ import {
   createObjectDecryptStream as createObjectDecryptStreamWithKey,
 } from './object-envelope';
 import type { ObjectRef, ObjectMetadata, UnverifiedStreamAck } from './object-envelope';
-import {
-  isLegacyValue, legacyGenerationOf, legacyGenerationsIn, decryptLegacyField,
-} from './legacy-readers';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -517,19 +515,6 @@ export interface CreatedRecord<C extends string> {
   readonly receipt: WrapReceipt;
 }
 
-/** What `migrateDoc` produces. `changed === 0` ⟹ the row is not written. */
-export interface MigratedDoc {
-  /** The document with every converted value in place. Returned BY REFERENCE when nothing
-   *  changed, so an idempotent re-run costs one identity comparison and no write. */
-  readonly data: unknown;
-  /**
-   * The same conversion as a minimal store update — dotted keys, whole arrays — for a caller that
-   * would rather not write back the fields it did not touch. `{}` exactly when `changed` is 0.
-   */
-  readonly update: Readonly<Record<string, unknown>>;
-  readonly changed: number;
-}
-
 export interface ContentCrypto<C extends string, RT extends string> {
   readonly scope: ResolvedScope<RT>;
   readonly registry: FieldRegistry<C>;
@@ -643,15 +628,6 @@ export interface ContentCrypto<C extends string, RT extends string> {
   withRecord<T>(
     input: RecordInput, opts: OpenAs, fn: (s: RecordSession<C>) => Promise<T>,
   ): Promise<T>;
-
-  /**
-   * The v1/v2 → v3 hop, and the ONLY place the two worlds meet. Async because it fetches the
-   * legacy generations' DEKs, up front and before any transform, so no document is ever left half
-   * at each generation. **DELETED AT PHASE G.**
-   */
-  migrateDoc(
-    session: RecordSession<C>, collection: C, aadDocId: string, data: unknown,
-  ): Promise<MigratedDoc>;
 
   /** The bound doc planner — collab's exact four-argument signature. Registry-driven, pure,
    *  synchronous, key-free. Used by migrations, re-keys and dry runs. */
@@ -942,14 +918,20 @@ function assertWrapsDurable(
 // ---------------------------------------------------------------------------
 
 /**
- * The record key a session holds, reachable only from inside this module.
+ * **A session's record key is now reachable from NOWHERE but the session's own
+ * methods, and the `WeakMap` that used to leak it is gone (phase G, 0.2.0).**
  *
- * `migrateDoc` reads v1/v2 with an account DEK and writes v3 with the record key, so it is the one
- * caller that needs a session's key from outside the session's own methods. A `WeakMap` keyed by
- * the session is how it gets it without `RecordSession` growing a `key` member — which is exactly
- * the member whose absence makes `close()` mean what it says, and the member v1 had.
+ * There was a `KEY_OF = new WeakMap<object, RecordKey>()` here, written on construction and
+ * deleted on `close()`. Its ONLY reader was `migrateDoc`, which needed a session's key from
+ * outside the session because it read v1/v2 with an account DEK and wrote v3 with the record
+ * key — the one operation that straddled both worlds.
+ *
+ * With `migrateDoc` deleted there is no such operation, so the escape hatch had no caller and
+ * is removed rather than left for symmetry. That is the real prize of this phase and it is
+ * larger than the line count: the property `close()` claims — that after it returns, nothing
+ * holds the key — is now structural instead of a thing the module is careful about. A future
+ * caller wanting the key has to add the member back, in a diff somebody reviews.
  */
-const KEY_OF = new WeakMap<object, RecordKey>();
 
 interface SessionDeps<C extends string, RT extends string> {
   readonly scope: ResolvedScope<RT>;
@@ -1112,12 +1094,10 @@ function makeSession<C extends string, RT extends string>(
     close(): void {
       if (closed) return;
       closed = true;
-      KEY_OF.delete(session);
       zeroise(recordKey);
     },
   };
 
-  KEY_OF.set(session, recordKey);
   return session;
 }
 
@@ -1528,92 +1508,6 @@ export function createContentCrypto<C extends string, RT extends string>(
       }
     },
 
-    async migrateDoc(session, collection, aadDocId, data): Promise<MigratedDoc> {
-      const recordKey = KEY_OF.get(session as unknown as object);
-      if (recordKey === undefined) {
-        if (session !== null && typeof session === 'object' && session.closed === true) {
-          throw new ContentCryptoError(
-            'KEY_MATERIAL_DESTROYED',
-            'migrateDoc was given a closed session; its record key has been zeroised, and a ' +
-              'migration that continued past a close would seal under a key nobody holds',
-          );
-        }
-        invalid(
-          `migrateDoc needs a RecordSession this façade opened, received ${typeName(session)}`,
-        );
-      }
-
-      // The legacy content was sealed under the OWNING account's DEK, because before record keys
-      // there was no record key and the account that owned the row is the account whose DEK the
-      // value is under. A read-only partner therefore cannot run a migration, which is correct
-      // rather than an oversight.
-      const legacyAccount = session.ownerAccountId ?? session.as;
-
-      // One pass over the registered paths, then every DEK fetched UP FRONT — keys before the
-      // transform, always, so no document is ever left half at each generation. A document written
-      // across a rotation legitimately names two, which is why this is a set.
-      const generations = legacyGenerationsIn(registry, collection, data);
-      const deks = new Map<number, DekHandle>();
-      for (const generation of [...generations].sort((a, b) => a - b)) {
-        // A generation whose wrap has been DRAINED throws here, and throwing is the point:
-        // skipping it strands the value permanently the moment the wrap is erased, which is the
-        // failure the whole drain protocol exists to prevent.
-        deks.set(generation, await dekSource.getDek(legacyAccount, generation));
-      }
-
-      const convert = (node: unknown, at: PlannedAt): unknown => {
-        // v3 and plaintext are both "return what you were given", which is the planner's only skip
-        // mechanism and the reason `changed` stays 0 on a re-run. Encrypting the plaintext here
-        // would hide that the migration script never ran.
-        if (typeof node !== 'string' || !isLegacyValue(node)) return node;
-
-        if (at.mode !== 'string') {
-          // A legacy string at a registered BLOB path is collab's hand-serialised-map case, and
-          // this package will not guess whether its plaintext is JSON. Refusing is the only honest
-          // answer: guessing wrong writes a payload that opens once and then fails, unopenably.
-          throw new ContentCryptoError(
-            'WRONG_KEY_LAYER',
-            `${collection}/${aadDocId}.${at.fieldPath} is registered as a blob and holds a legacy ` +
-              'field ciphertext. Nothing here can know whether its plaintext is a serialised map, ' +
-              'and a wrong guess writes a payload that opens once and then fails: convert this ' +
-              'path with a product-specific script, not with migrateDoc',
-            compact({ collection, docId: aadDocId, fieldPath: at.fieldPath }),
-          );
-        }
-
-        const generation = legacyGenerationOf(node);
-        const dek = generation === null ? undefined : deks.get(generation);
-        if (dek === undefined) {
-          // `legacyGenerationsIn` walks the same registered paths with the same walker, so a
-          // generation reached here was reached there. A miss is the two disagreeing, which is
-          // worth a refusal rather than an optional chain that seals nothing and reports success.
-          throw new ContentCryptoError(
-            'WRONG_KEY_LAYER',
-            `${collection}/${aadDocId}.${at.fieldPath} names a legacy generation whose key was ` +
-              'not prefetched, which means the value scan and the transform walk disagree about ' +
-              'which values are registered',
-            compact({ collection, docId: aadDocId, fieldPath: at.fieldPath }),
-          );
-        }
-
-        // THE SAME AAD ON BOTH SIDES, which is what makes the v1→v3 hop AAD-preserving: `at.aad`
-        // is the registry's one builder and the legacy value bound the same string.
-        return encryptField(recordKey, at.aad, decryptLegacyField(dek.key, at.aad, node));
-      };
-
-      const plan = codec.planDoc(collection, aadDocId, data, convert);
-
-      let next = data;
-      for (const key of Object.keys(plan.update)) {
-        // An update key is the registered path truncated at its first array segment, so it carries
-        // no `[]` and `mapPathNode` writes exactly the node the plan named. Nothing is created: a
-        // key is only in the plan because the walk reached a value there.
-        const value = plan.update[key];
-        next = mapPathNode(next, parseFieldPath(key), () => value);
-      }
-
-      return Object.freeze({ data: next, update: plan.update, changed: plan.changed });
-    },
 
     accountRecord(accountId): RecordRef {
       return scope.accountRecord(accountId);

@@ -157,10 +157,14 @@ const EXPECTED_EXPORTS: readonly string[] = [
   // implementation — which is what leaves the materialiser exactly one call site to guard.
   'applyWrapPatch', 'assertHead', 'createBatchWriter', 'runWrapJob', 'WALK_PAGE_SIZE',
 
-  // legacy-readers.ts (12) — deleted whole at Phase G
-  'ENC_PREFIX_V1', 'ENC_PREFIX_V2', 'LEGACY_GENERATION', 'isLegacyValue', 'legacyVersionOf',
-  'legacyGenerationOf', 'decryptLegacyField', 'legacyGenerationsIn',
-  'legacyObjectAad', 'readLegacyObjectEnvelope', 'openLegacyObject', 'assertGeneration',
+  // legacy-readers.ts (12) — DELETED at phase G, 0.2.0, 2026-11-04, with `migrateDoc` and
+  // `MigratedDoc`. The twelve names are gone from this list, and the list being SHORTER is
+  // itself the assertion: the barrel is pinned by NAME, so a legacy export reappearing fails
+  // here rather than quietly widening the surface again.
+  //
+  // `ENC_PREFIX_V1`/`V2` were never legacy-readers' own — they are declared in
+  // `field-codec.ts` and were only re-exported from there. They are not barrel exports and
+  // were never in this list.
 ];
 
 describe('the public barrel', () => {
@@ -207,7 +211,13 @@ describe('the public barrel', () => {
     // it means returning an `AccountDek`, and nothing on this surface made one. The number moved
     // up for the first time here, and the direction is the expensive one: an export added after
     // publish can never come back off without a breaking version.
-    expect(EXPECTED_EXPORTS.length).toBe(136);
+    //
+    // 136 → 124 at phase G (0.2.0, 2026-11-04): the twelve legacy-readers exports came OFF.
+    // That is the breaking version the line above anticipated, and the first time this number
+    // has gone DOWN. It is allowed to go down only with a major-ish bump and a verified
+    // precondition — here, zero `enc:v1:`/`enc:v2:` values anywhere in the platform and no
+    // repo referencing a single one of the twelve.
+    expect(EXPECTED_EXPORTS.length).toBe(124);
   });
 
   it('exports no value the package keeps internal', () => {

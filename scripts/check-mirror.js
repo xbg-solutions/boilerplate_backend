@@ -74,7 +74,6 @@ const MODULES = [
   'doc-codec.ts',
   'content-crypto.ts',
   'walk.ts',
-  'legacy-readers.ts',
   'testing.ts',
   'index.ts',
 ];
@@ -141,7 +140,7 @@ const ASSERTION_TITLES = {
   3: 'no Firestore, KMS or firebase identifier anywhere',
   4: 'nothing outside the mirror deep-imports the mirror',
   5: 'zero dependencies, node: builtins only, three exports',
-  6: 'the legacy quarantine is a leaf',
+  6: 'no legacy surface exists',
   7: 'the production barrel exports no key accessor, v1/v2 writer or test helper',
   8: 'testing.ts does not import the lifecycle',
   9: 'every test is mirrorable',
@@ -543,28 +542,52 @@ function assertZeroDependencies(tree) {
 }
 
 // (6) --------------------------------------------------------------------
-function assertLegacyQuarantine(tree) {
+/**
+ * **Phase G inverted this assertion (0.2.0, 2026-11-04).**
+ *
+ * It used to be "the legacy quarantine is a leaf": `legacy-readers.ts` existed, three modules
+ * were permitted to import it, and the literals `enc:v1:`/`enc:v2:`/`x-collab-` were reserved
+ * to named files. The point was to keep the deletion PROVABLY cheap when the day came.
+ *
+ * The day came. So the assertion now says the stronger thing: there is no legacy surface at
+ * all. Nothing may import `./legacy-readers` (it does not exist), and `x-collab-` may appear
+ * nowhere. The only legacy literals permitted are the v1/v2 PREFIXES, in `field-codec.ts`
+ * where they are declared — `decodeValue` still recognises those wires so a stray value fails
+ * as WRONG_KEY_LAYER rather than as plaintext — and in the tests that assert exactly that
+ * refusal.
+ *
+ * Keeping this assertion rather than deleting it is the point: a guard that proved a deletion
+ * was safe should become the guard that keeps it deleted.
+ */
+function assertNoLegacySurface(tree) {
   const owners = {
-    'enc:v1:': ['field-codec.ts', 'field-codec.test.ts', 'legacy-readers.test.ts'],
-    'enc:v2:': ['field-codec.ts', 'field-codec.test.ts', 'legacy-readers.test.ts'],
-    'x-collab-': ['legacy-readers.ts', 'legacy-readers.test.ts'],
+    // Declared in field-codec.ts; asserted in the tests that pin the refusal.
+    'enc:v1:': [
+      'field-codec.ts', 'field-codec.test.ts', 'index.ts', 'index.test.ts',
+      'doc-codec.test.ts', 'blob-codec.test.ts', 'tamper.test.ts',
+    ],
+    'enc:v2:': [
+      'field-codec.ts', 'field-codec.test.ts', 'index.ts', 'index.test.ts',
+      'doc-codec.test.ts', 'blob-codec.test.ts', 'tamper.test.ts',
+    ],
+    // collab's object-metadata prefix. Permitted ONLY in the prose that records that it is
+    // gone — never in a value, a type or a default.
+    'x-collab-': ['index.ts', 'key-scope.ts', 'object-envelope.ts'],
   };
   for (const [literal, permitted] of Object.entries(owners)) {
     for (const [f, v] of tree) {
       if (permitted.includes(baseName(f))) continue;
       const at = v.TEXT.indexOf(literal);
       if (at !== -1) {
-        fail(6, rel(join(PKG_SRC, f)), `the literal \`${literal}\` belongs only in ${permitted.join(', ')}. Every wire prefix is declared in field-codec.ts; legacy-readers.ts re-exports the v1/v2 pair, because a v1 reader is not a v1 prefix`, lineOf(v.TEXT, at));
+        fail(6, rel(join(PKG_SRC, f)), `the literal \`${literal}\` belongs only in ${permitted.join(', ')}. Phase G deleted the legacy READER; the v1/v2 prefixes survive only so \`decodeValue\` can refuse a stray value precisely, and \`x-collab-\` survives only in prose saying it is gone`, lineOf(v.TEXT, at));
       }
     }
   }
-  const mayImportLegacy = ['content-crypto.ts', 'object-envelope.ts', 'index.ts'];
+  // NOTHING may import the deleted module — not even a test.
   for (const [f, v] of tree) {
-    if (isTest(f)) continue;
-    if (mayImportLegacy.includes(baseName(f)) || baseName(f) === 'legacy-readers.ts') continue;
     for (const imp of v.IMPORTS) {
       if (/(^|\/)legacy-readers$/.test(imp.specifier)) {
-        fail(6, rel(join(PKG_SRC, f)), `imports ./legacy-readers, which only ${mayImportLegacy.join(', ')} may. Phase G deletes that module, and the deletion must be provably a leaf`, lineOf(v.TEXT, imp.index));
+        fail(6, rel(join(PKG_SRC, f)), 'imports ./legacy-readers, which was DELETED at phase G. Nothing in this platform writes an older wire, so a reader for one would be a reader for data that cannot exist', lineOf(v.TEXT, imp.index));
       }
     }
   }
@@ -703,7 +726,7 @@ function check() {
   assertNoStoreIdentifiers(tree);
   assertNoDeepImportsOfTheMirror();
   assertZeroDependencies(tree);
-  assertLegacyQuarantine(tree);
+  assertNoLegacySurface(tree);
   assertBarrelSurface(tree);
   assertTestingDoesNotImportLifecycle(tree);
   assertTestsAreMirrorable(tree);

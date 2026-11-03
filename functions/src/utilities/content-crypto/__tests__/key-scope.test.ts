@@ -119,18 +119,22 @@ const stubAdapter = (t: string): BlobAdapter => ({
   decode: (v) => v,
 });
 
+/**
+ * collab's scope, as it actually is TODAY.
+ *
+ * It used to carry `reads: 'lenient'` and a `legacy` block — `readFieldVersions: ['v1','v2']`,
+ * an `objectMetaPrefix` and the frozen pre-custody `dekWrapAad`. collab went `strict` on
+ * 2026-09-14 when its re-key walk finished, and `LegacyScope` was deleted from the package at
+ * phase G (0.2.0, 2026-11-04) once nothing read it.
+ *
+ * The fixture follows the real scope rather than keeping the old shape alive for coverage: a
+ * fixture that configures something no product configures is testing the test.
+ */
 const collabScope: ContentKeyScope<'project'> = {
   productId: 'collab',
   records: { project: 'aggregate' },
   accountRecordPath: (accountId) => `accountSettings/${accountId}`,
-  reads: 'lenient',
-  legacy: {
-    readFieldVersions: ['v1', 'v2'],
-    // collab's real prefix is declared in legacy-readers.ts and stays there: assertion (6) keeps
-    // that literal out of every other file, this suite included. A scope only carries a string.
-    objectMetaPrefix: 'x-legacy-',
-    dekWrapAad: (a) => `accountKeys/${a}`,
-  },
+  reads: 'strict',
 };
 
 const morphScope: ContentKeyScope<'source' | 'objects' | 'results'> = {
@@ -450,12 +454,19 @@ describe('resolveScope defaults', () => {
     expect(bare.maxDocumentSealedBytes).toBe(1_000_000);
     expect(bare.deflateOver).toBe(0);
     expect(bare.blobAdapters).toEqual([]);
-    expect(bare.legacy).toBeNull();
   });
 
   it('carries a product’s own values through unchanged', () => {
     expect(collabResolved.productId).toBe('collab');
-    expect(collabResolved.reads).toBe('lenient');
+    // `reads` pass-through is asserted on an INLINE scope, not on collab's.
+    //
+    // collab's fixture is `strict` now (it went strict on 2026-09-14), and `strict` is also
+    // the default — so asserting it there would pass whether the value was carried through or
+    // silently defaulted, which is a test that cannot fail. `lenient` is the only value that
+    // differs from the default, so it is the only one that proves the property.
+    expect(
+      resolveScope({ productId: 'p', records: {}, reads: 'lenient' }, EMPTY_REGISTRY).reads,
+    ).toBe('lenient');
     expect(morphResolved.blobAdapters).toHaveLength(1);
     expect(morphResolved.blobAdapters[0].t).toBe('ts');
   });
@@ -521,63 +532,16 @@ describe('resolveScope blobAdapters', () => {
   });
 });
 
-describe('resolveScope legacy', () => {
-  it("resolves collab's legacy block and nobody else's", () => {
-    expect(collabResolved.legacy).not.toBeNull();
-    expect(collabResolved.legacy?.readFieldVersions).toEqual(['v1', 'v2']);
-    expect(collabResolved.legacy?.objectMetaPrefix).toBe('x-legacy-');
-    expect(collabResolved.legacy?.dekWrapAad?.('A')).toBe('accountKeys/A');
-    expect(morphResolved.legacy).toBeNull();
-  });
-
-  it('an omitted block means no legacy path is reachable at all', () => {
-    const resolved = resolveScope({ productId: 'p', records: {} }, EMPTY_REGISTRY);
-    expect(resolved.legacy).toBeNull();
-  });
-
-  it('an omitted dekWrapAad resolves to null rather than undefined', () => {
-    const resolved = resolveScope(
-      { productId: 'p', records: {}, legacy: { readFieldVersions: ['v1'] } },
-      EMPTY_REGISTRY,
-    );
-    expect(resolved.legacy?.dekWrapAad).toBeNull();
-    expect(resolved.legacy?.objectMetaPrefix).toBe('');
-  });
-
-  it("refuses an EMPTY objectMetaPrefix, because startsWith('') is true of everything", () => {
-    expectRefusal(
-      () =>
-        resolveScope(
-          { productId: 'p', records: {}, legacy: { objectMetaPrefix: '' } },
-          EMPTY_REGISTRY,
-        ),
-      'omit the key instead',
-    );
-  });
-
-  it('refuses a field version that is not v1 or v2, and a duplicate', () => {
-    expectRefusal(
-      () =>
-        resolveScope(
-          {
-            productId: 'p',
-            records: {},
-            legacy: { readFieldVersions: ['v3'] as unknown as readonly ('v1' | 'v2')[] },
-          },
-          EMPTY_REGISTRY,
-        ),
-      "only contain 'v1' and 'v2'",
-    );
-    expectRefusal(
-      () =>
-        resolveScope(
-          { productId: 'p', records: {}, legacy: { readFieldVersions: ['v1', 'v1'] } },
-          EMPTY_REGISTRY,
-        ),
-      "lists 'v1' twice",
-    );
-  });
-});
+// `describe("resolveScope legacy")` is DELETED (phase G, 0.2.0, 2026-11-04).
+//
+// Six cases exercised `LegacyScope` resolution: collab's block resolving and nobody else's,
+// an omitted block meaning no legacy path is reachable, an omitted `dekWrapAad` becoming null
+// rather than undefined, and the validation refusals. All of them tested a config option that
+// no longer exists — `legacy-readers.ts` and `migrateDoc` were its only consumers and went in
+// the same release.
+//
+// Removed rather than skipped. A skipped suite for a deleted feature is a claim that the
+// feature is coming back.
 
 // ---------------------------------------------------------------------------
 // ceilingsFor — the addendum's own table

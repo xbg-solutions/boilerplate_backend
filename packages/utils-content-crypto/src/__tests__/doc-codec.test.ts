@@ -30,7 +30,7 @@ import { ContentCryptoError, assertNoSecrets } from '../errors';
 import { decryptField, encryptField, isEncrypted, isSealedBlobCandidate } from '../field-codec';
 import { parseFieldPath } from '../field-path';
 import { resolveScope } from '../key-scope';
-import { ENC_PREFIX_V1 } from '../legacy-readers';
+import { ENC_PREFIX_V1 } from '../field-codec'; // the prefixes are DECLARED here; legacy-readers only re-exported them (deleted at phase G)
 import type { ContentKeyScope } from '../key-scope';
 import { defineRegistry } from '../registry';
 import { KEY_BYTES, recordKeyFromBytes } from '../secret';
