@@ -237,14 +237,26 @@ not be committed at all. 0.1.3 changed prose only.
 
 Rollout, tracked in `accounts.xbg.solutions/__docs__/01-content-key-custody.md`:
 
+**COMPLETE 2026-11-07, every phase.** All seven consumers are sealed,
+`reads: 'strict'` and deployed.
+
 | | |
 |---|---|
-| **Phase A** — the package | ✅ published 2026-09-12; `0.1.4` current, 2026-09-23 |
+| **Phase A** — the package | ✅ published 2026-09-12; **`0.3.0` current, 2026-11-07** |
 | **Phase B** — Accounts as custodian | ✅ deployed 2026-09-13 |
 | **Phase C** — collab | ✅ complete 2026-09-14. 280 values and 5 objects converted; collab's own custodian, KMS key and legacy wires deleted |
-| **Phase D** — sf-mapper, then Morph | ✅ sf-mapper complete 2026-09-17; Morph's Firestore content sealed 2026-09-23, still `reads: 'lenient'` |
-| **Phase F** — Morph's lake (Cloud Storage) | next; Morph's `strict` flip waits on it |
-| **Phase E** — build, then fedi-CRM | not started |
+| **Phase D** — sf-mapper, then Morph | ✅ sf-mapper 2026-09-17 (84 442 values); Morph 2026-09-23 (3 272 values) |
+| **Phase E** — build, then fedi-CRM | ✅ fedi-CRM 2026-10-19 (309 values); build 2026-10-29 (8 475 values, 30 collections) |
+| **Phase F** — the buckets | ✅ Morph's lake 2026-09-23; **input and build 2026-11-03** — phase F was written for the lake and silently covered no other bucket |
+| **Phase G** — completeness | ✅ legacy surface deleted at **`0.2.0`** (2026-11-04); the `lenient` read mode deleted at **`0.3.0`** (2026-11-07) |
+| — | **input** joined the programme 2026-11-02, having never been in the plan: 145 values, `strict` from its first write |
+
+**Phase G is why `0.3.0` matters to a consumer of this package.** There is no
+longer any `reads` setting but `'strict'`, so there is no path through the codec
+that returns an unsealed value — "the store is fully encrypted" became a property
+of the code rather than a configuration. Both phase-G releases were MINOR bumps
+because on the 0.x line a minor is the breaking bump, and each removed public
+surface; across seven consumer repos they needed **one** change in total.
 
 **What a product supplies is exactly three things**: a field **registry**, a
 **traversal**, and a **`ContentKeyScope`**. Everything else — the cipher, the

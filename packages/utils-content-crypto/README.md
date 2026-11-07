@@ -73,6 +73,15 @@ said and what the field now says too.
 
 The manifest is JSON and cannot hold a comment, so the reasons live here.
 
+> **Now at `0.3.0`, and all seven consumers are on it** — Accounts, collab, Morph, sf-mapper,
+> build, fedi-CRM and **input**, which joined the programme on 2026-11-02 and is not among the
+> five the prose below anticipated.
+>
+> The version notes are the running record of why each bump happened; **0.2.0** and **0.3.0**
+> are appended at the end of the list and together closed phase G. The `0.1.x` reasoning in the
+> next paragraph is exactly why both were MINORS rather than patches: on the 0.x line a minor
+> is the breaking bump, and each removed public surface.
+
 - **`"version": "0.1.x"`, not `3.x`.** Every other package sits on the 3.x line and moved
   onto it together, so a major here is a line-wide event: 25 packages republished, five
   consumer repos upgraded in step. Publishing a package with zero consumers and no
@@ -103,8 +112,10 @@ The manifest is JSON and cannot hold a comment, so the reasons live here.
   now walked. The third is now **refused** with a `VALIDATION_ERROR` naming the class, because
   a Firestore `FieldValue` is a class instance and walking one would mangle a sentinel — which
   is what the original strictness was protecting, and it still is. Silence was never the third
-  option. Leniency does not forgive it either: `reads: 'lenient'` forgives plaintext at a
-  registered path, not a document that cannot be walked.
+  option. Leniency did not forgive it either: `reads: 'lenient'` forgave plaintext at a
+  registered path, not a document that cannot be walked. (The mode itself was deleted at
+  0.3.0 — see the version notes below. The refusal described here is unaffected: it was never
+  a function of strictness.)
 
   The same realm-sensitive test sat at a blob root and inside a blob (`blob-codec.ts`,
   `blob-json.ts`). Those failed LOUDLY — `BLOB_ENCODE_FAILED`, never stored plaintext — so that
@@ -115,6 +126,50 @@ The manifest is JSON and cannot hold a comment, so the reasons live here.
   A patch, not a minor: no wire format moved, nothing already sealed reads differently, and
   every call that worked still works. What changed is that two calls which silently did
   nothing now do their job, and one which silently did nothing now throws.
+
+  **0.1.4** adds the blob `PathSpec` so a collection's paths need not share one ceiling.
+
+  **0.2.0 — phase G, part one (2026-11-04). The legacy surface is deleted.**
+  `legacy-readers.ts` (305 lines), `migrateDoc`, `MigratedDoc` and `LegacyScope` are gone.
+  They existed for collab's 279 v1/v2 values and nothing else, and collab's walk finished
+  2026-09-13.
+
+  A MINOR, which on this line is the breaking bump, and that is the honest shape: twelve
+  barrel exports came off and the export-count assertion went **136 → 124**, its first ever
+  decrease. The precondition was verified rather than assumed — zero `enc:v1:`/`enc:v2:`
+  across collab's 685 documents, zero legacy `x-collab-*` object envelopes, and no consumer
+  referencing a single legacy export.
+
+  Two things fell out. **`KEY_OF` went** — a `WeakMap<object, RecordKey>` whose only reader
+  was `migrateDoc`, which needed a session's key from outside the session; with no such
+  operation the escape hatch had no caller, so `close()`'s promise that nothing holds the key
+  afterwards is now structural. And `decodeValue` still RECOGNISES the v1/v2 wires on purpose:
+  recognition is the parser, not the reader, so a stray legacy value fails `WRONG_KEY_LAYER`
+  rather than reading as an ordinary string — and removing recognition would flip
+  `isEncrypted()` for it, which is subtler than deleting a function.
+
+  **0.3.0 — phase G, part two (2026-11-07). The `lenient` read mode is deleted.**
+  `ReadStrictness` is now a one-member union, `'strict'`, kept as a type for the same reason
+  `AadTightness` is kept at `'tight'`: loosening it must be a visible change somebody reviews.
+  Both validators REFUSE `'lenient'` with the reason rather than coercing it — a product still
+  declaring it asked for a behaviour that no longer exists, and coercion would surface at the
+  first unsealed value instead of at the line that asked.
+
+  48 references, but only TWO behavioural branches: one line each in `doc-codec.openStringValue`
+  and `blob-codec.openBlobNode`. There is now no path through either codec that returns an
+  unsealed value, which is the phase-G milestone itself — while the mode existed, "this store
+  is fully encrypted" was a matter of configuration, and a lenient read of a plaintext value is
+  indistinguishable from a correct one.
+
+  **One behaviour genuinely changed, so check this if you call `openBlobNode` twice.** Leniency
+  made it idempotent BY CONSTRUCTION, because an already-opened payload is a plain object that
+  the plaintext row returned untouched. Under strict reads, opening twice THROWS
+  `CONTENT_PLAINTEXT_AT_REGISTERED_PATH` on the second pass. That is correct — a caller opening
+  the same value twice has lost track of whether it holds plaintext — but it is the one way
+  0.3.0 is not a pure no-op.
+
+  Across seven consumer repos, both releases together needed exactly **one** change: a
+  sf-mapper test asserting `CONTENT_SCOPE.legacy` was `null`.
 
 - **An `exports` map — the first in this repo.** The reason is the `./testing` subpath, not
   opacity: it keeps the in-memory `KeyStore` out of the barrel's type surface. The plan is

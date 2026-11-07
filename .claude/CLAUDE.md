@@ -6,17 +6,57 @@ consumer-facing history and `RELEASING.md` before publishing.
 
 ## Content encryption — the shared package lands here
 
-**Phase A is BUILT.** `@xbg.solutions/utils-content-crypto` landed 2026-09-12 at
-`0.1.0` — 23 modules, zero dependencies, mirrored into
+**Phase A is BUILT, and the whole programme is COMPLETE (2026-11-07).**
+`@xbg.solutions/utils-content-crypto` landed 2026-09-12 at `0.1.0` and is now at
+**`0.3.0`** — **22 modules**, zero dependencies, mirrored into
 `functions/src/utilities/content-crypto/` behind `scripts/check-mirror.js`.
-**Published at 0.1.0 on 2026-09-12**, so its exported names are a public
-contract now — a rename costs a coordinated upgrade across every adopting repo.
-Everything after it depends on it. The plan is `accounts.xbg.solutions/__docs__/01-content-key-custody.md`.
+Its exported names are a public contract across **seven consumer repos** —
+Accounts, collab, Morph, sf-mapper, build, fedi-CRM and input — so a rename
+costs a coordinated upgrade across all of them. The plan is
+`accounts.xbg.solutions/__docs__/01-content-key-custody.md`.
+
+**Phase G (2026-11-04 / 2026-11-07) deleted public surface, twice, on purpose.**
+Both were MINOR bumps, because under caret semantics on the 0.x line a minor is
+the breaking bump:
+
+- **`0.2.0`** removed the legacy reader surface — `legacy-readers.ts` (305 lines
+  reaching into 17 of 23 modules), `migrateDoc`, `MigratedDoc` and
+  `LegacyScope`. Twelve barrel exports came off; the export-count assertion went
+  **136 → 124**, its first ever decrease.
+- **`0.3.0`** removed the **`lenient` read mode**. `ReadStrictness` is now a
+  one-member union — kept as a type for the same reason `AadTightness` stays at
+  `'tight'`: loosening it must be a visible change somebody reviews. Both
+  validators REFUSE `'lenient'` with the reason rather than coercing it.
+
+Three things to carry forward from that:
+
+- **There is no `reads` setting but `'strict'`.** Do not reintroduce one to make
+  a test or a migration pass. The point of phase G is that "the store is fully
+  encrypted" is now a property of the code, not a configuration every consumer
+  happens to have set — there is no path through `doc-codec` or `blob-codec`
+  that returns an unsealed value.
+- **`decodeValue` still RECOGNISES the v1/v2 wires, deliberately.** Recognition
+  is the parser, not the reader: a stray legacy value must fail as
+  `WRONG_KEY_LAYER` rather than read as an ordinary string at a registered path.
+  Removing recognition would also flip `isEncrypted()` for it, which is subtler
+  than deleting a function.
+- **`openBlobNode` is no longer idempotent**, and that is the one way `0.3.0` is
+  not a pure no-op. Leniency made it idempotent BY CONSTRUCTION — an
+  already-opened payload is a plain object the plaintext row returned untouched.
+  Under strict reads a second open THROWS, which is correct: a caller opening the
+  same value twice has lost track of whether it holds plaintext. The test asserts
+  the throw.
+
+**`tsc` does not delete output for a removed source file**, so publishing a
+deletion from a dirty `lib/` ships the very module the release removes. A stale
+`lib/legacy-readers.js` nearly did. `scripts/publish-all.sh` now cleans before
+building — see `RELEASING.md`.
 
 It ships **one** encryption model, not two. What goes in:
 
-- the field codec (`enc:v3:`), strict decode, and legacy readers until collab's
-  migration retires them
+- the field codec (`enc:v3:`) and strict decode. (It also carried legacy readers
+  until collab's migration retired them; they were deleted at `0.2.0`, and the
+  only thing left of them is wire RECOGNITION in `decodeValue`.)
 - **the blob codec** — free-form `Record<string, any>` payloads are the majority
   shape everywhere except collab, so this is the main new mechanism, not an
   add-on
@@ -51,9 +91,9 @@ hypothetical.
 it is, not what produced it.
 
 **The package knows nothing about Firestore or KMS, and must not learn.** KEK
-operations and any storage shim belong to whoever owns the storage — collab has
-its own until phase C, Accounts writes its own in phase B against different
-paths, a different key name and different auth. A Firestore shim appearing here
+operations and any storage shim belong to whoever owns the storage — Accounts
+owns the KEK path, and collab's own local custodian was deleted when phase C
+finished on 2026-09-14. A Firestore shim appearing here
 is the tell that the package has reached somewhere it should not.
 
 The distinction that settles it: the local *lifecycle implementation* is
