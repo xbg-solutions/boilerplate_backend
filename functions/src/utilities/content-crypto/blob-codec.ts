@@ -397,8 +397,11 @@ export function openBlobNode(
  *
  *   - an `EncryptedBlob` string — opened under `req.aad`. A value sealed under a DIFFERENT AAD
  *     fails here, which is the AAD doing its job;
- *   - a plain object or array — pre-migration, lenient scopes only — patched as it stands and then
- *     sealed, so the patch and the migration happen in one write;
+ *   - a plain object or array — **UNREACHABLE since 0.3.0**, and kept in this list because the
+ *     shape is still accepted by the code. It existed for pre-migration lenient scopes: the node
+ *     was patched as it stood and then sealed, so the patch and the migration happened in one
+ *     write. With `lenient` deleted there is no scope under which a plaintext node reaches here —
+ *     `openBlobNode` refuses it first with `CONTENT_PLAINTEXT_AT_REGISTERED_PATH`;
  *   - `undefined` or `null` — `set` and `append` create the root: `{}` when the first segment is a
  *     key, `[]` when it is an index;
  *   - anything else — `BLOB_ENCODE_FAILED`.
