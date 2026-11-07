@@ -78,8 +78,13 @@ const registry = defineRegistry({
   specEntities: { blobs: ['fields'] },
   checkpoints: { blobs: ['payload'], root: 'phases' },
   activityEvents: { strings: ['summary'], blobs: ['payload'] },
-  /** The one collection that reads leniently, so `readsFor`'s resolution order is exercised. */
-  legacyNotes: { strings: ['body'], reads: 'lenient' },
+  /**
+   * `legacyNotes` declared `reads: 'lenient'` so `readsFor`'s resolution order could be
+   * exercised against a collection that disagreed with its scope. Since phase G (0.3.0) there
+   * is only one value, so the disagreement is not expressible — the entry now declares the
+   * same thing explicitly, which still exercises the entry-over-scope path.
+   */
+  legacyNotes: { strings: ['body'], reads: 'strict' },
 });
 
 const baseScope: ContentKeyScope<'project'> = {
@@ -88,10 +93,8 @@ const baseScope: ContentKeyScope<'project'> = {
 };
 
 const scope = resolveScope(baseScope, registry);
-const lenientScope = resolveScope({ ...baseScope, reads: 'lenient' }, registry);
 
 const codec = createDocCodec(registry, scope);
-const lenientCodec = createDocCodec(registry, lenientScope);
 const planDoc = createDocPlanner(registry, scope);
 
 /** collab's `versionDocId`: its registry knowledge, kept in its own repo and restated here. */
@@ -508,22 +511,24 @@ describe('read strictness — §7.4’s table, at the document layer', () => {
       .toBe('CONTENT_PLAINTEXT_AT_REGISTERED_PATH');
   });
 
-  it('lenient: plaintext at either mode passes through untouched', () => {
+  it('there is NO mode in which plaintext passes through — the ramp is gone', () => {
+    // This asserted the opposite until phase G (0.3.0): `lenientCodec.decryptDoc` returned the
+    // document by reference, plaintext and all. That was collab's Phase-C exit ramp, and while
+    // it existed a lenient read of an unsealed value was indistinguishable from a correct one —
+    // which is precisely what hid sf-mapper's unconverted read path and build's plaintext
+    // project names. Inverted rather than deleted, so the change is a pinned property.
     const data = { body: 'plain' };
-    expect(lenientCodec.decryptDoc(key, 'messages', 'm1', data)).toBe(data);
-    const blob = { payload: { a: 1 } };
-    expect(lenientCodec.decryptDoc(key, 'checkpoints', 'c1', blob)).toBe(blob);
-  });
-
-  it('a per-collection `reads` override beats the scope default, which is the resolution order', () => {
-    // `legacyNotes` declares `reads: 'lenient'` on the entry; the scope is strict.
-    const data = { body: 'plain' };
-    expect(codec.decryptDoc(key, 'legacyNotes', 'n1', data)).toBe(data);
     expect(thrown(() => codec.decryptDoc(key, 'messages', 'm1', data)).code)
+      .toBe('CONTENT_PLAINTEXT_AT_REGISTERED_PATH');
+    const blob = { payload: { a: 1 } };
+    expect(thrown(() => codec.decryptDoc(key, 'checkpoints', 'c1', blob)).code)
+      .toBe('CONTENT_PLAINTEXT_AT_REGISTERED_PATH');
+    // Including the collection that used to override its scope.
+    expect(thrown(() => codec.decryptDoc(key, 'legacyNotes', 'n1', data)).code)
       .toBe('CONTENT_PLAINTEXT_AT_REGISTERED_PATH');
   });
 
-  it('a bad tag is CONTENT_DECRYPT_FAILED in BOTH modes — leniency is about plaintext, never bytes', () => {
+  it('a bad tag is CONTENT_DECRYPT_FAILED — integrity was never a mode', () => {
     const sealed = codec.encryptDoc(key, 'messages', 'm1', { body: 'b' });
     // Flip one character of the CIPHERTEXT part, which keeps the envelope well formed — a
     // truncation would decode to `null` and be read as an ordinary string instead, which is the
@@ -531,23 +536,19 @@ describe('read strictness — §7.4’s table, at the document layer', () => {
     const parts = sealed.body.split(':');
     parts[3] = parts[3][0] === 'A' ? `B${parts[3].slice(1)}` : `A${parts[3].slice(1)}`;
     const tampered = { body: parts.join(':') };
-    for (const c of [codec, lenientCodec]) {
-      expect(thrown(() => c.decryptDoc(key, 'messages', 'm1', tampered)).code)
-        .toBe('CONTENT_DECRYPT_FAILED');
-    }
+    expect(thrown(() => codec.decryptDoc(key, 'messages', 'm1', tampered)).code)
+      .toBe('CONTENT_DECRYPT_FAILED');
   });
 
-  it('a v1 value at a registered path is WRONG_KEY_LAYER in BOTH modes', () => {
-    // The prefix comes from `legacy-readers.ts`, which re-exports it: assertion (6) reserves the
-    // literal to the three files that own the wire, and a suite typing it out by hand is how a
-    // quarantine stops being one.
+  it('a v1 value at a registered path is WRONG_KEY_LAYER — ciphertext, wrong key layer', () => {
+    // The prefix is declared in `field-codec.ts`; `legacy-readers.ts` only re-exported it and
+    // was deleted at phase G. `decodeValue` still RECOGNISES the older wires on purpose, so a
+    // stray one fails precisely here instead of reading as an ordinary string.
     const v1 = { body: `${ENC_PREFIX_V1}${'A'.repeat(16)}:AAAA:${'A'.repeat(22)}==` };
-    for (const c of [codec, lenientCodec]) {
-      expect(thrown(() => c.decryptDoc(key, 'messages', 'm1', v1)).code).toBe('WRONG_KEY_LAYER');
-    }
+    expect(thrown(() => codec.decryptDoc(key, 'messages', 'm1', v1)).code).toBe('WRONG_KEY_LAYER');
   });
 
-  it('a non-string at a registered string path is untouched in both modes, and never counted', () => {
+  it('a non-string at a registered string path is untouched, and never counted', () => {
     const data = { body: 42, anchor: { quote: null } };
     expect(codec.decryptDoc(key, 'messages', 'm1', data)).toBe(data);
     expect(codec.encryptDoc(key, 'messages', 'm1', data)).toBe(data);
@@ -943,10 +944,12 @@ describe('encryptArrayValue / decryptArrayValue', () => {
   });
 
   it('applies the strictness table to a bare element too', () => {
+    // The lenient half of this — `lenientCodec.decryptArrayValue(...)` returning `'plain'`
+    // untouched — went with the mode at phase G (0.3.0). An array ELEMENT gets the same
+    // treatment as a whole-field value, which is the property worth keeping: there is no path
+    // through this codec, element or field, that hands back something unsealed.
     expect(thrown(() => codec.decryptArrayValue(key, 'topics', 't1', 'declinedProposals', 'plain')).code)
       .toBe('CONTENT_PLAINTEXT_AT_REGISTERED_PATH');
-    expect(lenientCodec.decryptArrayValue(key, 'topics', 't1', 'declinedProposals', 'plain'))
-      .toBe('plain');
   });
 
   it('refuses a non-string plaintext at the boundary, where the "we passed the object" bug is', () => {

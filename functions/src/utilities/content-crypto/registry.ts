@@ -100,13 +100,25 @@ import { DEFAULT_MAX_DEPTH, maxPlaintextFor } from './blob-json';
 export type FieldMode = 'string' | 'blob';
 
 /**
- * Read strictness for a registered path (§7.4). `strict` is the default and the destination;
- * `lenient` is collab's Phase-C exit ramp and nothing else's.
+ * Read strictness for a registered path (§7.4).
+ *
+ * **A ONE-MEMBER union since phase G (0.3.0, 2026-11-07), and that is the point.** `lenient`
+ * was collab's Phase-C exit ramp and nothing else's: it let an unsealed value at a registered
+ * path through untouched, which is what made a migration of a live store possible and what made
+ * "this store is fully encrypted" unprovable for as long as it was set. collab's walk finished
+ * on 2026-09-13 and every product has been `strict` since; the mode is now deleted rather than
+ * merely unused.
+ *
+ * Kept as a TYPE rather than removed outright, exactly as `AadTightness` is kept at `'tight'`:
+ * loosening it has to be a visible change to a one-member union that somebody reviews, not the
+ * flip of a flag or the addition of a string. The parameter still threads through `doc-codec`
+ * and `blob-codec` so that the shape of the decision survives even though there is only one
+ * answer.
  *
  * Declared here rather than in `key-scope.ts` — see the module docblock. `key-scope.ts`
  * re-exports it, so §5.3 and the barrel are unaffected.
  */
-export type ReadStrictness = 'strict' | 'lenient';
+export type ReadStrictness = 'strict';
 
 /**
  * One registered path with its own sealed-size declaration — the long form of a bare string,
@@ -547,10 +559,17 @@ function assertDeclaredCeiling(
 
 function assertReads(value: unknown, collection: string): ReadStrictness | null {
   if (value === undefined) return null;
-  if (value !== 'strict' && value !== 'lenient') {
+  // `'strict'` is the only value since phase G (0.3.0). A collection declaring `'lenient'` —
+  // which was legal and is now not — is REFUSED at construction with the reason, rather than
+  // being quietly coerced: a product that asked for leniency wanted a behaviour that no longer
+  // exists, and silently giving it strict reads would be a surprise at the first unsealed value
+  // rather than at the line that asked.
+  if (value !== 'strict') {
     invalid(
-      `registry collection ${q(collection)} declares reads ${String(value)}; the only values are ` +
-        'strict and lenient',
+      `registry collection ${q(collection)} declares reads ${String(value)}; the only value is `
+        + "'strict'. `lenient` was collab's Phase-C exit ramp and was deleted at phase G: it let "
+        + 'an unsealed value at a registered path through untouched, which is what made "this '
+        + 'store is fully encrypted" unprovable while it was set',
       { collection },
     );
   }

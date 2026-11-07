@@ -334,41 +334,42 @@ export function sealBlobNode(
 }
 
 /**
- * PACKAGE-INTERNAL. §7.4's read rows for a blob path, which differ from the write table in exactly
- * one way: what is NOT a ciphertext is a question about how far the migration has got, so it is
- * answered by the collection's read strictness rather than by the codec.
+ * PACKAGE-INTERNAL. §7.4's read rows for a blob path:
  *
- * | at the blob path | `strict` | `lenient` |
- * |---|---|---|
- * | absent / `undefined` / `null` | untouched | untouched |
- * | well-formed v3 ciphertext | opened; a bad tag is `CONTENT_DECRYPT_FAILED`, always | same |
- * | v1/v2 ciphertext | `WRONG_KEY_LAYER` — only `migrateDoc` reads legacy | same |
- * | a plain object or array | `CONTENT_PLAINTEXT_AT_REGISTERED_PATH` | untouched — the pre-migration shape |
- * | any other value | `CONTENT_PLAINTEXT_AT_REGISTERED_PATH` | untouched |
+ * | at the blob path | behaviour |
+ * |---|---|
+ * | absent / `undefined` / `null` | untouched |
+ * | well-formed v3 ciphertext | opened; a bad tag is `CONTENT_DECRYPT_FAILED`, always |
+ * | v1/v2 ciphertext | `WRONG_KEY_LAYER` — nothing reads the legacy wires now |
+ * | a plain object or array | `CONTENT_PLAINTEXT_AT_REGISTERED_PATH` |
+ * | any other value | `CONTENT_PLAINTEXT_AT_REGISTERED_PATH` |
  *
- * Lenient is collab's Phase-C exit ramp and nothing else's, and it is a silent
- * plaintext-substitution path for as long as it is set: an adversary with store write access
- * replaces a sealed value with a plaintext map and every reader accepts it.
+ * **The `lenient` column is GONE (phase G, 0.3.0), and this was the strongest reason to remove
+ * the mode.** The old docblock said it out loud: leniency "is a silent plaintext-substitution
+ * path for as long as it is set — an adversary with store write access replaces a sealed value
+ * with a plaintext map and every reader accepts it." That was true, written down, and load-bearing
+ * for collab's Phase-C migration only; the migration finished on 2026-09-13.
  *
- * Idempotent under leniency by construction — an already-opened payload is a plain object, which
- * the fourth row returns untouched — so `decryptDoc` twice is `decryptDoc` once.
+ * The old table also noted that leniency made this function idempotent "by construction", because
+ * an already-opened payload is a plain object that the fourth row returned untouched. Under strict
+ * reads it is not: opening twice now throws on the second pass, which is CORRECT — a caller that
+ * opens the same value twice has lost track of whether it holds plaintext, and collab's rule is
+ * one open at the first read and nowhere else.
  */
 export function openBlobNode(
   key: RecordKey, aad: string, node: unknown, site: BlobSite,
-  reads: ReadStrictness, opts?: BlobEncodeOptions,
+  _reads: ReadStrictness, opts?: BlobEncodeOptions,
 ): unknown {
   if (node === undefined || node === null) return node;
 
   if (typeof node === 'string') {
     const decoded = decodeValue(node);
     if (decoded?.version === 'v3') return decryptBlob(key, aad, node, opts);
-    // A WELL-FORMED value of an older wire is a migration that has not run, and it is
-    // `WRONG_KEY_LAYER` in BOTH read modes: leniency is about plaintext left behind, never about
-    // ciphertext under the wrong key layer. Anything else falls through to the strictness rows.
+    // A WELL-FORMED value of an older wire is `WRONG_KEY_LAYER` rather than plaintext: it IS
+    // ciphertext, just under a key layer nothing reads any more. Anything else falls through
+    // to the refusal below.
     if (decoded !== null) assertV3(node, 'a blob path');
   }
-
-  if (reads === 'lenient') return node;
 
   throw new ContentCryptoError(
     'CONTENT_PLAINTEXT_AT_REGISTERED_PATH',

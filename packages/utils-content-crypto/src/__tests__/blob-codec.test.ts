@@ -484,54 +484,63 @@ describe('§8.8 the placement table, on write', () => {
 // ---------------------------------------------------------------------------
 
 describe('§7.4 the blob read rows', () => {
-  it.each([['undefined', undefined], ['null', null]])('leaves %s untouched in both modes', (_label, node) => {
+  /**
+   * These used to run every row twice, once per read mode. `ReadStrictness` is a one-member
+   * union since phase G (0.3.0), so there is one mode and the rows that distinguished them are
+   * gone — along with two that only existed under leniency:
+   *
+   *   - "returns the same values untouched, by reference, under lenient"
+   *   - "is idempotent under lenient — decrypting twice is decrypting once"
+   *
+   * The second is worth naming, because losing it is a real change rather than a tidy-up.
+   * Leniency made `openBlobNode` idempotent BY CONSTRUCTION: an already-opened payload is a
+   * plain object, which the plaintext row returned untouched. Under strict reads, opening twice
+   * now THROWS on the second pass — which is correct, and is pinned below. A caller that opens
+   * the same value twice has lost track of whether it holds plaintext, and the platform rule is
+   * one open at the first read and nowhere else.
+   */
+  it.each([['undefined', undefined], ['null', null]])('leaves %s untouched', (_label, node) => {
     expect(openBlobNode(key(), AAD, node, SITE, 'strict')).toBe(node);
-    expect(openBlobNode(key(), AAD, node, SITE, 'lenient')).toBe(node);
   });
 
-  it('opens a well-formed v3 ciphertext in both modes', () => {
+  it('opens a well-formed v3 ciphertext', () => {
     const k = key();
     const sealed = encryptBlob(k, AAD, { a: 1 });
     expect(openBlobNode(k, AAD, sealed, SITE, 'strict')).toStrictEqual({ a: 1 });
-    expect(openBlobNode(k, AAD, sealed, SITE, 'lenient')).toStrictEqual({ a: 1 });
   });
 
-  it('is CONTENT_DECRYPT_FAILED for a bad tag in BOTH modes — integrity is not a mode', () => {
+  it('is CONTENT_DECRYPT_FAILED for a bad tag — integrity was never a mode', () => {
     const k = key();
     const sealed = encryptBlob(k, AAD, { a: 1 });
-    for (const reads of ['strict', 'lenient'] as const) {
-      expect(codeOf(() => openBlobNode(k, OTHER_AAD, sealed, SITE, reads))).toBe('CONTENT_DECRYPT_FAILED');
-    }
+    expect(codeOf(() => openBlobNode(k, OTHER_AAD, sealed, SITE, 'strict')))
+      .toBe('CONTENT_DECRYPT_FAILED');
   });
 
-  it('is WRONG_KEY_LAYER for a v1/v2 value in BOTH modes', () => {
+  it('is WRONG_KEY_LAYER for a v1/v2 value — ciphertext, under a layer nothing reads', () => {
     const legacy = `${ENC_PREFIX_V2}3:AAAAAAAAAAAAAAAA:AAAA:AAAAAAAAAAAAAAAAAAAAAA==`;
-    for (const reads of ['strict', 'lenient'] as const) {
-      expect(codeOf(() => openBlobNode(key(), AAD, legacy, SITE, reads))).toBe('WRONG_KEY_LAYER');
-    }
+    expect(codeOf(() => openBlobNode(key(), AAD, legacy, SITE, 'strict'))).toBe('WRONG_KEY_LAYER');
   });
 
   it.each([
-    ['a plain object — the pre-migration shape', { a: 1 }],
+    ['a plain object — what the pre-migration shape used to be', { a: 1 }],
     ['an array', [1]],
     ['a bare string', 'hello'],
     ['a number', 42],
-  ])('is CONTENT_PLAINTEXT_AT_REGISTERED_PATH under strict for %s', (_label, node) => {
+  ])('is CONTENT_PLAINTEXT_AT_REGISTERED_PATH for %s', (_label, node) => {
     const failure = thrown(() => openBlobNode(key(), AAD, node, SITE, 'strict'));
     expect(failure.code).toBe('CONTENT_PLAINTEXT_AT_REGISTERED_PATH');
     expect(failure.message).toContain('results/r_88.structuredOutput');
   });
 
-  it('returns the same values untouched, by reference, under lenient', () => {
-    const node = { a: 1 };
-    expect(openBlobNode(key(), AAD, node, SITE, 'lenient')).toBe(node);
-  });
-
-  it('is idempotent under lenient — decrypting twice is decrypting once', () => {
+  it('is NO LONGER idempotent — opening an opened payload throws, deliberately', () => {
+    // The property leniency gave for free, now asserted as its opposite so the change is
+    // recorded rather than discovered. An opened blob is a plain object, and a plain object at
+    // a registered blob path is exactly what strict reads refuse.
     const k = key();
-    const once = openBlobNode(k, AAD, encryptBlob(k, AAD, { a: 1 }), SITE, 'lenient');
-    const twice = openBlobNode(k, AAD, once, SITE, 'lenient');
-    expect(twice).toBe(once);
+    const once = openBlobNode(k, AAD, encryptBlob(k, AAD, { a: 1 }), SITE, 'strict');
+    expect(once).toStrictEqual({ a: 1 });
+    expect(codeOf(() => openBlobNode(k, AAD, once, SITE, 'strict')))
+      .toBe('CONTENT_PLAINTEXT_AT_REGISTERED_PATH');
   });
 });
 

@@ -784,23 +784,34 @@ function sealStringValue(key: RecordKey, aad: string, node: unknown): unknown {
 /**
  * Open one value at a registered STRING path — §7.4's table, the string rows, in full:
  *
- * | at the path | strict | lenient |
- * |---|---|---|
- * | a well-formed v3 ciphertext | opened; a bad tag is `CONTENT_DECRYPT_FAILED` in BOTH modes | same |
- * | a well-formed v1/v2 ciphertext | `WRONG_KEY_LAYER` — only the migration reads legacy | same |
- * | any other string | **`CONTENT_PLAINTEXT_AT_REGISTERED_PATH`** | untouched |
- * | a non-string | untouched, never counted | same |
+ * | at the path | behaviour |
+ * |---|---|
+ * | a well-formed v3 ciphertext | opened; a bad tag is `CONTENT_DECRYPT_FAILED` |
+ * | a well-formed v1/v2 ciphertext | `WRONG_KEY_LAYER` — nothing reads the legacy wires now |
+ * | any other string | **`CONTENT_PLAINTEXT_AT_REGISTERED_PATH`** |
+ * | a non-string | untouched, never counted |
  *
- * The shape is `openBlobNode`'s exactly, one layer down, and deliberately so: leniency is a
- * document-layer decision in both cases, `decryptField` never returns its input, and a value
- * that merely STARTS `enc:v3:` is not a ciphertext — a user can type that as a title.
+ * **The table had a `lenient` column and does not any more (phase G, 0.3.0).** Leniency let an
+ * unsealed value at a registered path through UNTOUCHED — collab's Phase-C exit ramp and
+ * nothing else's. It is deleted rather than left unused, because its existence is precisely
+ * what stopped a store being provably encrypted: a lenient read of a plaintext value is
+ * indistinguishable from a correct one, which is what hid sf-mapper's unconverted read path and
+ * build's plaintext project names. There is now no mode in which this function returns an
+ * unsealed value, so that is a property of the code rather than of a setting.
+ *
+ * `reads` survives as a parameter and `ReadStrictness` as a ONE-MEMBER union — the same shape
+ * as `AadTightness` — so putting leniency back is a visible change to a type, not the flip of
+ * a flag.
+ *
+ * The shape is `openBlobNode`'s exactly, one layer down: `decryptField` never returns its
+ * input, and a value that merely STARTS `enc:v3:` is not a ciphertext — a user can type that
+ * as a title.
  */
 function openStringValue(
-  key: RecordKey, aad: string, node: unknown, reads: ReadStrictness, site: BlobSite,
+  key: RecordKey, aad: string, node: unknown, _reads: ReadStrictness, site: BlobSite,
 ): unknown {
   if (typeof node !== 'string') return node;
   if (isEncrypted(node)) return decryptField(key, aad, node);
-  if (reads === 'lenient') return node;
   throw new ContentCryptoError(
     'CONTENT_PLAINTEXT_AT_REGISTERED_PATH',
     `the value at ${site.collection}/${site.docId}.${site.fieldPath} is not sealed: a registered `

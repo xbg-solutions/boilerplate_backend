@@ -49,7 +49,6 @@ const registry = defineRegistry({
 
 const scope: ContentKeyScope<'project'> = { productId: 'collab', records: { project: 'aggregate' } };
 const codec = createDocCodec(registry, resolveScope(scope, registry));
-const lenient = createDocCodec(registry, resolveScope({ ...scope, reads: 'lenient' }, registry));
 
 /** The payload every case below carries, so a failure names itself in the diff. */
 const SECRET = 'SECRET PAYLOAD';
@@ -113,13 +112,11 @@ describe('a document that is not a `constructor === Object` object', () => {
     expect((caught as ContentCryptoError).message).not.toContain(SECRET);
   });
 
-  it('refuses a class instance in LENIENT mode too — leniency forgives plaintext, not an unwalkable document', () => {
-    class ProjectRow {
-      name = SECRET;
-    }
-    expect(() => lenient.encryptDoc(key, 'projects', 'p_1', new ProjectRow())).toThrow(ContentCryptoError);
-    expect(() => lenient.decryptDoc(key, 'projects', 'p_1', new ProjectRow())).toThrow(ContentCryptoError);
-  });
+  // A test here asserted "refuses a class instance in LENIENT mode too — leniency forgives
+  // plaintext, not an unwalkable document". It is gone with the mode (phase G, 0.3.0): the
+  // distinction it drew no longer exists, and the sibling test above now covers the only mode
+  // there is. The property itself is unchanged — an unwalkable document is refused — and
+  // refusing it was never a function of strictness.
 
   it('refuses a Date and a Buffer, which reach the walk only by mistake', () => {
     expect(() => codec.encryptDoc(key, 'projects', 'p_1', new Date(0))).toThrow(/only a plain object/);

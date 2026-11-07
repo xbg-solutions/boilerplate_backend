@@ -458,17 +458,27 @@ describe('resolveScope defaults', () => {
 
   it('carries a product’s own values through unchanged', () => {
     expect(collabResolved.productId).toBe('collab');
-    // `reads` pass-through is asserted on an INLINE scope, not on collab's.
-    //
-    // collab's fixture is `strict` now (it went strict on 2026-09-14), and `strict` is also
-    // the default — so asserting it there would pass whether the value was carried through or
-    // silently defaulted, which is a test that cannot fail. `lenient` is the only value that
-    // differs from the default, so it is the only one that proves the property.
-    expect(
-      resolveScope({ productId: 'p', records: {}, reads: 'lenient' }, EMPTY_REGISTRY).reads,
-    ).toBe('lenient');
+    // `reads` is no longer a pass-through worth asserting: `ReadStrictness` became a one-member
+    // union at phase G (0.3.0), so `'strict'` is both the only legal value AND the default and
+    // nothing can distinguish carried-through from defaulted. The property that replaced it is
+    // the REFUSAL below — `reads: 'lenient'` used to be legal and now is not.
+    expect(collabResolved.reads).toBe('strict');
     expect(morphResolved.blobAdapters).toHaveLength(1);
     expect(morphResolved.blobAdapters[0].t).toBe('ts');
+  });
+
+  it("REFUSES reads: 'lenient', which was legal until phase G", () => {
+    // A product carrying the old value asked for a behaviour that no longer exists — an
+    // unsealed value at a registered path passing through untouched. Coercing it silently to
+    // strict would surface at the first such value instead of at the line that asked.
+    expectRefusal(
+      () => resolveScope(
+        { productId: 'p', records: {}, reads: 'lenient' as unknown as 'strict' },
+        EMPTY_REGISTRY,
+      ),
+      "must be 'strict'",
+      'phase G',
+    );
   });
 
   it('freezes the resolved scope, its records and its adapter list', () => {

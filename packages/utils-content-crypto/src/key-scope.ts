@@ -581,8 +581,13 @@ export function resolveScope<RT extends string>(
         'that loosening the binding is a visible change and never a configuration accident',
     );
   }
-  if (scope.reads !== undefined && scope.reads !== 'strict' && scope.reads !== 'lenient') {
-    invalid(`ContentKeyScope.reads must be 'strict' or 'lenient', received ${String(scope.reads)}`);
+  if (scope.reads !== undefined && scope.reads !== 'strict') {
+    invalid(
+      `ContentKeyScope.reads must be 'strict', received ${String(scope.reads)}. \`lenient\` was `
+      + "collab's Phase-C exit ramp and was deleted at phase G (0.3.0): it let an unsealed value "
+      + 'at a registered path through untouched, so a store could never be proved encrypted '
+      + 'while it was set',
+    );
   }
   if (scope.accountRecordPath !== undefined && typeof scope.accountRecordPath !== 'function') {
     invalid(

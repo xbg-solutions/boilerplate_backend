@@ -145,7 +145,7 @@ const WORKED_REGISTRIES: ReadonlyArray<readonly [string, FieldRegistry<string>]>
 describe('the resolved table', () => {
   const registry = defineRegistry({
     topics: { strings: ['title', 'declinedProposals[]'], blobs: ['draft'] },
-    versions: { strings: ['content'], root: 'artefacts', reads: 'lenient' },
+    versions: { strings: ['content'], root: 'artefacts', reads: 'strict' },
   });
 
   it('keeps the collection keys in declared order', () => {
@@ -574,34 +574,50 @@ describe('aadFor — the only content-AAD builder outside aad.ts, and it delegat
   });
 });
 
-describe('readsFor — entry ?? scope ?? strict', () => {
+describe('readsFor — entry ?? scope ?? strict, with only one answer left', () => {
   const registry = defineRegistry({
-    lenient: { strings: ['a'], reads: 'lenient' },
     strict: { strings: ['a'], reads: 'strict' },
     silent: { strings: ['a'] },
   });
 
-  it('prefers the entry’s own override over the scope default, in both directions', () => {
-    expect(registry.readsFor('lenient', 'strict')).toBe('lenient');
-    expect(registry.readsFor('strict', 'lenient')).toBe('strict');
+  /**
+   * The resolution ORDER still matters even though every answer is `'strict'`.
+   *
+   * These used to run both directions over `'lenient'` and `'strict'`, which is no longer
+   * expressible — `ReadStrictness` is a one-member union since phase G. What survives is the
+   * precedence itself: an entry's own value wins, a silent entry takes the scope's, and a
+   * JavaScript caller omitting the argument gets strict rather than undefined. The shape is
+   * what a future second mode would rely on.
+   */
+  it('prefers the entry’s own override over the scope default', () => {
+    expect(registry.readsFor('strict', 'strict')).toBe('strict');
   });
 
   it('falls back to the scope default when the entry declares nothing', () => {
-    expect(registry.readsFor('silent', 'lenient')).toBe('lenient');
     expect(registry.readsFor('silent', 'strict')).toBe('strict');
   });
 
-  it('falls back to strict when a JavaScript caller omits the argument, never to leniency', () => {
+  it('falls back to strict when a JavaScript caller omits the argument', () => {
     const untyped = registry as unknown as { readsFor(c: string): string };
     expect(untyped.readsFor('silent')).toBe('strict');
   });
 
-  it('refuses a reads value outside the two', () => {
+  it("REFUSES 'lenient', which used to be legal — and says why", () => {
+    // The important half of this test. A product that still declares `lenient` asked for a
+    // behaviour that no longer exists, and coercing it to strict would surprise them at the
+    // first unsealed value rather than at the line that asked for it.
+    const message = refusalFrom(
+      () => defineRegistry({ a: { strings: ['x'], reads: 'lenient' as unknown as 'strict' } }),
+    );
+    expect(message).toContain("the only value is 'strict'");
+    expect(message).toContain('phase G');
+  });
+
+  it('refuses any other reads value', () => {
     const message = refusalFrom(
       () => defineRegistry({ a: { strings: ['x'], reads: 'loose' as unknown as 'strict' } }),
     );
     expect(message).toContain('strict');
-    expect(message).toContain('lenient');
   });
 });
 
