@@ -66,6 +66,21 @@ It now distinguishes the three cases, and so should you:
 | `E404` on `/-/v1/done?authId=` | the **browser** approval was not completed. You are logged in |
 | `E401` / `E404` on the **package** | genuinely not logged in — `npm login` |
 
+**The registry lags the publish, and `curl` does not see through it.** After
+`0.3.0` published successfully on 2026-11-08, `registry.npmjs.org` listed only
+up to `0.2.0` and reported `latest: 0.2.0` for several minutes — a direct
+`curl` of the registry JSON, not just `npm view`, which an earlier note here
+suggested would be authoritative. **Trust the publish log** (`+ <pkg>@<version>`
+followed by `ok`), which also carries the full published FILE LIST — that is the
+fastest way to confirm a deletion release shipped no stale module. Then verify
+the artefact once the registry catches up.
+
+**Run the package's tests from the repo ROOT, never from inside the package.**
+`cd packages/utils-content-crypto && npx jest` picks up babel instead of
+ts-jest: all 30 suites fail to parse on `import type`, which reads like a broken
+package rather than a wrong working directory. `npm test` at the root is
+`mirror:check && jest`.
+
 **`--otp` and `--auth-type=web` are mutually exclusive**, which is why passing a TOTP code
 to the script switches it to `--auth-type=legacy`. npm silently IGNORES a code supplied
 alongside the web flow, so the documented TOTP escape hatch never worked until that was
