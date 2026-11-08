@@ -832,17 +832,40 @@ export function planFinishRotation(args: { row: ContentKeyRow; now?: () => Date 
  *
  * The reporter is singular — one key per account per product — so there is no "wait for every
  * product using it" coordination to get wrong.
+ *
+ * ── `supersededBefore` — THE RECOVERY WINDOW ──────────────────────────────────────────────
+ *
+ * **Optional, and the planner is unchanged when it is absent.** Supply it and a drain is refused
+ * unless the generation being drained stopped being current before that instant.
+ *
+ * It exists because a backup un-drains. Erasing a wrap makes content unreadable only while no
+ * copy of that wrap can be restored — so for as long as a backup holds it, a drain is reversible
+ * by a deliberate restore, and "this generation is gone" is a statement about the live row rather
+ * than about the install. An install with no backups can drain immediately and correctly; an
+ * install with a 28-day window cannot, and the difference is not something this package can know.
+ * Hence a caller-supplied instant rather than a duration or a default: the planner stays pure, and
+ * the number stays per-install.
+ *
+ * **The clock is the NEXT generation's `createdAt`, not this one's.** A generation stops being
+ * current when its successor is minted; `retiredAt` cannot serve, because this planner is what
+ * sets it. And only `through` is checked, because it is the YOUNGEST generation in the drain —
+ * everything below it was superseded earlier, so one comparison covers the set.
+ *
+ * **Absent successor ⇒ REFUSED, not allowed.** If `generations` does not carry `through + 1` the
+ * age is unknowable, and an operation that erases wraps fails closed.
  */
 export function planDrain(args: {
   row: ContentKeyRow;
   generations: readonly GenerationRow[];
   through: number;
+  /** ISO-8601. Refuse unless generation `through` was superseded strictly before this. */
+  supersededBefore?: string;
   now?: () => Date;
 }): ContentKeyPatch | Refusal {
   const row = requireRow(args.row, 'planDrain');
   const generations = args.generations ?? [];
   const at = stamp(args.now);
-  const { through } = args;
+  const { through, supersededBefore } = args;
 
   if (!Number.isInteger(through) || through < 1) {
     return refusal('VALIDATION_ERROR', '`through` must be a positive integer generation number');
@@ -852,6 +875,31 @@ export function planDrain(args: {
       'VALIDATION_ERROR',
       `\`through\` is ${through} and the current generation is ${row.currentGeneration}. Draining the current generation would erase the wrap the write path is using; \`through\` is INCLUSIVE and must be below it`,
     );
+  }
+
+  if (supersededBefore !== undefined) {
+    const window = Date.parse(supersededBefore);
+    if (Number.isNaN(window)) {
+      return refusal('VALIDATION_ERROR', '`supersededBefore` must be an ISO-8601 instant');
+    }
+    // The successor's birth is when `through` stopped being current. See the docblock.
+    const successor = generations.find((g) => g.n === through + 1);
+    if (successor === undefined || successor.createdAt === null) {
+      return refusal(
+        'VALIDATION_ERROR',
+        `a recovery window was supplied, but generation ${through + 1} is not in \`generations\` with a \`createdAt\`, so there is no way to tell when generation ${through} stopped being current. Draining on an unknown age would erase a wrap a backup can still restore`,
+      );
+    }
+    const supersededAt = Date.parse(successor.createdAt);
+    if (Number.isNaN(supersededAt)) {
+      return refusal('VALIDATION_ERROR', `generation ${through + 1} has an unparseable \`createdAt\``);
+    }
+    if (supersededAt >= window) {
+      return refusal(
+        'VALIDATION_ERROR',
+        `generation ${through} stopped being current at ${successor.createdAt}, which is inside the recovery window (not before ${supersededBefore}). Erasing its wrap now would leave a backup that can restore it, so the drain would not be the erasure it reports`,
+      );
+    }
   }
 
   // RULE 10 — idempotent by construction. A generation with nothing left to do contributes no

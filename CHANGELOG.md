@@ -2,6 +2,53 @@
 
 Consumer-facing detail and migration steps live in `UPGRADING.md`.
 
+## utils-content-crypto 0.3.1 — 2026-11-09
+
+### `planDrain` gains an optional `supersededBefore`
+- A drain is refused unless the generation being drained stopped being current
+  strictly before the supplied instant. Absent, the planner behaves exactly as
+  before, which is why this is a patch and not a minor.
+- The clock is the **successor's** `createdAt` — a generation stops being current
+  when the next one is minted, and `retiredAt` cannot serve because `planDrain`
+  is what sets it. Only `through` is checked; it is the youngest generation in
+  the drain, so one comparison covers the set.
+- An absent or undated successor, or an unparseable instant, is a
+  `VALIDATION_ERROR`. An operation that erases wraps fails closed.
+- The window is caller-supplied rather than configured here: an install with no
+  backups may drain immediately and correctly, and the package cannot know which
+  kind of install it is in.
+
+## utils-content-crypto 0.3.0 — 2026-11-07
+
+### `reads: 'lenient'` is deleted (phase G, part two)
+- `ReadStrictness` is now the one-member union `'strict'`, kept as a type for the
+  same reason `AadTightness` stays `'tight'`: loosening it must be a visible
+  change somebody reviews. Both validators **refuse** `'lenient'` with the reason
+  rather than coercing it.
+- 48 references, two behavioural branches: one line each in
+  `doc-codec.openStringValue` and `blob-codec.openBlobNode`. There is now no path
+  through either codec that returns an unsealed value.
+- **`openBlobNode` is no longer idempotent** — the one way this is not a pure
+  no-op. A second open throws `CONTENT_PLAINTEXT_AT_REGISTERED_PATH`.
+- A MINOR, because on the `0.x` line that is the breaking bump. See `UPGRADING.md`.
+
+## utils-content-crypto 0.2.0 — 2026-11-04
+
+### The legacy reader surface is deleted (phase G, part one)
+- Gone: `legacy-readers.ts` (305 lines, reaching into 17 of 23 modules),
+  `migrateDoc`, `MigratedDoc`, `LegacyScope`, and `legacy` on `KeyScope` /
+  `ResolvedScope`. Twelve barrel exports removed; the export-count assertion went
+  **136 → 124**, its first ever decrease.
+- The precondition was verified rather than assumed: zero `enc:v1:`/`enc:v2:`
+  values across the one store that had ever held them, zero legacy object
+  envelopes, every consumer resolving `reads=strict` with `legacy=absent` read off
+  the built registries, and no repo referencing a legacy export.
+- `KEY_OF` fell out — a `WeakMap` whose only reader was `migrateDoc`, so `close()`'s
+  promise that nothing holds the key afterwards is now structural.
+- **Kept deliberately:** `decodeValue` still recognises the v1/v2 wires, so a stray
+  legacy value fails `WRONG_KEY_LAYER` instead of reading as plaintext.
+- A MINOR, for the same reason as 0.3.0. See `UPGRADING.md`.
+
 ## utils-sms-connector 3.2.0 — 2026-09-23
 
 ### Kudosity provider

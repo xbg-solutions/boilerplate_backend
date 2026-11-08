@@ -517,6 +517,91 @@ describe('rule 10 — drain erases the wrap on every generation <= through, and 
   });
 });
 
+describe('rule 10a — `supersededBefore` refuses a drain a backup could un-drain', () => {
+  // `now` is 2026-09-11. A 28-day recovery window therefore opens on 2026-08-14.
+  const WINDOW_OPENS = '2026-08-14T09:00:00.000Z';
+  const LONG_AGO = '2026-07-01T09:00:00.000Z';
+  const rotated = row({ currentGeneration: 3 });
+
+  /** Default `createdAt` is EARLIER (2026-09-01) — eleven days before `now`, so INSIDE the window. */
+  const generations = [
+    gen({ n: 1, hasWrap: true }),
+    gen({ n: 2, hasWrap: true }),
+    gen({ n: 3, hasWrap: true }),
+  ];
+
+  /** Generation `n` stopped being current when `n + 1` was minted, so THAT is the date that matters. */
+  const supersededLongAgo = [
+    gen({ n: 1, hasWrap: true, createdAt: LONG_AGO }),
+    gen({ n: 2, hasWrap: true, createdAt: LONG_AGO }),
+    gen({ n: 3, hasWrap: true, createdAt: LONG_AGO }),
+  ];
+
+  it('is ABSENT BY DEFAULT: an install with no backups drains exactly as before', () => {
+    const p = asPatch(planDrain({ row: rotated, generations, through: 2, now }));
+    expect(p.generations.map((g) => g.n)).toEqual([1, 2]);
+    expect(p.generations.every((g) => g.eraseWrap)).toBe(true);
+  });
+
+  it('REFUSES when the generation stopped being current inside the window', () => {
+    // gen 3 was minted on 2026-09-01 — eleven days ago, well inside 28. Erasing generation 2's
+    // wrap now would leave a backup that can restore it, so the drain would not be an erasure.
+    const r = asRefusal(planDrain({ row: rotated, generations, through: 2, supersededBefore: WINDOW_OPENS, now }));
+    expect(r.code).toBe('VALIDATION_ERROR');
+    expect(r.message).toMatch(/inside the recovery window/);
+    expect(r.message).toMatch(/would not be the erasure it reports/);
+  });
+
+  it('ALLOWS once the successor is older than the window', () => {
+    const p = asPatch(planDrain({ row: rotated, generations: supersededLongAgo, through: 2, supersededBefore: WINDOW_OPENS, now }));
+    expect(p.generations.map((g) => g.n)).toEqual([1, 2]);
+    expect(p.generations.every((g) => g.eraseWrap)).toBe(true);
+  });
+
+  it('refuses on the BOUNDARY — strictly before, because equal is still inside', () => {
+    const onTheLine = [gen({ n: 1, hasWrap: true }), gen({ n: 2, hasWrap: true, createdAt: WINDOW_OPENS })];
+    const r = asRefusal(planDrain({ row: rotated, generations: onTheLine, through: 1, supersededBefore: WINDOW_OPENS, now }));
+    expect(r.code).toBe('VALIDATION_ERROR');
+    expect(r.message).toMatch(/inside the recovery window/);
+  });
+
+  it('FAILS CLOSED when the successor is not in `generations` at all', () => {
+    const r = asRefusal(planDrain({ row: rotated, generations: [gen({ n: 1, hasWrap: true })], through: 1, supersededBefore: WINDOW_OPENS, now }));
+    expect(r.code).toBe('VALIDATION_ERROR');
+    expect(r.message).toMatch(/generation 2 is not in `generations`/);
+    expect(r.message).toMatch(/unknown age/);
+  });
+
+  it('FAILS CLOSED when the successor has no `createdAt`', () => {
+    const noDate = [gen({ n: 1, hasWrap: true }), gen({ n: 2, hasWrap: true, createdAt: null })];
+    expect(asRefusal(planDrain({ row: rotated, generations: noDate, through: 1, supersededBefore: WINDOW_OPENS, now })).code)
+      .toBe('VALIDATION_ERROR');
+  });
+
+  it('checks the successor of `through` ONLY — the younger generations above it are irrelevant', () => {
+    // gen 2 is ancient, so draining generation 1 is safe. gen 3 is recent, and must not matter:
+    // `through` is the youngest generation in the drain, so one comparison covers the set.
+    const mixed = [
+      gen({ n: 1, hasWrap: true, createdAt: LONG_AGO }),
+      gen({ n: 2, hasWrap: true, createdAt: LONG_AGO }),
+      gen({ n: 3, hasWrap: true, createdAt: AT }),
+    ];
+    const p = asPatch(planDrain({ row: rotated, generations: mixed, through: 1, supersededBefore: WINDOW_OPENS, now }));
+    expect(p.generations.map((g) => g.n)).toEqual([1]);
+  });
+
+  it('refuses an unparseable `supersededBefore` rather than treating it as absent', () => {
+    const r = asRefusal(planDrain({ row: rotated, generations, through: 2, supersededBefore: 'last Tuesday', now }));
+    expect(r.code).toBe('VALIDATION_ERROR');
+    expect(r.message).toMatch(/must be an ISO-8601 instant/);
+  });
+
+  it('still refuses the CURRENT generation first, window or no window', () => {
+    const r = asRefusal(planDrain({ row: rotated, generations: supersededLongAgo, through: 3, supersededBefore: WINDOW_OPENS, now }));
+    expect(r.message).toMatch(/INCLUSIVE and must be below it/);
+  });
+});
+
 describe('rule 11 — revoke PRESERVES revokedAt, OVERWRITES revokedCause, and may create a keyless row', () => {
   it('keeps the original revokedAt on a second revoke and takes the new cause', () => {
     const p = asPatch(planRevoke({ row: row({ revokedAt: EARLIER, revokedCause: 'client-request' }), cause: 'incident', now }));

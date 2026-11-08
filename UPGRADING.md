@@ -7,6 +7,68 @@ proactively instead of discovering them at deploy time.
 
 ---
 
+## `utils-content-crypto` 0.1.x → 0.3.x — two deletions and one addition
+
+This package is on its own `0.x` line, where **a minor is the breaking bump and a
+patch is the additive one** (`^0.1.0` resolves `>=0.1.0 <0.2.0`). Both breaking
+releases removed public surface deliberately; both were no-ops for every one of
+the seven consumers at the time, and the total change needed across all of them
+was one test assertion. If you are coming off `0.1.x`, these are the two things
+that can fail, and both fail at `tsc` rather than at runtime.
+
+### 1. `0.2.0` — the legacy reader surface is gone
+
+Deleted: `legacy-readers.ts`, **`migrateDoc`**, `MigratedDoc`, `LegacyScope`, and
+the `legacy` property on `KeyScope` / `ResolvedScope`. Twelve barrel exports came
+off; the export count went 136 → 124.
+
+- **If you imported `migrateDoc`**, you were mid-migration from the `enc:v1:` /
+  `enc:v2:` wires. Finish that migration on `0.1.4` first, then upgrade — there is
+  no replacement, because the operation only existed to straddle the two worlds.
+- **If you set `legacy` on your `KeyScope`**, delete the property. `resolveScope`
+  no longer accepts it.
+- **If you asserted on `CONTENT_SCOPE.legacy`** (being `null` or anything else),
+  delete the assertion. This was the single consumer-side change the release
+  needed, in sf-mapper.
+
+`decodeValue` still **recognises** the v1/v2 wires on purpose, so a stray legacy
+value fails as `WRONG_KEY_LAYER` rather than reading as an ordinary string.
+Recognition is the parser, not the reader.
+
+### 2. `0.3.0` — `reads: 'lenient'` is gone
+
+`ReadStrictness` is now the one-member union `'strict'`. **Both validators refuse
+`'lenient'` with the reason rather than coercing it**, so a scope still declaring
+it fails at the line that asked instead of at the first unsealed value.
+
+- **If you declare `reads: 'lenient'`**, your store is not fully sealed yet.
+  Finish the walk on `0.2.0`, confirm a census reads clean, then upgrade. Do not
+  reach for leniency to make a test pass: a lenient read of a plaintext value is
+  indistinguishable from a correct one, which is exactly what hid two defects
+  that reached a live client.
+- **Watch for `''`.** An empty string at a registered path is a *value*, not an
+  absence, and `strict` refuses it — while a walk, a census and a leaf-state
+  check will all skip it as "nothing to seal". One product carried 234 of them
+  through every census for three days. The codec seals `''` into a normal
+  envelope that opens back to `''`, so sealing them is safe.
+- **`openBlobNode` is no longer idempotent**, and this is the one behavioural
+  change in the release. Leniency made it idempotent by construction, because an
+  already-opened payload is a plain object that the plaintext row returned
+  untouched. Opening twice now **throws** `CONTENT_PLAINTEXT_AT_REGISTERED_PATH`.
+  If you have a read path that might open the same value twice, that is now a
+  500 — and it was always a sign the path had lost track of its own state.
+
+### 3. `0.3.1` — `planDrain` gains an optional `supersededBefore`
+
+Additive, hence a patch: `^0.3.0` picks it up and **nothing changes unless you
+pass it.** Pass the instant your backup-recovery window opens and a drain is
+refused unless the generation stopped being current before then — because a
+backup un-drains, so erasing a wrap inside the window reports an erasure it has
+not performed. The clock is the *successor's* `createdAt`; an absent or undated
+successor is refused rather than allowed.
+
+---
+
 ## 3.0 — firebase-admin 14, peer dependencies, named-database rate limiting
 
 Published 2026-09. Three consumer-facing changes; every one of them is

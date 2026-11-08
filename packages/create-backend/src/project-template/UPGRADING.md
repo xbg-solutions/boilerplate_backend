@@ -179,6 +179,24 @@ so the symptom is "my endpoint now returns 401/403". Re-grant access explicitly:
 3. **List endpoints are page-size capped** (default 50, max 100). Override
    `maxPageSize()` on a controller to raise the ceiling.
 
+## `utils-content-crypto` is on its own `0.x` line — the bump rules are INVERTED
+
+If your project adopts `@xbg.solutions/utils-content-crypto`, note that it does not
+sit on the 3.x line with everything else, and that **a minor is the breaking bump
+while a patch is the additive one**. Under caret semantics `^0.3.0` resolves
+`>=0.3.0 <0.4.0`, so:
+
+- a **patch** (`0.3.0` → `0.3.1`) is picked up by `npm install` and adds surface
+  without changing behaviour;
+- a **minor** (`0.3.0` → `0.4.0`) is breaking and needs a deliberate bump.
+
+That is the honest contract for a wire format which freezes the moment the first
+value is written. The package's own `README.md` carries a note per release saying
+why each bump was the shape it was; the repo's root `UPGRADING.md` carries the
+migrations for consumers already on an older line.
+
+---
+
 ## General flow when bumping `@xbg.solutions/*` packages
 
 Your backend code lives in `functions/` and consumes the boilerplate as

@@ -171,6 +171,29 @@ The manifest is JSON and cannot hold a comment, so the reasons live here.
   Across seven consumer repos, both releases together needed exactly **one** change: a
   sf-mapper test asserting `CONTENT_SCOPE.legacy` was `null`.
 
+  **0.3.1 — `planDrain` gains `supersededBefore` (2026-11-09). A PATCH, deliberately.** On this
+  line a patch is the additive bump, and this adds one optional argument: the planner behaves
+  exactly as before when it is absent, so `^0.3.0` consumers pick it up with no code change at
+  all. Only a caller that wants the guard passes it.
+
+  It exists because **a backup un-drains.** Erasing a wrap makes content unreadable only while no
+  copy of that wrap can be restored, so an install with a backup window cannot honestly drain
+  inside it — the write would report an erasure it has not performed. Supply the instant the
+  window opens and the drain is refused unless the generation stopped being current before it.
+
+  Three details that are the whole design:
+
+  - **The clock is the NEXT generation's `createdAt`.** A generation stops being current when its
+    successor is minted. `retiredAt` cannot serve, because `planDrain` is what sets it.
+  - **Only `through` is checked**, because it is the youngest generation in the drain — everything
+    below it was superseded earlier, so one comparison covers the set.
+  - **An absent or undated successor is REFUSED, not allowed.** The age is then unknowable, and an
+    operation that erases wraps fails closed.
+
+  The number stays out of the package on purpose: an install with no backups may drain
+  immediately and correctly, and which of those an install is cannot be known from here. XBG's own
+  window is 28 days, which is the retention on its Firestore backup schedules.
+
 - **An `exports` map — the first in this repo.** The reason is the `./testing` subpath, not
   opacity: it keeps the in-memory `KeyStore` out of the barrel's type surface. The plan is
   right that a subpath export is not a security boundary, so `testing.ts`'s real boundary is
