@@ -33,6 +33,8 @@ import type { RecordGranularity } from './key-scope';
 import {
   KEY_WRAPS_FIELD,
   WRAP_HOLDERS_FIELD,
+  holdersOf,
+  isLastWrap,
   parseKeyWraps,
   wrapRecordKey,
 } from './record-key';
@@ -497,4 +499,102 @@ export function conflictPolicyFor(patch: WrapPatch): ConflictPolicy {
     fail('VALIDATION_ERROR', 'conflictPolicyFor needs a WrapPatch carrying its diff');
   }
   return patch.diff.added.length === 0 && patch.diff.removed.length === 0 ? 'skip' : 'retry';
+}
+
+// ---------------------------------------------------------------------------
+// planRecordErasure — the erase sweep's classification, in one place
+// ---------------------------------------------------------------------------
+
+/** One record the sweep has to form an opinion about, as the product read it. */
+export interface ErasureCandidate {
+  readonly record: RecordRef;
+  /** Whatever the store returned for `keyWraps`. Parsed tolerantly; a bad entry is not fatal. */
+  readonly wraps: unknown;
+}
+
+export interface ErasureVerdict {
+  readonly record: RecordRef;
+  readonly holders: readonly string[];
+}
+
+export interface RecordErasurePlan {
+  readonly accountId: string;
+  /** This account holds the ONLY wrap: removing it empties the set and the record goes. */
+  readonly toErase: readonly ErasureVerdict[];
+  /** Another account still holds a wrap. LAST MAN STANDING — these survive. */
+  readonly surviving: readonly ErasureVerdict[];
+  /** No parseable wrap at all. Reported so it can be found; never a reason to stop. */
+  readonly orphans: readonly ErasureVerdict[];
+}
+
+/**
+ * **Which records a shred of `accountId` should delete — "last man standing".**
+ *
+ * The rule itself is three lines. It is here, once, because the cost of getting
+ * it wrong is deleting somebody else's record or failing to delete a departed
+ * client's, and **five products were about to carry their own copy**. The
+ * programme has already paid for a hand-copied rule once: fedi-CRM's placement
+ * sat in two walks with a docblock saying they must agree, they drifted, and the
+ * result was a one-way door.
+ *
+ * The product supplies the records — it owns its collections, its wrap field and
+ * its own enumeration — and performs the deletes. This decides only WHICH.
+ *
+ * ── THE DELETE SET IS THE WRAP GRAPH, NEVER AN OWNERSHIP FIELD ──────────────
+ *
+ * A record is erased when this account holds the last wrap on it, not when the
+ * account owns it. A record still wrapped for a partner SURVIVES its owner's
+ * shred, because it is also somebody else's record — which is the federation
+ * decision working as intended. Any product filtering on its own
+ * `ownerAccountId` instead would delete it.
+ *
+ * ── AND "UNREADABLE" IS NOT "UNREACHABLE" ───────────────────────────────────
+ *
+ * Nothing here asks whether a record can be READ. Two destroyed account keys
+ * leave a record unreadable while its wrap set is still non-empty, and such a
+ * record must not be swept because **a destroy can be followed by a
+ * regenerate**. See `isUnreachable`'s own note: conflating the two ships a sweep
+ * that deletes everything the moment one key is destroyed.
+ *
+ * ── AN ORPHAN IS REPORTED, NOT FATAL ────────────────────────────────────────
+ *
+ * A wrap holder with no parseable wrap set is a key protecting nothing — a bug
+ * to find, not corruption to refuse on, because *failures must land on the
+ * recoverable side*. It is classified separately so a sweep can carry on and
+ * still surface it.
+ */
+export function planRecordErasure(args: {
+  readonly accountId: string;
+  readonly records: readonly ErasureCandidate[];
+}): RecordErasurePlan {
+  const accountId = args?.accountId;
+  if (typeof accountId !== 'string' || accountId.length === 0) {
+    fail('VALIDATION_ERROR', 'planRecordErasure needs the accountId whose wraps are going');
+  }
+  const records = args?.records ?? [];
+
+  const toErase: ErasureVerdict[] = [];
+  const surviving: ErasureVerdict[] = [];
+  const orphans: ErasureVerdict[] = [];
+
+  for (const candidate of records) {
+    const record = candidate?.record;
+    if (!record || typeof record.path !== 'string' || record.path.length === 0) {
+      fail('VALIDATION_ERROR', 'every erasure candidate needs a RecordRef with a path');
+    }
+    const wraps = parseKeyWraps(candidate.wraps);
+    const holders = holdersOf(wraps);
+    const verdict: ErasureVerdict = { record, holders };
+
+    if (holders.length === 0) orphans.push(verdict);
+    else if (isLastWrap(wraps, accountId)) toErase.push(verdict);
+    else surviving.push(verdict);
+  }
+
+  return Object.freeze({
+    accountId,
+    toErase: Object.freeze(toErase),
+    surviving: Object.freeze(surviving),
+    orphans: Object.freeze(orphans),
+  });
 }

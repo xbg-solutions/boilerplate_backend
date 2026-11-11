@@ -149,8 +149,14 @@ export type { RecordRef, WrapEntry, KeyWraps } from './record-key';
 // it on the barrel. The single-record apply now has a first-class route instead, `applyWrapPatch`
 // in ./walk, which translates internally through the sink's own `deleteField`.
 export { conflictPolicyFor } from './wrap-patch';
+// The erase sweep's classification. Exported because the alternative was five
+// products each carrying their own copy of "last man standing", and a
+// hand-copied rule whose two halves must agree is the shape that gave fedi-CRM
+// a one-way door. The product still owns enumeration and deletion.
+export { planRecordErasure } from './wrap-patch';
 export type {
   WrapPatch, WrapPatchValue, WrapDiff, WrapAudit, DesiredWraps, GrantScope, CutOff, ConflictPolicy,
+  ErasureCandidate, ErasureVerdict, RecordErasurePlan,
 } from './wrap-patch';
 
 // ── Object envelope (x-xbg-*). Buffered is the default; streaming is an explicit opt-in. ────

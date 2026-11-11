@@ -25,6 +25,9 @@ import {
 } from '../record-key';
 import type { KeyWraps, RecordRef, WrapEntry } from '../record-key';
 import { KEY_BYTES, dekFromBytes, secretBytes } from '../secret';
+import { WRAP_PREFIX } from '../field-codec';
+import { planRecordErasure } from '../wrap-patch';
+import type { ErasureCandidate } from '../wrap-patch';
 import type { RecordKey } from '../secret';
 import type { DekHandle } from '../custodian';
 import {
@@ -736,5 +739,101 @@ describe('the patch is frozen, so an audit entry cannot be edited after the fact
   it('types the update as WrapPatchValue and nothing wider', () => {
     const values: readonly WrapPatchValue[] = Object.values(patch.update);
     expect(values.length).toBe(3);
+  });
+});
+
+// ───────────────────────── planRecordErasure (0.3.2) ─────────────────────────
+
+const ERASE_OWNER = 'acc_owner';
+const ERASE_PARTNER = 'acc_partner';
+
+const eraseRef = (type: string, id: string): RecordRef => ({ type, id, path: `${type}s/${id}` });
+/** `wrap:v1:` is not decoration — `parseKeyWraps` drops an entry without it. */
+const eraseWrap = (gen = 1) => ({ gen, wrapped: `${WRAP_PREFIX}${'A'.repeat(80)}=`, at: '2026-11-11T00:00:00.000Z' });
+
+const eraseCandidate = (type: string, id: string, holders: string[]): ErasureCandidate => ({
+  record: eraseRef(type, id),
+  wraps: Object.fromEntries(holders.map((h) => [h, eraseWrap()])),
+});
+
+describe('planRecordErasure', () => {
+  it('erases a record this account holds the LAST wrap on', () => {
+    const plan = planRecordErasure({ accountId: ERASE_OWNER, records: [eraseCandidate('project', 'p1', [ERASE_OWNER])] });
+    expect(plan.toErase.map((v) => v.record.id)).toEqual(['p1']);
+    expect(plan.surviving).toEqual([]);
+  });
+
+  it('LAST MAN STANDING: a record still wrapped for a partner SURVIVES the owner’s shred', () => {
+    // The federation decision. A product filtering on its own ownerAccountId
+    // would delete this, which is the one case the granularity design exists for.
+    const plan = planRecordErasure({
+      accountId: ERASE_OWNER,
+      records: [eraseCandidate('engagement', 'e1', [ERASE_OWNER, ERASE_PARTNER])],
+    });
+    expect(plan.toErase).toEqual([]);
+    expect(plan.surviving.map((v) => v.holders)).toEqual([[ERASE_OWNER, ERASE_PARTNER]]);
+  });
+
+  it('does not erase a record this account holds NO wrap on, even if others do', () => {
+    const plan = planRecordErasure({ accountId: ERASE_OWNER, records: [eraseCandidate('project', 'p2', [ERASE_PARTNER])] });
+    expect(plan.toErase).toEqual([]);
+    expect(plan.surviving.map((v) => v.record.id)).toEqual(['p2']);
+  });
+
+  it('classifies an EMPTY wrap set as an orphan, not as erasable', () => {
+    // Empty means nobody can ever reach it again. It is swept — but by the
+    // product's "already unreachable" pass, not by this account's erasure, and
+    // conflating the two would attribute somebody else's leftover to this shred.
+    const plan = planRecordErasure({ accountId: ERASE_OWNER, records: [{ record: eraseRef('project', 'p3'), wraps: {} }] });
+    expect(plan.orphans.map((v) => v.record.id)).toEqual(['p3']);
+    expect(plan.toErase).toEqual([]);
+  });
+
+  it('treats a MALFORMED wrap as an orphan rather than throwing — failures land on the recoverable side', () => {
+    for (const bad of [undefined, null, 'nonsense', 42, { [ERASE_OWNER]: { gen: 1, wrapped: 'no-prefix' } }]) {
+      const plan = planRecordErasure({ accountId: ERASE_OWNER, records: [{ record: eraseRef('project', 'p4'), wraps: bad }] });
+      expect(plan.orphans).toHaveLength(1);
+      expect(plan.toErase).toEqual([]);
+    }
+  });
+
+  it('handles MANY record types in one pass — fedi-CRM and Morph each have three', () => {
+    const plan = planRecordErasure({
+      accountId: ERASE_OWNER,
+      records: [
+        eraseCandidate('shared', 's1', [ERASE_OWNER, ERASE_PARTNER]),
+        eraseCandidate('private', 'v1', [ERASE_OWNER]),
+        eraseCandidate('tenant', 't1', [ERASE_OWNER]),
+      ],
+    });
+    expect(plan.toErase.map((v) => v.record.type).sort()).toEqual(['private', 'tenant']);
+    expect(plan.surviving.map((v) => v.record.type)).toEqual(['shared']);
+  });
+
+  it('REFUSES an empty accountId rather than planning over every record', () => {
+    expect(() => planRecordErasure({ accountId: '', records: [] })).toThrow(/accountId/);
+  });
+
+  it('refuses a candidate with no record path — an unaddressable delete is worse than none', () => {
+    expect(() => planRecordErasure({
+      accountId: ERASE_OWNER,
+      records: [{ record: { type: 'project', id: 'p', path: '' }, wraps: {} }],
+    })).toThrow(/RecordRef/);
+  });
+
+  it('every record lands in exactly one bucket, so nothing can be skipped silently', () => {
+    const records = [
+      eraseCandidate('project', 'a', [ERASE_OWNER]),
+      eraseCandidate('project', 'b', [ERASE_OWNER, ERASE_PARTNER]),
+      { record: eraseRef('project', 'c'), wraps: {} },
+    ];
+    const plan = planRecordErasure({ accountId: ERASE_OWNER, records });
+    expect(plan.toErase.length + plan.surviving.length + plan.orphans.length).toBe(records.length);
+  });
+
+  it('returns a frozen plan — a caller cannot quietly add a record to the delete set', () => {
+    const plan = planRecordErasure({ accountId: ERASE_OWNER, records: [eraseCandidate('project', 'p', [ERASE_OWNER])] });
+    expect(Object.isFrozen(plan)).toBe(true);
+    expect(Object.isFrozen(plan.toErase)).toBe(true);
   });
 });

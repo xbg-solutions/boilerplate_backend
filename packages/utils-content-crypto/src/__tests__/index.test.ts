@@ -93,6 +93,10 @@ const EXPECTED_EXPORTS: readonly string[] = [
   // never knew a materialiser existed. The route it was excusing now exists — `applyWrapPatch`,
   // below — and translates internally through the sink's own `deleteField`.
   'conflictPolicyFor',
+  // The erase sweep's classification — "last man standing" — exported because
+  // five products were otherwise going to carry their own copy of a rule whose
+  // copies must never differ. The product still owns enumeration and deletion.
+  'planRecordErasure',
 
   // object-envelope.ts (10) — the four x-xbg-* headers, the buffered pair, the streaming pair,
   // and the two metadata helpers. No keygen header and no rotation routine: under record keys
@@ -217,7 +221,7 @@ describe('the public barrel', () => {
     // has gone DOWN. It is allowed to go down only with a major-ish bump and a verified
     // precondition — here, zero `enc:v1:`/`enc:v2:` values anywhere in the platform and no
     // repo referencing a single one of the twelve.
-    expect(EXPECTED_EXPORTS.length).toBe(124);
+    expect(EXPECTED_EXPORTS.length).toBe(125);
   });
 
   it('exports no value the package keeps internal', () => {

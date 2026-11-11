@@ -171,6 +171,30 @@ The manifest is JSON and cannot hold a comment, so the reasons live here.
   Across seven consumer repos, both releases together needed exactly **one** change: a
   sf-mapper test asserting `CONTENT_SCOPE.legacy` was `null`.
 
+  **0.3.2 — `planRecordErasure` (2026-11-11). A PATCH: one new export, nothing changed.**
+  The erase sweep's classification — *last man standing* — as a pure planner.
+
+  It is here for one reason: **five products were about to carry their own copy.**
+  The rule is three lines over `isLastWrap` and `holdersOf`, both of which were
+  already exported, so the temptation was to leave it in each product. The cost of
+  one copy differing is deleting somebody else's record, or failing to delete a
+  departed client's — and the programme has already paid for a hand-copied rule
+  once, when fedi-CRM's placement sat in two walks with a docblock saying they
+  must agree, drifted, and produced a one-way door.
+
+  The product still supplies the records and performs the deletes; this decides
+  only WHICH. Two things it deliberately does not do:
+
+  - **It never asks whether a record can be READ.** Two destroyed account keys
+    leave a record unreadable with a non-empty wrap set, and a destroy can be
+    followed by a regenerate — so sweeping on unreadability deletes everything the
+    moment one key is destroyed. See `isUnreachable`'s own note.
+  - **It never looks at an ownership field.** A record still wrapped for a partner
+    survives its owner's shred, because it is also somebody else's record.
+
+  A malformed or empty wrap set is classified as an ORPHAN rather than thrown on:
+  a key protecting nothing is a bug to find, not corruption to refuse on.
+
   **0.3.1 — `planDrain` gains `supersededBefore` (2026-11-09). A PATCH, deliberately.** On this
   line a patch is the additive bump, and this adds one optional argument: the planner behaves
   exactly as before when it is absent, so `^0.3.0` consumers pick it up with no code change at

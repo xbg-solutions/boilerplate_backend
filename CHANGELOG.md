@@ -2,6 +2,19 @@
 
 Consumer-facing detail and migration steps live in `UPGRADING.md`.
 
+## utils-content-crypto 0.3.2 — 2026-11-11
+
+### `planRecordErasure` — the erase sweep's classification
+- One new export, nothing changed, so a PATCH: `^0.3.0` picks it up.
+- Decides which records a shred of one account should delete, by the WRAP GRAPH
+  and never by an ownership field — a record still wrapped for a partner
+  survives its owner's shred.
+- Never asks whether a record can be read: unreadable is not unreachable, and a
+  destroy can be followed by a regenerate.
+- A malformed or empty wrap set is an ORPHAN, reported rather than thrown on.
+- In the package because five products were otherwise going to carry their own
+  copy of a rule whose copies must never differ.
+
 ## utils-content-crypto 0.3.1 — 2026-11-09
 
 ### `planDrain` gains an optional `supersededBefore`
