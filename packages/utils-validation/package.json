@@ -14,7 +14,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "joi": "^17.11.0",
+    "joi": "^17.13.9",
     "express-validator": "^7.0.1"
   },
   "devDependencies": {
