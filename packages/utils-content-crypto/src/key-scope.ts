@@ -31,8 +31,9 @@
  *
  * `RecordRef.path` is a **full document path**, supplied by the product at construction. The
  * package cannot derive one: sf-mapper's scans live at
- * `accounts/{accountId}/sfmapper/{orgId}/scans/{scanId}` and the `orgId` is nowhere in the
- * package's world. A `pathOf(id)` resolver on the scope was rejected — total for collab and
+ * `accounts/{accountId}/sfmapper/{orgId}/scans/{scanId}` (in its own `crmmapper` database since
+ * 2026-11-17 — the path is database-relative and did not change) and the `orgId` is nowhere in
+ * the package's world. A `pathOf(id)` resolver on the scope was rejected — total for collab and
  * build, partial for sf-mapper and Morph — because an optional convenience half the products
  * cannot use, sitting beside the mandatory explicit form, is how two ways to build a ref and
  * eventually two disagreeing paths get into a codebase.
